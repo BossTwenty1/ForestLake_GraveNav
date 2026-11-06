@@ -257,4 +257,73 @@ Exact pre-existing development changes included in the preservation checkpoint:
 ?? supabase/migrations/20260928150000_staff_coordinate_verification.sql
 ```
 
-The five untracked migration files are preserved as source; no migration is applied by this stabilization task. Credentials, `.env.local`, `node_modules`, `.next`, temporary evidence and other ignored build artifacts are excluded from commits. The source manifest and raw validation logs are kept outside Git in the task evidence directory. Security changes and verification results follow below when complete.
+The five untracked migration files are preserved as source; no migration is applied by this stabilization task. Credentials, `.env.local`, `node_modules`, `.next`, temporary evidence and other ignored build artifacts are excluded from commits. The source manifest and raw validation logs are kept outside Git in the task evidence directory. The security changes and verification results are recorded below. The historical assessment above remains unchanged.
+
+
+### Security candidate and verification
+
+**Security stabilization is complete; full release clearance is still conditional.** No dependency-introduced application failure was found in the executed checks. The two unavailable Docker tests, two pre-existing browser failures, and untested signed-in/field workflows remain open; they are not passes.
+
+- Preservation commit: `fb9996317de8f0d19e77297f2d06e51436d765ee`.
+- Tested application/security commit: **`48703a96706f23ddbea81e9118f9ebf20a35b9bd`**.
+- Branch: `codex/defense-release-stabilization-20261106`.
+- Source workspace: `C:\Users\Nash\.codex\worktrees\gravenav-defense-rc\gravenav`.
+- The subsequent documentation-only commit records these results. Use `git rev-parse HEAD` in that worktree for its final handoff SHA; it contains the same tested application and lockfile as the security commit above.
+- At the security commit, the isolated working tree was clean. The authoritative main checkout's branch, HEAD, status and all 227 inventoried file hashes were rechecked and are unchanged. Its pending work remains available there as well as in the preservation checkpoint.
+
+| Dependency | Original | Candidate | Review decision |
+| --- | --- | --- | --- |
+| Next.js | 16.3.6 | **16.4.5**, exact pin | 16.4.1 fixes the initial critical advisories, but 16.4.5 includes the later 3 November security fixes. Stay on Next.js 16; no major migration or codemod. |
+| sharp | 0.35.4 | **0.35.5** | Resolved through Next.js's supported optional dependency range, without adding a direct application dependency or override. |
+| source-map-js | 1.2.1 | **1.2.2** | Targeted transitive lock refresh within the existing PostCSS/Tailwind ranges. |
+| React / React DOM | 19.2.8 / 19.2.8 | Unchanged | Compatible with Next.js's published peer range. |
+| Supabase SSR / JS | 0.12.5 / 2.112.4 | Unchanged | No auth client, cookie, RPC or schema migration. |
+
+The security commit changes only `package.json` and `package-lock.json`. Native Next/SWC, sharp and libvips lock entries follow their package updates. npm also completed six optional existing Tailwind WASM dependency entries; no other direct dependency was added or upgraded. The clean `npm ci` result confirms package/lock agreement. Bundled Next.js 16.4.5 upgrade and proxy documentation was reviewed; the existing async request APIs, `src/proxy.ts`, Turbopack configuration, and route structure required no edits.
+
+Upstream references: [Next.js 16.4.5 security release](https://github.com/vercel/next.js/releases/tag/v16.4.5), [initial critical cache advisory](https://github.com/vercel/next.js/security/advisories/GHSA-673q-mjm6-r5xr), [initial critical image advisory](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw), [sharp patch](https://github.com/lovell/sharp/security/advisories/GHSA-wq5f-xc86-pv6w), and [source-map-js finding returned by npm audit](https://github.com/advisories/GHSA-68fv-2mgg-jv7q). The choice of 16.4.5 addresses the current patch line instead of stopping at the first historical critical fix.
+
+Executed on Windows, Node **24.14.0**, npm **11.9.0**:
+
+| Gate | Result on the security candidate |
+| --- | --- |
+| Clean dependency install, `npm ci --no-audit --no-fund` | **Passed**. No dependency junction or reused application `node_modules`. |
+| `npm audit --omit=dev --json` | **Passed: 0 vulnerabilities**. Original audit reproduced 1 critical + 2 high affected packages. This is the production dependency scope, not a claim about all development tooling. |
+| `npm run lint` | **Passed:** 0 errors; existing unused `mkdir` warning remains. |
+| `node node_modules/typescript/bin/tsc --noEmit --incremental false` | **Passed**. |
+| `npm run build` | **Passed**, Next.js 16.4.5 production build with current public hosted settings; protected staff routes remain dynamic. Server secret was excluded from the local candidate configuration. |
+| `npm test` | **159 passed / 2 failed / 1 skipped**, 162 total; exit 1. The failures are M07 and M09 PostgreSQL race tests because Docker's Linux engine is unavailable. The skipped Windows symlink test remains explicitly skipped. |
+| Authorization and account regression coverage within that suite | **Passed**: ADMIN/MANAGER mutation boundaries, account lifecycle/stale-session protection, public/private record visibility, protected-route and server-secret contracts. These use isolated SQL claims/source contracts, not real staff login credentials. |
+| Public search/map/navigation coverage within that suite | **Passed**: synthetic positive/negative searches, filtering/pagination, dates, safe errors, graph connectivity, verified-coordinate gate, watch cleanup, accuracy/freshness rules, and route behavior. |
+| Production browser smoke, Chromium at 1440 px and 390 px | **32 passed / 2 failed**, 34 assertions; exit 1. Search submission and its current empty state, map geometry, wheel zoom, reset/path toggles, anonymous redirects across seven protected paths, pending-record privacy, security headers, no page exceptions/overflow, and both unauthenticated API denials passed. |
+| Browser failure classification | **Both failures are pre-existing:** Reset view overlaps the zoom-in button. Old 16.3.6 and new 16.4.5 builds have identical overlapping hit boxes at both widths. No forced clicks or CSS workaround was used to mark this passed. |
+| Application/migration preservation | **Passed:** no source or migration bytes changed outside the two dependency files; all 26 migration sources remain present. No SQL, hosted record, migration history, production environment or deployment setting was changed. |
+
+The browser helper and raw results are retained outside Git in [stabilization evidence](<C:/Users/Nash/.codex/visualizations/2026/11/06/01a1af17-20fa-7da3-88bb-6a971b22313f/stabilization-evidence>): `baseline.json`, `production-audit.json`, `lint.log`, `typecheck.log`, `build.log`, `main-tests.log`, `browser-smoke.mjs`, `browser-smoke.json`, `browser-smoke.log`, and `zoom-baseline-comparison.json`. No new screenshots were needed. The browser tool is Playwright 1.64.1 using installed Chrome; it is test tooling outside application dependencies. `GRAVENAV_PLAYWRIGHT_MODULE`, `PLAYWRIGHT_EXECUTABLE_PATH` and `GRAVENAV_SMOKE_ORIGIN` allow its existing script to target another tool installation/local server.
+
+### Reproduction, deployment checks and rollback
+
+Use a **new empty worktree**, not a branch switch/reset in the dirty authoritative checkout. A fresh checkout of the candidate now contains the previously untracked components and five migration sources.
+
+```text
+git worktree add --detach <new-empty-worktree> 48703a96706f23ddbea81e9118f9ebf20a35b9bd
+cd <new-empty-worktree>
+npm ci
+npm audit --omit=dev
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
+```
+
+Privately configure only the intended environment before building; `.env.local` is ignored. The Node minimum remains 20.9.0; existing CI uses Node 22, while this local run used Node 24. A Node 22/Linux CI result for this candidate is still required; none was triggered because nothing was pushed. Once Docker is running, rerun `node --test tests/gis-concurrency.test.mjs` to close the two environment-blocked race checks. The full `npm run validate` command remains available and will return nonzero while those required tests are unavailable.
+
+For the retained browser helper, start the candidate with `npm start -- --hostname 127.0.0.1 --port 3109`, then run `node <stabilization-evidence>/browser-smoke.mjs`. It currently returns exit 1 for the two documented map-control failures. Positive public-record browser flows cannot yet run against the existing hosted dataset; real staff login/logout, invitation/password email delivery, and real-device GPS were not exercised. No authenticated record mutations were submitted. The two API POST checks used no session and returned 401 before any mutation.
+
+**Proposed future target:** an explicitly approved Vercel Preview built from this candidate, then the selected panel-accessible production URL, currently referenced as `https://github-final-five.vercel.app`. This is a proposal only. No push, merge, deployment or alias/configuration change was made.
+
+Before any future deployment, verify the exact candidate SHA; Node/build settings; Supabase URL and publishable key; server-only provisioning credential only if that feature is needed; the real HTTPS `NEXT_PUBLIC_APP_ORIGIN`; exact Supabase `/auth/callback` redirect allow-list entries; preview access protection; staff session cookies and logout; and a current recoverable backup. Public environment variables are baked into the client build, so build under the actual approved target configuration. The local smoke build uses localhost-origin settings and is not itself an approved production artifact. Do not assume a successful build fills the empty public dataset or repairs the known navigation limitations.
+
+**Rollback:** keep the original checkout untouched. To inspect the pre-security state, create another empty worktree at preservation commit `fb9996317de8f0d19e77297f2d06e51436d765ee`; it retains the admin improvements but also the known vulnerable dependency tree, so it is a preservation point, not a recommended public deployment. A future production rollback should select the previously approved deployment artifact through the hosting platform only after authorization. If a code rollback is necessary, prepare and validate a separate rollback branch; do not reset or clean the original workspace. No database rollback or migration operation is required for this dependency-only change.
+
+**Remaining blockers / next task:** prepare a separate, clearly labelled synthetic demo database and rehearse real ADMIN/MANAGER login → unused plot → burial entry → public visibility → successful search/profile/map → archive/recovery. That is the next highest-priority defense milestone. Resolve the small pre-existing map-control overlap before relying on those buttons; keep the Docker race tests, backup restoration, deployment configuration, navigation containment/graph consistency, field evidence, and optional photos open exactly as described above. This stabilization milestone does not complete the GPS or demo-data objectives.
