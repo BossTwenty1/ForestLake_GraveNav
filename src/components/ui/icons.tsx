@@ -30,6 +30,7 @@ const paths = {
   minus: <path d="M5 12h14" />,
   moon: <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" />,
   navigation: <path d="m3 11 18-8-8 18-2-8-8-2Z" />,
+  panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></>,
   more: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
   photos: <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m5 17 4-4 3 3 3-3 4 4" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,

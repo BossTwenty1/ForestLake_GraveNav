@@ -71,9 +71,68 @@ export type AdminLot = {
   pxLocY: number | null;
   coordinateStatus: "pending" | "verified" | "rejected";
   coordinateVerified: boolean;
+  coordinateRejectionReason: string | null;
   coordinateAccuracyM: number | null;
   location: { longitude: number; latitude: number } | null;
   updatedAt: string;
+};
+
+export type PlotOperationalState = "available" | "occupied" | "booked" | "hold";
+export type PlotCoordinateState = "missing" | "pending" | "verified" | "rejected";
+
+export type PlotManagementItem = AdminLot & {
+  areaCode: string | null;
+  areaName: string | null;
+  operationalState: PlotOperationalState;
+  coordinateState: PlotCoordinateState;
+  assignedBurialId: number | null;
+  assignedDeceasedName: string | null;
+  assignedBurialDeleted: boolean;
+};
+
+export type PlotManagementSummary = {
+  total: number;
+  occupied: number;
+  available: number;
+  booked: number;
+  onHold: number;
+  needsVerification: number;
+};
+
+export type CoordinateVerificationEvent = {
+  auditId: number;
+  event: "submitted" | "updated" | "verified" | "rejected";
+  actorName: string | null;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type CoordinateVerificationItem = {
+  revision: number;
+  lotId: number;
+  lotCode: string;
+  areaId: number;
+  areaCode: string | null;
+  areaName: string | null;
+  coordinateState: PlotCoordinateState;
+  location: { longitude: number; latitude: number } | null;
+  coordinateAccuracyM: number | null;
+  coordinateStatus: "pending" | "verified" | "rejected";
+  coordinateVerified: boolean;
+  rejectionReason: string | null;
+  updatedAt: string;
+  assignedBurialId: number | null;
+  assignedDeceasedName: string | null;
+  assignedBurialDeleted: boolean;
+  history: CoordinateVerificationEvent[];
+};
+
+export type CoordinateVerificationSummary = {
+  needsVerification: number;
+  missing: number;
+  pending: number;
+  rejected: number;
+  verified: number;
 };
 
 export type LotOwner = {
@@ -118,6 +177,43 @@ export type AuditLogEntry = {
   old_values?: Record<string, unknown> | null;
   new_values?: Record<string, unknown> | null;
   created_at: string;
+};
+
+export type DashboardData = {
+  summary: {
+    totalBurialRecords: number;
+    occupiedPlots: number;
+    availablePlots: number;
+    needsVerification: number;
+  };
+  burialsBySection: {
+    areaId: number;
+    areaName: string;
+    burialCount: number;
+  }[];
+  occupancy: {
+    occupied: number;
+    available: number;
+    booked: number;
+    onHold: number;
+    total: number;
+    occupancyPercent: number;
+  };
+  recentChanges: {
+    auditId: number;
+    label: string;
+    subject: string | null;
+    plotCode: string | null;
+    createdAt: string;
+  }[];
+  verificationItems: {
+    lotId: number;
+    plot: string;
+    issue: string;
+    status: "missing" | "pending" | "rejected";
+    rejectionReason: string | null;
+    updatedAt: string;
+  }[];
 };
 
 export type AdminPhoto = {

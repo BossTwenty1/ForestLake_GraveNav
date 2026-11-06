@@ -1,353 +1,312 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon, type IconName } from "@/components/ui/icons";
-import {
-  getAuditLogPage,
-  getDashboardCounts,
-  type DashboardCounts,
-} from "@/lib/supabase/admin-data";
-import type { AuditLogEntry } from "@/lib/supabase/types";
+import { PageHeading } from "@/components/ui/page-heading";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getDashboardData } from "@/lib/supabase/admin-data";
+import type { DashboardData } from "@/lib/supabase/types";
 import { useStaff } from "./staff-context";
 
-const EMPTY_COUNTS: DashboardCounts = {
-  active: 0,
-  pending: 0,
-  archived: 0,
-  plots: 0,
-  unverified: 0,
-  missingCoordinates: 0,
-  pendingCoordinates: 0,
-};
+type Tone = "success" | "warning" | "danger" | "neutral";
 
 export function AdminFoundation() {
   const canAdmin = useStaff()?.role === "ADMIN";
-  const [counts, setCounts] = useState<DashboardCounts | null>(null);
-  const [audit, setAudit] = useState<AuditLogEntry[]>([]);
-  const [auditTotal, setAuditTotal] = useState(0);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([getDashboardCounts(), getAuditLogPage({ pageSize: 6 })])
-      .then(([nextCounts, nextAudit]) => {
-        setCounts(nextCounts);
-        setAudit(nextAudit.items);
-        setAuditTotal(nextAudit.total ?? nextAudit.items.length);
-      })
-      .catch((reason: unknown) => {
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "The operational data could not be loaded.",
-        );
-      })
-      .finally(() => setLoading(false));
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setDashboard(await getDashboardData());
+    } catch (reason) {
+      setDashboard(null);
+      setError(reason instanceof Error ? reason.message : "The operational data could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const values = counts ?? EMPTY_COUNTS;
-  const recordTotal = values.active + values.pending + values.archived;
-  const verifiedPlots = Math.max(values.plots - values.unverified, 0);
-  const otherUnverified = Math.max(
-    values.unverified - values.missingCoordinates - values.pendingCoordinates,
-    0,
-  );
+  useEffect(() => {
+    let active = true;
+    getDashboardData()
+      .then((data) => {
+        if (active) setDashboard(data);
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : "The operational data could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const needsVerification = dashboard?.summary.needsVerification ?? 0;
 
   return (
     <div className="admin-foundation">
-      <div className="admin-dashboard-heading">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Overview of cemetery operations and protected GraveNav records.</p>
-        </div>
-        <div className="admin-dashboard-actions">
-          {canAdmin ? (
-            <Link href="/admin/coordinate-verification">
-              <Button icon="target" variant="secondary">Verify coordinates</Button>
+      <PageHeading
+        actions={(
+          <>
+            <Link className="admin-page-action admin-page-action--primary" href="/admin/burial-records?add=1">
+              <Icon name="plus" size={17} />
+              <span>Add burial record</span>
             </Link>
-          ) : null}
-          <Link href="/admin/reports">
-            <Button icon="chart" variant="secondary">Generate report</Button>
-          </Link>
-          <Link href="/admin/burial-records?add=1">
-            <Button icon="plus">Add burial record</Button>
-          </Link>
-        </div>
-      </div>
+            {canAdmin ? (
+              <Link
+                className={`admin-page-action ${needsVerification > 0 ? "admin-page-action--attention" : "admin-page-action--secondary"}`}
+                href="/admin/coordinate-verification"
+              >
+                <Icon name="verification" size={16} />
+                <span>Verify coordinates</span>
+              </Link>
+            ) : null}
+            <Link className="admin-page-action admin-page-action--secondary" href="/admin/reports">
+              <Icon name="reports" size={16} />
+              <span>Generate report</span>
+            </Link>
+            <Link className="admin-page-action admin-page-action--secondary" href="/admin/cemetery-map">
+              <Icon name="map" size={16} />
+              <span>Open map</span>
+            </Link>
+          </>
+        )}
+        description="Current cemetery operations, plot occupancy, and coordinate readiness."
+        title="Dashboard"
+      />
 
       {error ? (
-        <Alert icon="alert" title="Supabase data connection unavailable" variant="danger">
-          {error}
+        <Alert icon="alert" title="Dashboard data unavailable" variant="danger">
+          <span>{error}</span>
+          <Button onClick={() => void loadDashboard()} variant="quiet">Try again</Button>
         </Alert>
       ) : null}
 
       {loading ? <DashboardLoading /> : null}
-
-      {!loading && counts ? (
-        <>
-          <div className="admin-dashboard-metrics">
-            <AdminStatCard
-              detail={`${values.pending.toLocaleString()} pending · ${values.archived.toLocaleString()} archived`}
-              href="/admin/burial-records"
-              icon="records"
-              label="Active records"
-              value={values.active}
-            />
-            <AdminStatCard
-              detail="Current non-deleted plot inventory"
-              href="/admin/plot-management"
-              icon="grid"
-              label="Known plots"
-              value={values.plots}
-            />
-            <AdminStatCard
-              danger={values.unverified > 0}
-              detail={`${values.missingCoordinates.toLocaleString()} missing coordinates`}
-              href={canAdmin ? "/admin/coordinate-verification" : "/admin/plot-management"}
-              icon="verification"
-              label="Needs coordinate review"
-              value={values.unverified}
-            />
-            <AdminStatCard
-              detail="Protected audit trail entries"
-              href="/admin/audit-log"
-              icon="audit"
-              label="Audit events"
-              value={auditTotal}
-            />
-          </div>
-
-          <div className="admin-dashboard-primary-grid">
-            <Card className="admin-dashboard-panel">
-              <CardHeader>
-                <div>
-                  <CardTitle>Record status</CardTitle>
-                  <p className="admin-panel-description">
-                    Current burial records grouped by workflow state
-                  </p>
-                </div>
-                <Badge variant="info">{recordTotal.toLocaleString()} total</Badge>
-              </CardHeader>
-              <CardContent className="admin-status-list">
-                <StatusBar
-                  label="Active"
-                  tone="success"
-                  total={recordTotal}
-                  value={values.active}
-                />
-                <StatusBar
-                  label="Pending"
-                  tone="warning"
-                  total={recordTotal}
-                  value={values.pending}
-                />
-                <StatusBar
-                  label="Archived"
-                  tone="neutral"
-                  total={recordTotal}
-                  value={values.archived}
-                />
-              </CardContent>
-              <div className="admin-panel-footer">
-                <span>Source: protected burial records</span>
-                <Link href="/admin/burial-records">Open records</Link>
-              </div>
-            </Card>
-
-            <Card className="admin-dashboard-panel">
-              <CardHeader>
-                <div>
-                  <CardTitle>Recent record changes</CardTitle>
-                  <p className="admin-panel-description">
-                    Latest events from the administrator audit trail
-                  </p>
-                </div>
-                <Link className="text-button" href="/admin/audit-log">View all</Link>
-              </CardHeader>
-              {audit.length ? (
-                <div className="admin-activity-list">
-                  {audit.slice(0, 4).map((entry) => (
-                    <ActivityItem entry={entry} key={entry.audit_id} />
-                  ))}
-                </div>
-              ) : (
-                <CardContent>
-                  <EmptyState
-                    description="No application changes have been recorded in this environment yet."
-                    icon="audit"
-                    title="No audit events"
-                  />
-                </CardContent>
-              )}
-            </Card>
-          </div>
-
-          <Card className="admin-coordinate-panel">
-            <CardHeader>
-              <div className="admin-section-title">
-                <span className="admin-section-icon admin-section-icon--danger">
-                  <Icon name="verification" size={20} />
-                </span>
-                <div>
-                  <CardTitle>Coordinate readiness</CardTitle>
-                  <p className="admin-panel-description">
-                    Truthful plot-location states from the protected inventory
-                  </p>
-                </div>
-              </div>
-              {canAdmin ? (
-                <Link className="text-button" href="/admin/coordinate-verification">
-                  Review coordinates
-                </Link>
-              ) : null}
-            </CardHeader>
-            <div className="admin-coordinate-grid">
-              <CoordinateState
-                description="Coordinates approved for location guidance"
-                label="Verified"
-                tone="success"
-                value={verifiedPlots}
-              />
-              <CoordinateState
-                description="Coordinate captured and awaiting review"
-                label="Pending review"
-                tone="warning"
-                value={values.pendingCoordinates}
-              />
-              <CoordinateState
-                description="No coordinate has been stored"
-                label="Missing coordinates"
-                tone="danger"
-                value={values.missingCoordinates}
-              />
-              <CoordinateState
-                description="Other unverified or rejected states"
-                label="Other unverified"
-                tone="neutral"
-                value={otherUnverified}
-              />
-            </div>
-          </Card>
-        </>
-      ) : null}
+      {!loading && dashboard ? <DashboardContent canAdmin={canAdmin} data={dashboard} /> : null}
     </div>
+  );
+}
+
+function DashboardContent({ canAdmin, data }: { canAdmin: boolean; data: DashboardData }) {
+  const { summary } = data;
+  return (
+    <>
+      <section aria-label="Operational summary" className="admin-dashboard-metrics">
+        <AdminStatCard detail="Current records across all workflow states" href="/admin/burial-records" icon="records" label="Total burial records" value={summary.totalBurialRecords} />
+        <AdminStatCard detail="Current plots with a burial assignment" href="/admin/plot-management" icon="location" label="Occupied plots" tone="success" value={summary.occupiedPlots} />
+        <AdminStatCard detail="Available status with no burial assignment" href="/admin/plot-management" icon="grid" label="Available plots" value={summary.availablePlots} />
+        <AdminStatCard
+          detail="Missing, pending, or rejected coordinates"
+          href={canAdmin ? "/admin/coordinate-verification" : "/admin/plot-management"}
+          icon="verification"
+          label="Needs verification"
+          tone={summary.needsVerification > 0 ? "warning" : "success"}
+          value={summary.needsVerification}
+        />
+      </section>
+
+      <div className="admin-dashboard-insights">
+        <BurialsBySection sections={data.burialsBySection} />
+        <div className="admin-dashboard-insights__rail">
+          <CemeteryOccupancy occupancy={data.occupancy} />
+          <RecentChanges changes={data.recentChanges} />
+        </div>
+      </div>
+
+      <VerificationQueue canAdmin={canAdmin} items={data.verificationItems} total={summary.needsVerification} />
+    </>
   );
 }
 
 function DashboardLoading() {
   return (
-    <div aria-label="Loading dashboard data" className="admin-dashboard-loading" role="status">
+    <div aria-busy="true" aria-label="Loading dashboard data" className="admin-dashboard-loading" role="status">
       <span className="sr-only">Loading operational data…</span>
-      {Array.from({ length: 4 }, (_, index) => (
-        <span className="admin-dashboard-loading__card" key={index} />
-      ))}
+      <div className="admin-dashboard-metrics">
+        {Array.from({ length: 4 }, (_, index) => <Skeleton className="admin-dashboard-loading__metric" key={index} />)}
+      </div>
+      <div className="admin-dashboard-loading__insights">
+        <Skeleton className="admin-dashboard-loading__section" />
+        <div className="admin-dashboard-loading__rail">
+          <Skeleton className="admin-dashboard-loading__occupancy" />
+          <Skeleton className="admin-dashboard-loading__activity" />
+        </div>
+      </div>
+      <Skeleton className="admin-dashboard-loading__verification" />
     </div>
   );
 }
 
-type StatCardProps = {
-  href: string;
-  icon: IconName;
-  label: string;
-  value: number;
-  detail: string;
-  danger?: boolean;
-};
+type StatCardProps = { href: string; icon: IconName; label: string; value: number; detail: string; tone?: Tone };
 
-function AdminStatCard({ href, icon, label, value, detail, danger = false }: StatCardProps) {
+function AdminStatCard({ href, icon, label, value, detail, tone = "neutral" }: StatCardProps) {
   return (
-    <Link className="admin-stat-card" href={href}>
+    <Link className={`admin-stat-card admin-stat-card--${tone}`} href={href}>
       <div className="admin-stat-card__header">
-        <span className={danger ? "admin-section-icon admin-section-icon--danger" : "admin-section-icon"}>
-          <Icon name={icon} size={19} />
-        </span>
         <span>{label}</span>
-        <Icon className="admin-stat-card__more" name="more" size={18} />
+        <span className={`admin-section-icon admin-section-icon--${tone}`}><Icon name={icon} size={18} /></span>
       </div>
       <strong>{value.toLocaleString()}</strong>
-      <span className={danger ? "admin-stat-card__detail admin-stat-card__detail--danger" : "admin-stat-card__detail"}>
-        {detail}
-      </span>
+      <span className="admin-stat-card__detail">{detail}</span>
     </Link>
   );
 }
 
-type Tone = "success" | "warning" | "danger" | "neutral";
-
-function StatusBar({ label, value, total, tone }: { label: string; value: number; total: number; tone: Tone }) {
-  const percentage = total ? Math.round((value / total) * 100) : 0;
+function BurialsBySection({ sections }: { sections: DashboardData["burialsBySection"] }) {
+  const maxCount = Math.max(...sections.map((section) => section.burialCount), 0);
   return (
-    <div className="admin-status-row">
-      <div>
-        <span>{label}</span>
-        <strong>{value.toLocaleString()}</strong>
-      </div>
-      <span
-        aria-label={`${label}: ${value.toLocaleString()}, ${percentage}% of records`}
-        className="admin-status-track"
-        role="img"
-      >
-        <span
-          className={`admin-status-fill admin-status-fill--${tone}`}
-          style={{ width: `${percentage}%` }}
-        />
-      </span>
-      <span>{percentage}%</span>
-    </div>
+    <Card className="admin-dashboard-panel admin-section-chart">
+      <DashboardPanelHeader description="Current burial records grouped by their plot area" icon="layers" title="Burials by Cemetery Section" />
+      {sections.length ? (
+        <CardContent className="admin-section-chart__content">
+          <ol className="admin-section-bars">
+            {sections.map((section) => {
+              const percentage = maxCount ? (section.burialCount / maxCount) * 100 : 0;
+              return (
+                <li className="admin-section-bar" key={section.areaId}>
+                  <div className="admin-section-bar__label"><span>{section.areaName}</span><strong>{section.burialCount.toLocaleString()}</strong></div>
+                  <span aria-label={`${section.areaName}: ${section.burialCount.toLocaleString()} burial records`} className="admin-section-bar__track" role="img">
+                    <span className="admin-section-bar__fill" style={{ width: `${percentage}%` }} />
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </CardContent>
+      ) : (
+        <CardContent><EmptyState description="Section totals will appear after a current burial record is assigned to a plot." icon="layers" title="No section activity yet" /></CardContent>
+      )}
+    </Card>
   );
 }
 
-function ActivityItem({ entry }: { entry: AuditLogEntry }) {
-  const label = entry.action.replaceAll("_", " ");
+function CemeteryOccupancy({ occupancy }: { occupancy: DashboardData["occupancy"] }) {
+  const occupiedStop = occupancy.total ? (occupancy.occupied / occupancy.total) * 100 : 0;
+  const availableStop = occupancy.total ? occupiedStop + (occupancy.available / occupancy.total) * 100 : occupiedStop;
+  const bookedStop = occupancy.total ? availableStop + (occupancy.booked / occupancy.total) * 100 : availableStop;
+  const donutStyle = {
+    "--occupancy-occupied": `${occupiedStop}%`,
+    "--occupancy-available": `${availableStop}%`,
+    "--occupancy-booked": `${bookedStop}%`,
+  } as CSSProperties;
+  const chartLabel = occupancy.total
+    ? `${occupancy.occupancyPercent}% occupied: ${occupancy.occupied} occupied, ${occupancy.available} available, ${occupancy.booked} booked, and ${occupancy.onHold} on hold`
+    : "No current plots are available for occupancy reporting";
+
   return (
-    <div className="admin-activity-item">
-      <span className="admin-activity-item__icon">
-        <Icon
-          name={entry.action === "verify" ? "verification" : "records"}
-          size={16}
-        />
-      </span>
-      <div>
-        <strong>{label}</strong>
-        <span>{entry.table_name} · Record {entry.record_id}</span>
-      </div>
-      <time dateTime={entry.created_at}>{formatAuditTime(entry.created_at)}</time>
-    </div>
+    <Card className="admin-dashboard-panel admin-occupancy-panel">
+      <DashboardPanelHeader description="Assignment and commercial status across current plots" icon="chart" title="Cemetery Occupancy" />
+      <CardContent className="admin-occupancy-content">
+        <div aria-label={chartLabel} className="admin-occupancy-donut" role="img" style={donutStyle}>
+          <div><strong>{occupancy.occupancyPercent}%</strong><span>Occupied</span></div>
+        </div>
+        <dl className="admin-occupancy-legend">
+          <OccupancyLegendItem label="Occupied" tone="occupied" value={occupancy.occupied} />
+          <OccupancyLegendItem label="Available" tone="available" value={occupancy.available} />
+          <OccupancyLegendItem label="Booked" tone="booked" value={occupancy.booked} />
+          <OccupancyLegendItem label="On hold" tone="hold" value={occupancy.onHold} />
+        </dl>
+      </CardContent>
+    </Card>
   );
 }
 
-function CoordinateState({
-  label,
-  value,
-  description,
-  tone,
-}: {
-  label: string;
-  value: number;
-  description: string;
-  tone: Tone;
-}) {
+function OccupancyLegendItem({ label, value, tone }: { label: string; value: number; tone: "occupied" | "available" | "booked" | "hold" }) {
+  return <div><dt><span aria-hidden="true" className={`admin-occupancy-legend__key admin-occupancy-legend__key--${tone}`} />{label}</dt><dd>{value.toLocaleString()}</dd></div>;
+}
+
+function RecentChanges({ changes }: { changes: DashboardData["recentChanges"] }) {
   return (
-    <div className="admin-coordinate-state">
-      <span className={`admin-coordinate-state__dot admin-coordinate-state__dot--${tone}`} />
-      <div>
-        <span>{label}</span>
-        <p>{description}</p>
+    <Card className="admin-dashboard-panel admin-recent-panel">
+      <DashboardPanelHeader action={<Link className="text-button" href="/admin/audit-log">View Audit Log</Link>} description="Latest meaningful administrator activity" icon="audit" title="Recent Record Changes" />
+      {changes.length ? (
+        <ol className="admin-activity-list">{changes.map((change) => <ActivityItem change={change} key={change.auditId} />)}</ol>
+      ) : (
+        <CardContent><EmptyState description="Burial, plot, and coordinate events will appear here as staff work is recorded." icon="audit" title="No recent record changes" /></CardContent>
+      )}
+    </Card>
+  );
+}
+
+function ActivityItem({ change }: { change: DashboardData["recentChanges"][number] }) {
+  const context = [change.subject, change.plotCode].filter(Boolean).join(" · ") || "Cemetery record";
+  return (
+    <li className="admin-activity-item">
+      <span aria-hidden="true" className="admin-activity-item__icon"><Icon name={change.label.startsWith("Coordinates") ? "verification" : "records"} size={16} /></span>
+      <div><strong>{change.label}</strong><span>{context}</span></div>
+      <time dateTime={change.createdAt}>{formatAuditTime(change.createdAt)}</time>
+    </li>
+  );
+}
+
+function VerificationQueue({ canAdmin, items, total }: { canAdmin: boolean; items: DashboardData["verificationItems"]; total: number }) {
+  return (
+    <Card className="admin-dashboard-panel admin-verification-panel">
+      <DashboardPanelHeader
+        action={total > 0 && canAdmin ? <Badge variant="warning">{total.toLocaleString()} need attention</Badge> : undefined}
+        description="Current plots with missing, pending, or rejected coordinate work"
+        icon="verification"
+        title="Items Needing Verification"
+        tone={total > 0 ? "warning" : "success"}
+      />
+      {items.length ? (
+        <div className="admin-verification-table-wrap">
+          <table className="admin-verification-table">
+            <caption className="sr-only">Plots that need coordinate verification</caption>
+            <thead><tr><th scope="col">Plot</th><th scope="col">Issue</th><th scope="col">Updated</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Action</span></th></tr></thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.lotId}>
+                  <td data-label="Plot"><strong>{item.plot}</strong></td>
+                  <td data-label="Issue"><span>{item.issue}</span>{item.rejectionReason ? <small>{item.rejectionReason}</small> : null}</td>
+                  <td data-label="Updated"><time dateTime={item.updatedAt}>{formatAuditTime(item.updatedAt)}</time></td>
+                  <td data-label="Status"><VerificationBadge status={item.status} /></td>
+                  <td data-label="Action">
+                    {canAdmin ? (
+                      <Link className="admin-row-action" href={`/admin/coordinate-verification?plot=${encodeURIComponent(item.plot)}`}>Review<span className="sr-only"> {item.plot}</span></Link>
+                    ) : <span className="admin-readonly-label">Administrator review</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {total > items.length && canAdmin ? <div className="admin-panel-footer"><span>Showing {items.length.toLocaleString()} of {total.toLocaleString()} items</span><Link href="/admin/coordinate-verification">Open full queue</Link></div> : null}
+        </div>
+      ) : (
+        <CardContent><EmptyState action={<Link className="text-button" href="/admin/plot-management">Review plot inventory</Link>} description="No current plots have missing, pending, or rejected coordinates." icon="check" title="Coordinate work is up to date" /></CardContent>
+      )}
+    </Card>
+  );
+}
+
+function VerificationBadge({ status }: { status: DashboardData["verificationItems"][number]["status"] }) {
+  const labels = { missing: "Missing", pending: "Pending", rejected: "Rejected" } as const;
+  const variants = { missing: "danger", pending: "warning", rejected: "danger" } as const;
+  return <Badge variant={variants[status]}>{labels[status]}</Badge>;
+}
+
+function DashboardPanelHeader({ title, description, icon, action, tone = "neutral" }: { title: string; description: string; icon: IconName; action?: ReactNode; tone?: Tone }) {
+  return (
+    <CardHeader className="admin-panel-header">
+      <div className="admin-panel-heading">
+        <span className={`admin-section-icon admin-section-icon--${tone}`}><Icon name={icon} size={17} /></span>
+        <div><CardTitle>{title}</CardTitle><p className="admin-panel-description">{description}</p></div>
       </div>
-      <strong>{value.toLocaleString()}</strong>
-    </div>
+      {action ? <div className="admin-panel-action">{action}</div> : null}
+    </CardHeader>
   );
 }
 
 function formatAuditTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }

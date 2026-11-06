@@ -2575,6 +2575,46 @@ export type Database = {
         Args: { p_page?: number; p_query?: string }
         Returns: Json
       }
+      staff_burial_records: {
+        Args: {
+          p_date_filter?: string
+          p_direction?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_section?: string
+          p_sort?: string
+          p_status?: string
+          p_verification?: string
+        }
+        Returns: Json
+      }
+      staff_coordinate_verification: {
+        Args: {
+          p_area?: string
+          p_direction?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_sort?: string
+          p_state?: string
+        }
+        Returns: Json
+      }
+      staff_plot_management: {
+        Args: {
+          p_area?: string
+          p_direction?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_sort?: string
+          p_state?: string
+          p_verification?: string
+        }
+        Returns: Json
+      }
+      staff_dashboard_data: { Args: never; Returns: Json }
       staff_dashboard_counts: { Args: never; Returns: Json }
       staff_save_record: {
         Args: {

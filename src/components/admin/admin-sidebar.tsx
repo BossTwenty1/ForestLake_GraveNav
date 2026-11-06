@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { StaffAccount } from "@/lib/supabase/types";
 
@@ -48,26 +49,21 @@ export const adminNavItems = [...mainNavItems, ...systemNavItems];
 
 type AdminSidebarProps = {
   active: string;
+  collapsed: boolean;
+  preview: boolean;
   staff: StaffAccount;
   onNavigate?: () => void;
-  onLogout?: () => void;
   onClose?: () => void;
 };
 
 export function AdminSidebar({
   active,
+  collapsed,
+  preview,
   staff,
   onNavigate,
-  onLogout,
   onClose,
 }: AdminSidebarProps) {
-  const initials = staff.username
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "GN";
-
   function isVisible(item: AdminNavItem) {
     if (item.adminOnly) return staff.role === "ADMIN";
     if (item.managerHidden) return staff.role !== "MANAGER";
@@ -78,17 +74,23 @@ export function AdminSidebar({
     return items.filter(isVisible).map((item) => {
       const isActive = item.label === active;
       return (
-        <Link
-          aria-current={isActive ? "page" : undefined}
-          className={cn("admin-nav-link", isActive && "admin-nav-link--active")}
-          href={item.href}
+        <Tooltip
+          disabled={!collapsed || preview}
           key={item.label}
-          onClick={onNavigate}
+          label={item.label}
         >
-          <Icon name={item.icon} size={18} />
-          <span>{item.label}</span>
-          {isActive ? <span aria-hidden="true" className="admin-nav-current" /> : null}
-        </Link>
+          <Link
+            aria-current={isActive ? "page" : undefined}
+            className={cn("admin-nav-link", isActive && "admin-nav-link--active")}
+            href={item.href}
+            onClick={onNavigate}
+            title={collapsed && !preview ? item.label : undefined}
+          >
+            <Icon name={item.icon} size={18} />
+            <span className="admin-nav-link__label">{item.label}</span>
+            {isActive ? <span aria-hidden="true" className="admin-nav-current" /> : null}
+          </Link>
+        </Tooltip>
       );
     });
   }
@@ -132,37 +134,25 @@ export function AdminSidebar({
 
       <div className="admin-sidebar__footer">
         <nav aria-label="Administrator support navigation">
-          <Link
-            aria-current={active === "Support" ? "page" : undefined}
-            className={cn(
-              "admin-nav-link",
-              active === "Support" && "admin-nav-link--active",
-            )}
-            href="/admin/support"
-            onClick={onNavigate}
+          <Tooltip
+            disabled={!collapsed || preview}
+            label="Support"
           >
-            <Icon name="support" size={18} />
-            <span>Support</span>
-          </Link>
-          <button
-            className="admin-nav-link admin-nav-link--danger admin-nav-button"
-            onClick={onLogout}
-            type="button"
-          >
-            <Icon name="logout" size={18} />
-            <span>Log Out</span>
-          </button>
+            <Link
+              aria-current={active === "Support" ? "page" : undefined}
+              className={cn(
+                "admin-nav-link",
+                active === "Support" && "admin-nav-link--active",
+              )}
+              href="/admin/support"
+              onClick={onNavigate}
+              title={collapsed && !preview ? "Support" : undefined}
+            >
+              <Icon name="support" size={18} />
+              <span className="admin-nav-link__label">Support</span>
+            </Link>
+          </Tooltip>
         </nav>
-        <div className="admin-profile-card">
-          <span aria-hidden="true" className="admin-avatar admin-profile-card__avatar">
-            {initials}
-          </span>
-          <span className="admin-profile-card__copy">
-            <strong>{staff.username}</strong>
-            <span>{staff.role === "ADMIN" ? "Administrator" : "Manager"}</span>
-          </span>
-          <Icon name="more" size={18} />
-        </div>
       </div>
     </aside>
   );

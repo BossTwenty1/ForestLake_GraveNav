@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AdminPageFrame } from "@/components/admin/admin-page-content";
 import { BurialRecordList } from "@/components/admin/burial-record-list";
+import { PlotManagementList } from "@/components/admin/plot-management-list";
 import {
   createBurialRecord,
   createLot,
@@ -20,94 +21,92 @@ import {
   deleteBurialRecord,
   deleteLot,
   deleteLotOwner,
-  getAdminLotsPage,
-  getAdminRecordsPage,
   getAvailableBurialPlots,
   getDashboardCounts,
   getOwnerRecords,
   getOwnerRecordsPage,
   getPlotAreas,
+  getPlotManagementPage,
+  getStaffBurialRecords,
   updateBurialRecord,
   updateLot,
   updateLotOwner,
   type BurialRecordInput,
+  type BurialRecordQuery,
   type DashboardCounts,
   type LotInput,
   type OwnerInput,
+  type PlotManagementQuery,
 } from "@/lib/supabase/admin-data";
-import type { AdminLot, AdminRecord, BurialPlotOption, LotOwner, PlotAreaOption } from "@/lib/supabase/types";
+import type { AdminLot, AdminRecord, BurialPlotOption, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "@/lib/supabase/types";
 
 type BurialRecordsCrudProps = {
   showAdd?: boolean;
   selectedRecordId?: string;
-  initialQuery?: string;
+  initialQueryState: BurialRecordQuery;
 };
 
 export function BurialRecordsCrud({
   showAdd = false,
   selectedRecordId = "",
-  initialQuery = "",
+  initialQueryState,
 }: BurialRecordsCrudProps) {
   const canAdmin = useStaff()?.role === "ADMIN";
   const [records, setRecords] = useState<AdminRecord[]>([]);
   const [plots, setPlots] = useState<BurialPlotOption[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
+  const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
+  const [sections, setSections] = useState<string[]>([]);
   const [counts, setCounts] = useState<DashboardCounts | null>(null);
+  const [queryState, setQueryState] = useState(initialQueryState);
   const [formOpen, setFormOpen] = useState(showAdd);
   const [editing, setEditing] = useState<AdminRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
 
-  const refresh = useCallback(async () => {
+  const loadRecords = useCallback(async (nextQuery: BurialRecordQuery) => {
     setLoading(true);
     try {
-      const [recordPage, nextPlots] = await Promise.all([
-        getAdminRecordsPage({ page: 0 }),
-        getAvailableBurialPlots(),
-      ]);
+      const recordPage = await getStaffBurialRecords(nextQuery);
+      if (!recordPage.items.length && recordPage.total > 0 && nextQuery.page > 0) {
+        setQueryState((current) => ({ ...current, page: current.page - 1 }));
+        return;
+      }
       setRecords(recordPage.items);
       setTotal(recordPage.total);
-      setPage(0);
-      setHasMore(recordPage.hasMore);
-      setPlots(nextPlots);
-      setError("");
-      getDashboardCounts().then(setCounts).catch(() => setCounts(null));
+      setTotalAll(recordPage.totalAll);
+      setSections(recordPage.sections);
+      setLoadError("");
     } catch (reason) {
-      setError(errorMessage(reason));
+      setLoadError(errorMessage(reason));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void refresh();
-    }, 0);
+    const timer = window.setTimeout(() => void loadRecords(queryState), 280);
     return () => window.clearTimeout(timer);
-  }, [refresh]);
+  }, [loadRecords, queryState]);
 
-  async function loadMore() {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const nextPage = await getAdminRecordsPage({ page: page + 1 });
-      setRecords((current) => [...current, ...nextPage.items]);
-      setPage((current) => current + 1);
-      setHasMore(nextPage.hasMore);
-      setTotal(nextPage.total);
-      setError("");
-    } catch (reason) {
-      setError(errorMessage(reason));
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  useEffect(() => {
+    void Promise.all([
+      getAvailableBurialPlots().then(setPlots),
+      getDashboardCounts().then(setCounts),
+    ]).catch((reason) => setError(errorMessage(reason)));
+  }, []);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      loadRecords(queryState),
+      getAvailableBurialPlots().then(setPlots),
+      getDashboardCounts().then(setCounts),
+    ]);
+  }, [loadRecords, queryState]);
 
   const selected = records.find((record) => String(record.burialId) === selectedRecordId);
 
@@ -169,7 +168,7 @@ export function BurialRecordsCrud({
 
   return (
     <div className="admin-page-frame admin-burial-page">
-      {error ? <DataError message={error} /> : null}
+      {error && error !== loadError ? <DataError message={error} /> : null}
       {message ? (
         <Alert icon="check" title="Record update" variant="success">{message}</Alert>
       ) : null}
@@ -199,13 +198,14 @@ export function BurialRecordsCrud({
         busy={busy}
         canAdmin={canAdmin}
         counts={counts}
-        hasMore={hasMore}
-        initialQuery={initialQuery}
+        error={loadError}
         loading={loading}
-        loadingMore={loadingMore}
+        queryState={queryState}
         records={records}
+        sections={sections}
         selectedRecordId={selectedRecordId}
         total={total}
+        totalAll={totalAll}
         onAdd={() => {
           setEditing(null);
           setFormOpen(true);
@@ -221,9 +221,8 @@ export function BurialRecordsCrud({
           setEditing(record);
           setFormOpen(true);
         }}
-        onLoadMore={() => {
-          void loadMore();
-        }}
+        onQueryStateChange={setQueryState}
+        onRetry={() => void loadRecords(queryState)}
       />
       <ConfirmationDialog
         confirmLabel={busy ? "Deleting…" : "Delete record"}
@@ -265,36 +264,73 @@ function BurialRecordForm({ record, availablePlots, onCancel, onSaved }: { recor
   return <Card className="admin-form-card"><CardHeader><CardTitle>{record ? "Edit burial record" : "Add burial record"}</CardTitle><Badge variant="info">Protected database operation</Badge></CardHeader><CardContent><form className="admin-form" onSubmit={(event) => void submit(event)}><div className="filter-grid"><Input id="burial-display-name" label="Display name" onChange={(event) => setField("name", event.target.value)} required value={form.name} /><PlotPicker value={form.lotId ? String(form.lotId) : ""} onChange={(value) => setField("lotId", Number(value))} options={plotOptions} hint={record ? "The current plot remains available for this edit." : "Only available plots without an existing burial are shown."} /></div><div className="filter-grid"><Input id="burial-birth-date" label="Birth date" onChange={(event) => setField("birthDate", event.target.value)} type="date" value={form.birthDate || ""} /><Input id="burial-death-date" label="Death date" onChange={(event) => setField("deathDate", event.target.value)} type="date" value={form.deathDate || ""} /></div><div className="filter-grid"><Input id="burial-interment-date" label="Interment date" onChange={(event) => setField("intermentDate", event.target.value)} type="date" value={form.intermentDate || ""} /><SelectField id="burial-record-status" label="Record status" value={form.recordStatus || "pending"} onChange={(value) => setField("recordStatus", value as AdminRecord["recordStatus"])} options={[["pending", "Pending"], ["active", "Active"], ["archived", "Archived"]]} /></div><div className="filter-grid"><SelectField id="burial-interment-status" label="Interment status" value={form.intermentStatus} onChange={(value) => setField("intermentStatus", value as BurialRecordInput["intermentStatus"])} options={[["PERMANENT", "Permanent"], ["TEMPORARY", "Temporary"]]} /><SelectField id="burial-remains-type" label="Remains type" value={form.remainsType} onChange={(value) => setField("remainsType", value as BurialRecordInput["remainsType"])} options={[["FRESH", "Fresh"], ["ASH", "Ash"], ["BONE", "Bone"]]} /></div><label className="checkbox-field"><input checked={form.publicDisplay} onChange={(event) => setField("publicDisplay", event.target.checked)} type="checkbox" /><span>Show this record in the active public visitor view</span></label><label className="input-field" htmlFor="burial-quality-notes"><span className="input-label">Quality notes</span><textarea className="input-control" id="burial-quality-notes" onChange={(event) => setField("qualityNotes", event.target.value)} rows={3} value={form.qualityNotes || ""} /></label>{error ? <DataError message={error} /> : null}<div className="admin-form-actions"><Button onClick={onCancel} type="button" variant="secondary">Cancel</Button><Button disabled={saving || (!record && !availablePlots.length) || !form.lotId} icon="check" type="submit">{saving ? "Saving…" : record ? "Save changes" : "Create record"}</Button></div></form></CardContent></Card>;
 }
 
-export function PlotManagementCrud() {
+export function PlotManagementCrud({ initialQueryState }: { initialQueryState: PlotManagementQuery }) {
   const canAdmin = useStaff()?.role === "ADMIN";
-  const [lots, setLots] = useState<AdminLot[]>([]);
+  const [lots, setLots] = useState<PlotManagementItem[]>([]);
   const [owners, setOwners] = useState<LotOwner[]>([]);
   const [areas, setAreas] = useState<PlotAreaOption[]>([]);
+  const [summary, setSummary] = useState<PlotManagementSummary | null>(null);
+  const [total, setTotal] = useState(0);
+  const [queryState, setQueryState] = useState(initialQueryState);
   const [editing, setEditing] = useState<AdminLot | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<AdminLot | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PlotManagementItem | null>(null);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const refresh = useCallback(async () => { try { const [lotPage, nextOwners, nextAreas] = await Promise.all([getAdminLotsPage({ page: 0 }), getOwnerRecords({ page: 0, pageSize: 100 }), getPlotAreas()]); setLots(lotPage.items); setPage(0); setHasMore(lotPage.hasMore); setOwners(nextOwners); setAreas(nextAreas); setError(""); } catch (reason) { setError(errorMessage(reason)); } }, []);
-  useEffect(() => { const timer = window.setTimeout(() => { void refresh(); }, 0); return () => window.clearTimeout(timer); }, [refresh]);
-  async function loadMore() { if (loadingMore || !hasMore) return; setLoadingMore(true); try { const nextPage = await getAdminLotsPage({ page: page + 1 }); setLots((current) => [...current, ...nextPage.items]); setPage((current) => current + 1); setHasMore(nextPage.hasMore); } catch (reason) { setError(errorMessage(reason)); } finally { setLoadingMore(false); } }
-  const available = lots.filter((lot) => lot.status === "AVAILABLE").length;
-  const booked = lots.filter((lot) => lot.status === "BOOKED").length;
-  const areaLabels = new Map(areas.map((area) => [area.areaId, `${area.label} (${area.areaCode})`]));
-  const ownerLabels = new Map(owners.map((owner) => [owner.lotOwnerId, [owner.firstName, owner.middleName, owner.lastName].filter(Boolean).join(" ")]));
+  const [loading, setLoading] = useState(true);
+
+  const loadPlots = useCallback(async (nextQuery: PlotManagementQuery) => {
+    setLoading(true);
+    try {
+      const page = await getPlotManagementPage(nextQuery);
+      if (!page.items.length && page.total > 0 && nextQuery.page > 0) {
+        setQueryState((current) => ({ ...current, page: current.page - 1 }));
+        return;
+      }
+      setLots(page.items);
+      setTotal(page.total);
+      setSummary(page.summary);
+      setAreas(page.areas);
+      setLoadError("");
+    } catch (reason) {
+      setLoadError(errorMessage(reason));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadPlots(queryState), 280);
+    return () => window.clearTimeout(timer);
+  }, [loadPlots, queryState]);
+
+  useEffect(() => {
+    void Promise.all([getOwnerRecords({ page: 0, pageSize: 100 }), getPlotAreas()])
+      .then(([nextOwners, nextAreas]) => {
+        setOwners(nextOwners);
+        setAreas((current) => current.length ? current : nextAreas);
+      })
+      .catch((reason) => setError(errorMessage(reason)));
+  }, []);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      loadPlots(queryState),
+      getOwnerRecords({ page: 0, pageSize: 100 }).then(setOwners),
+      getPlotAreas().then((nextAreas) => setAreas((current) => current.length ? current : nextAreas)),
+    ]);
+  }, [loadPlots, queryState]);
+
   const searchOwners = useCallback(async (search: string) => (await getOwnerRecordsPage({ search, pageSize: 20 })).items, []);
   async function removeLot() { if (!deleteTarget || busy) return; setBusy(true); try { await deleteLot(deleteTarget.lotId, deleteTarget.revision); setDeleteTarget(null); setMessage("Plot removed. It can be restored in Recovery."); await refresh(); } catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); } }
-  return <AdminPageFrame title="Plot Management" description="Create, edit, and remove plot records while preserving existing coordinate data." actions={<Button icon="plus" onClick={() => { setEditing(null); setFormOpen(true); }}>Add plot</Button>}>
-    {error ? <DataError message={error} /> : null}{message ? <Alert icon="check" title="Plot update" variant="success">{message}</Alert> : null}
+  return <div className="admin-page-frame admin-plot-page">
+    {error && error !== loadError ? <DataError message={error} /> : null}{message ? <Alert icon="check" title="Plot update" variant="success">{message}</Alert> : null}
     {formOpen ? <LotForm key={editing?.lotId ?? "new"} lot={editing} areas={areas} owners={owners} onSearchOwners={searchOwners} onCancel={() => { setFormOpen(false); setEditing(null); }} onSaved={async () => { setFormOpen(false); setEditing(null); setMessage(editing ? "Plot updated." : "Plot created."); await refresh(); }} /> : null}
-    <div className="admin-summary-grid"><SummaryCard label="Known plots" value={lots.length} /><SummaryCard label="Available" value={available} /><SummaryCard label="Booked" value={booked} /></div>
-     <Card><CardHeader><CardTitle>Local plots</CardTitle><Badge variant="info">{lots.length}{hasMore ? "+" : ""} loaded</Badge></CardHeader>{lots.length ? <><Table caption="Local plots"><TableHead><TableRow><TableHeaderCell>Plot</TableHeaderCell><TableHeaderCell>Garden / area</TableHeaderCell><TableHeaderCell>Owner</TableHeaderCell><TableHeaderCell>Status</TableHeaderCell><TableHeaderCell>Coordinates</TableHeaderCell><TableHeaderCell>Actions</TableHeaderCell></TableRow></TableHead><TableBody>{lots.map((lot) => <TableRow key={lot.lotId}><TableCell className="strong-cell">{lot.lotCode}<span className="table-secondary">{lot.legacyLocationCode || "No original reference"}</span></TableCell><TableCell>{areaLabels.get(lot.areaId) || "Unassigned"}</TableCell><TableCell>{lot.lotOwnerId ? ownerLabels.get(lot.lotOwnerId) || "Unknown owner" : "Unassigned"}</TableCell><TableCell><Badge variant={lot.status === "AVAILABLE" ? "success" : lot.status === "BOOKED" ? "warning" : "neutral"}>{lot.status}</Badge></TableCell><TableCell>{lot.location ? "GPS " + (lot.coordinateVerified ? "verified" : "unverified") : lot.pxLocX !== null && lot.pxLocY !== null ? "Image-map" : "Unavailable"}</TableCell><TableCell><div className="table-actions"><Button size="sm" variant="secondary" onClick={() => { setEditing(lot); setFormOpen(true); }}>Edit</Button><Button disabled={busy || !canAdmin} title={canAdmin ? "Remove record" : "Only administrators can remove records"} size="sm" variant="danger" onClick={() => setDeleteTarget(lot)}>Delete</Button></div></TableCell></TableRow>)}</TableBody></Table>{hasMore ? <CardContent><Button disabled={loadingMore} onClick={() => void loadMore()} variant="secondary">{loadingMore ? "Loading more…" : "Load more plots"}</Button></CardContent> : null}</> : <CardContent><EmptyState description="Add a plot after its garden / area exists in Supabase." icon="grid" title="No plots found" /></CardContent>}</Card>
+    <PlotManagementList areas={areas} busy={busy} canAdmin={canAdmin} error={loadError} loading={loading} plots={lots} queryState={queryState} summary={summary} total={total} onAdd={() => { setEditing(null); setFormOpen(true); }} onDelete={setDeleteTarget} onEdit={(plot) => { setEditing(plot); setFormOpen(true); }} onQueryStateChange={setQueryState} onRetry={() => void loadPlots(queryState)} />
     <ConfirmationDialog open={Boolean(deleteTarget)} title="Delete plot?" description={<p>Only plots without a burial record can be removed. Administrators can restore removed plots in Recovery.</p>} confirmLabel={busy ? "Deleting…" : "Delete plot"} variant="danger" onConfirm={() => void removeLot()} onClose={() => { if (!busy) setDeleteTarget(null); }} />
-  </AdminPageFrame>;
+  </div>;
 }
 
 function LotForm({ lot, areas, owners, onSearchOwners, onCancel, onSaved }: { lot: AdminLot | null; areas: PlotAreaOption[]; owners: LotOwner[]; onSearchOwners: (search: string) => Promise<LotOwner[]>; onCancel: () => void; onSaved: () => Promise<void> }) {
@@ -361,7 +397,6 @@ function PlotPicker({ value, options, onChange, hint }: { value: string; options
   return <label className="input-field" htmlFor="burial-plot"><span className="input-label">Available plot</span><select aria-label="Select available plot" className="input-control" id="burial-plot" onChange={(event) => onChange(event.target.value)} value={value}><option value="">{options.length ? "Select an available plot" : "No unused plots available"}</option>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select>{hint ? <span className="input-hint">{hint}</span> : null}</label>;
 }
 function SelectField({ id, label, value, options, onChange, hint }: { id: string; label: string; value: string; options: Array<[string, string]>; onChange: (value: string) => void; hint?: ReactNode }) { return <label className="input-field" htmlFor={id}><span className="input-label">{label}</span><select className="input-control" id={id} onChange={(event) => onChange(event.target.value)} value={value}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select>{hint ? <span className="input-hint">{hint}</span> : null}</label>; }
-function SummaryCard({ label, value }: { label: string; value: number }) { return <Card className="summary-card"><div className="metric-card__top"><span>{label}</span></div><p className="metric-value">{value.toLocaleString()}</p></Card>; }
 function DataError({ message }: { message: string }) { return <Alert icon="alert" title="Change could not be completed" variant="danger">{message}</Alert>; }
 function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : "The protected operation could not be completed."; }
 function optionalNumber(value: string) { return value.trim() ? Number(value) : null; }

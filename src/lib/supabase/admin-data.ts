@@ -4,7 +4,7 @@ import { getBrowserSupabase } from "./config";
 import { acknowledgeRequest, mutationFingerprint, pendingRequestId } from "./mutation-receipts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "./database.types";
-import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, AuditLogEntry, BurialPlotOption, LotOwner, PlotAreaOption } from "./types";
+import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
 
 const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at";
 const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_display";
@@ -17,6 +17,60 @@ const MAX_PAGE_SIZE = 100;
 export type PageResult<T> = { items: T[]; hasMore: boolean; total: number | null };
 type PageOptions = { page?: number; pageSize?: number };
 type OwnerPageOptions = PageOptions & { search?: string };
+export type BurialRecordSort = "updated" | "name" | "plot" | "interment-date" | "status";
+export type BurialRecordDirection = "asc" | "desc";
+export type BurialRecordQuery = {
+  query: string;
+  section: string;
+  status: AdminRecord["recordStatus"] | "all";
+  verification: AdminRecord["coordinateStatus"] | "verified" | "all";
+  dateFilter: "all" | "this-year" | "last-five-years" | "undated";
+  sort: BurialRecordSort;
+  direction: BurialRecordDirection;
+  page: number;
+  pageSize: number;
+};
+export type BurialRecordPage = {
+  items: AdminRecord[];
+  total: number;
+  totalAll: number;
+  sections: string[];
+};
+export type PlotManagementSort = "updated" | "plot" | "area" | "state" | "coordinate";
+export type PlotManagementQuery = {
+  query: string;
+  area: string;
+  state: PlotManagementItem["operationalState"] | "all";
+  verification: PlotManagementItem["coordinateState"] | "all";
+  sort: PlotManagementSort;
+  direction: "asc" | "desc";
+  page: number;
+  pageSize: number;
+};
+export type PlotManagementPage = {
+  items: PlotManagementItem[];
+  total: number;
+  totalAll: number;
+  summary: PlotManagementSummary;
+  areas: PlotAreaOption[];
+};
+export type CoordinateVerificationSort = "priority" | "updated" | "plot" | "area" | "status" | "accuracy";
+export type CoordinateVerificationQuery = {
+  query: string;
+  area: string;
+  state: CoordinateVerificationItem["coordinateState"] | "actionable" | "all";
+  sort: CoordinateVerificationSort;
+  direction: "asc" | "desc";
+  page: number;
+  pageSize: number;
+};
+export type CoordinateVerificationPage = {
+  items: CoordinateVerificationItem[];
+  total: number;
+  totalAll: number;
+  summary: CoordinateVerificationSummary;
+  areas: PlotAreaOption[];
+};
 export type LotRow = { revision: number; coordinate_rejection_reason: string | null; lot_id: number; lot_code: string; area_id: number; block_id: number | null; lot_owner_id: number | null; legacy_location_code: string | null; legacy_pa_number: string | null; status: "AVAILABLE" | "BOOKED" | "HOLD"; length_m: number | null; width_m: number | null; px_loc_x: number | null; px_loc_y: number | null; location_geom: unknown; coordinate_accuracy_m: number | null; coordinate_status: "pending" | "verified" | "rejected"; coordinate_verified: boolean; updated_at: string; location: { longitude: number; latitude: number } | null };
 type OwnerRow = { revision: number; lot_owner_id: number; first_name: string; middle_name: string | null; last_name: string; suffix: string | null; aliases: string | null; address: string; representative_name: string | null; representative_contact: string | null; representative_relation: string | null };
 
@@ -161,6 +215,7 @@ export async function getAdminLotsPage(options: PageOptions = {}): Promise<PageR
     pxLocY: lot.px_loc_y,
     coordinateStatus: lot.coordinate_status,
     coordinateVerified: Boolean(lot.coordinate_verified),
+    coordinateRejectionReason: lot.coordinate_rejection_reason,
     coordinateAccuracyM: lot.coordinate_accuracy_m,
     location: lot.location,
     updatedAt: lot.updated_at,
@@ -172,6 +227,63 @@ export async function getPlotAreas() {
   const { data: areas, error } = await client.from("area").select("area_id,area_code,area_name").eq("area_category", "garden").order("area_name");
   if (error) throw error;
   return (areas || []).map((area) => ({ areaId: area.area_id, areaCode: area.area_code, label: area.area_name }) satisfies PlotAreaOption);
+}
+
+export async function getPlotManagementPage(options: PlotManagementQuery): Promise<PlotManagementPage> {
+  const { data, error } = await requireClient().rpc("staff_plot_management", {
+    p_query: options.query.slice(0, 160),
+    p_area: options.area.slice(0, 16),
+    p_state: options.state,
+    p_verification: options.verification,
+    p_sort: options.sort,
+    p_direction: options.direction,
+    p_page: options.page + 1,
+    p_page_size: options.pageSize,
+  });
+  if (error) {
+    throw new Error(error.code === "PGRST202"
+      ? "The Plot Management data migration has not been applied. Contact the project administrator."
+      : error.message || "Plots could not be loaded. Reload to try again.");
+  }
+  if (!isObject(data)
+    || !Array.isArray(data.items)
+    || !data.items.every(isPlotManagementItem)
+    || !isCount(data.total)
+    || !isCount(data.totalAll)
+    || !isPlotManagementSummary(data.summary)
+    || !Array.isArray(data.areas)
+    || !data.areas.every(isPlotAreaOption)) {
+    throw new Error("Plot Management returned an unexpected response. Reload to try again.");
+  }
+  return data as PlotManagementPage;
+}
+
+export async function getCoordinateVerificationPage(options: CoordinateVerificationQuery): Promise<CoordinateVerificationPage> {
+  const { data, error } = await requireClient().rpc("staff_coordinate_verification", {
+    p_query: options.query.slice(0, 160),
+    p_area: options.area.slice(0, 16),
+    p_state: options.state,
+    p_sort: options.sort,
+    p_direction: options.direction,
+    p_page: options.page + 1,
+    p_page_size: options.pageSize,
+  });
+  if (error) {
+    throw new Error(error.code === "PGRST202"
+      ? "The Coordinate Verification data migration has not been applied. Contact the project administrator."
+      : error.message || "Coordinate records could not be loaded. Reload to try again.");
+  }
+  if (!isObject(data)
+    || !Array.isArray(data.items)
+    || !data.items.every(isCoordinateVerificationItem)
+    || !isCount(data.total)
+    || !isCount(data.totalAll)
+    || !isCoordinateVerificationSummary(data.summary)
+    || !Array.isArray(data.areas)
+    || !data.areas.every(isPlotAreaOption)) {
+    throw new Error("Coordinate Verification returned an unexpected response. Reload to try again.");
+  }
+  return data as CoordinateVerificationPage;
 }
 
 
@@ -346,6 +458,48 @@ export async function getDashboardCounts(): Promise<DashboardCounts> {
   const { data, error } = await requireClient().rpc("staff_dashboard_counts");
   if (error || !data || typeof data !== "object" || Array.isArray(data) || !["active", "pending", "archived", "plots", "unverified", "missingCoordinates", "pendingCoordinates"].every((key) => typeof data[key] === "number")) throw new Error("Dashboard totals could not be loaded. Reload to try again.");
   return data as DashboardCounts;
+}
+
+export async function getStaffBurialRecords(options: BurialRecordQuery): Promise<BurialRecordPage> {
+  const { data, error } = await requireClient().rpc("staff_burial_records", {
+    p_query: options.query.slice(0, 160),
+    p_section: options.section.slice(0, 160),
+    p_status: options.status,
+    p_verification: options.verification,
+    p_date_filter: options.dateFilter,
+    p_sort: options.sort,
+    p_direction: options.direction,
+    p_page: options.page + 1,
+    p_page_size: options.pageSize,
+  });
+  if (error) {
+    throw new Error(error.code === "PGRST202"
+      ? "The Burial Records data migration has not been applied. Contact the project administrator."
+      : error.message || "Burial records could not be loaded. Reload to try again.");
+  }
+  if (!isObject(data)
+    || !Array.isArray(data.items)
+    || !data.items.every(isAdminRecord)
+    || !isCount(data.total)
+    || !isCount(data.totalAll)
+    || !Array.isArray(data.sections)
+    || !data.sections.every((section) => typeof section === "string")) {
+    throw new Error("Burial records returned an unexpected response. Reload to try again.");
+  }
+  return {
+    items: data.items,
+    total: data.total,
+    totalAll: data.totalAll,
+    sections: data.sections,
+  };
+}
+export async function getDashboardData(): Promise<DashboardData> {
+  const { data, error } = await requireClient().rpc("staff_dashboard_data");
+  if (error) throw new Error(error.code === "PGRST202"
+    ? "The Dashboard data migration has not been applied. Contact the project administrator."
+    : error.message || "Dashboard data could not be loaded. Reload to try again.");
+  if (!isDashboardData(data)) throw new Error("Dashboard data returned an unexpected response. Reload to try again.");
+  return data;
 }
 export async function searchStaffBurials(query: string, page = 1): Promise<{ items: StaffBurialOption[]; total: number }> {
   const { data, error } = await requireClient().rpc("search_staff_burials", { p_query: query.slice(0, 160), p_page: page });
@@ -551,4 +705,108 @@ function safeOwnerSearch(value: string | undefined) {
 
 function hasMore(from: number, itemCount: number, total: number | null) {
   return total === null ? itemCount > 0 : from + itemCount < total;
+}
+
+function isDashboardData(value: unknown): value is DashboardData {
+  if (!isObject(value)) return false;
+  const summary = value.summary;
+  const occupancy = value.occupancy;
+  if (!isObject(summary) || !isObject(occupancy)) return false;
+  const summaryKeys = ["totalBurialRecords", "occupiedPlots", "availablePlots", "needsVerification"];
+  const occupancyKeys = ["occupied", "available", "booked", "onHold", "total", "occupancyPercent"];
+  if (!summaryKeys.every((key) => isCount(summary[key]))) return false;
+  if (!occupancyKeys.every((key) => isCount(occupancy[key]))) return false;
+  if (!Array.isArray(value.burialsBySection) || !value.burialsBySection.every((item) =>
+    isObject(item) && isCount(item.areaId) && typeof item.areaName === "string" && isCount(item.burialCount))) return false;
+  if (!Array.isArray(value.recentChanges) || !value.recentChanges.every((item) =>
+    isObject(item) && isCount(item.auditId) && typeof item.label === "string"
+      && (item.subject === null || typeof item.subject === "string")
+      && (item.plotCode === null || typeof item.plotCode === "string")
+      && typeof item.createdAt === "string")) return false;
+  if (!Array.isArray(value.verificationItems) || !value.verificationItems.every((item) =>
+    isObject(item) && isCount(item.lotId) && typeof item.plot === "string" && typeof item.issue === "string"
+      && ["missing", "pending", "rejected"].includes(String(item.status))
+      && (item.rejectionReason === null || typeof item.rejectionReason === "string")
+      && typeof item.updatedAt === "string")) return false;
+  return true;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isAdminRecord(value: unknown): value is AdminRecord {
+  if (!isObject(value)) return false;
+  return isCount(value.revision)
+    && isCount(value.burialId)
+    && isCount(value.deceasedId)
+    && isCount(value.lotId)
+    && typeof value.name === "string"
+    && typeof value.plot === "string"
+    && typeof value.section === "string"
+    && ["active", "pending", "archived"].includes(String(value.recordStatus))
+    && ["pending", "verified", "rejected"].includes(String(value.coordinateStatus))
+    && typeof value.coordinateVerified === "boolean"
+    && typeof value.publicDisplay === "boolean"
+    && typeof value.intermentStatus === "string"
+    && typeof value.remainsType === "string"
+    && typeof value.updatedAt === "string";
+}
+
+function isPlotManagementItem(value: unknown): value is PlotManagementItem {
+  if (!isObject(value)) return false;
+  return isCount(value.revision)
+    && isCount(value.lotId)
+    && typeof value.lotCode === "string"
+    && isCount(value.areaId)
+    && ["AVAILABLE", "BOOKED", "HOLD"].includes(String(value.status))
+    && ["available", "occupied", "booked", "hold"].includes(String(value.operationalState))
+    && ["missing", "pending", "verified", "rejected"].includes(String(value.coordinateState))
+    && ["pending", "verified", "rejected"].includes(String(value.coordinateStatus))
+    && typeof value.coordinateVerified === "boolean"
+    && typeof value.assignedBurialDeleted === "boolean"
+    && typeof value.updatedAt === "string";
+}
+
+function isPlotManagementSummary(value: unknown): value is PlotManagementSummary {
+  return isObject(value)
+    && ["total", "occupied", "available", "booked", "onHold", "needsVerification"]
+      .every((key) => isCount(value[key]));
+}
+
+function isCoordinateVerificationItem(value: unknown): value is CoordinateVerificationItem {
+  if (!isObject(value)) return false;
+  return isCount(value.revision)
+    && isCount(value.lotId)
+    && typeof value.lotCode === "string"
+    && isCount(value.areaId)
+    && ["missing", "pending", "verified", "rejected"].includes(String(value.coordinateState))
+    && ["pending", "verified", "rejected"].includes(String(value.coordinateStatus))
+    && typeof value.coordinateVerified === "boolean"
+    && typeof value.assignedBurialDeleted === "boolean"
+    && typeof value.updatedAt === "string"
+    && Array.isArray(value.history)
+    && value.history.every((event) => isObject(event)
+      && isCount(event.auditId)
+      && ["submitted", "updated", "verified", "rejected"].includes(String(event.event))
+      && (event.actorName === null || typeof event.actorName === "string")
+      && (event.reason === null || typeof event.reason === "string")
+      && typeof event.createdAt === "string");
+}
+
+function isCoordinateVerificationSummary(value: unknown): value is CoordinateVerificationSummary {
+  return isObject(value)
+    && ["needsVerification", "missing", "pending", "rejected", "verified"]
+      .every((key) => isCount(value[key]));
+}
+
+function isPlotAreaOption(value: unknown): value is PlotAreaOption {
+  return isObject(value)
+    && isCount(value.areaId)
+    && typeof value.areaCode === "string"
+    && typeof value.label === "string";
 }
