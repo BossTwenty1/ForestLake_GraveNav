@@ -1,7 +1,7 @@
 import { Alert } from "@/components/ui/alert";
 import { MapExplorer } from "@/components/visitor/map-explorer";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
-import { getPublicGardenNames, searchPublicBurials } from "@/lib/supabase/public-data";
+import { getPublicBurialRecord, getPublicGardenNames, searchPublicBurials } from "@/lib/supabase/public-data";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -23,7 +23,12 @@ export default async function MapPage({
 
   let results;
   try {
-    results = await searchPublicBurials({ query, section, page });
+    if (value("id")) {
+      const record = await getPublicBurialRecord(value("id"));
+      results = { items: record ? [record] : [], total: record ? 1 : 0, page: 1, pageSize: 20 };
+    } else {
+      results = await searchPublicBurials({ query, section, page });
+    }
   } catch {
     return (
       <VisitorShell wide>

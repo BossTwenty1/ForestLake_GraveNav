@@ -29,6 +29,8 @@ export type PublicBurialRecord = {
   tone: string;
 };
 
+export type GraveType = "regular" | "mausoleum";
+
 export type AdminRecord = {
   revision: number;
   burialId: number;
@@ -45,6 +47,8 @@ export type AdminRecord = {
   intermentStatus: string;
   remainsType: string;
   referenceNo: string | null;
+  intermentOrderNumber?: string | null;
+  intermentConfirmed?: boolean | null;
   serviceProvider: string | null;
   recordSource: string | null;
   qualityNotes: string | null;
@@ -81,6 +85,12 @@ export type PlotOperationalState = "available" | "occupied" | "booked" | "hold";
 export type PlotCoordinateState = "missing" | "pending" | "verified" | "rejected";
 
 export type PlotManagementItem = AdminLot & {
+  graveType?: GraveType | null;
+  gravePolicyReference?: string | null;
+  approvedMausoleumCapacity?: number | null;
+  confirmedCount?: number;
+  remainingInterments?: number;
+  interments?: { id: number; name: string; status: AdminRecord["recordStatus"]; confirmed: boolean | null; removed: boolean }[];
   areaCode: string | null;
   areaName: string | null;
   operationalState: PlotOperationalState;
@@ -160,6 +170,9 @@ export type BurialPlotOption = {
   lotCode: string;
   section: string;
   status: "AVAILABLE";
+  graveType: GraveType | null;
+  confirmedCount: number;
+  remaining: number;
 };
 
 export type AdminAccount = StaffAccount & {

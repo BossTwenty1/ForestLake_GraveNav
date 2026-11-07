@@ -335,3 +335,70 @@ test("M09 serializes publication and import lifecycle races without partial stat
     'pendingReceipts',(select count(*) from gis_private.gis_mutation_request where response is null))::text;`).split(/\r?\n/).at(-1));
   assert.deepEqual(finalSafety, { publicationRows: 1, events: 2, legacyNodes: 0, pendingReceipts: 0 });
 });
+
+test("shared regular grave serializes two real PostgreSQL sessions competing for slot six", { timeout: 180_000 }, async (t) => {
+  const container = "gravenav-interment-race-" + randomUUID().slice(0, 8);
+  const started = docker(["run", "--rm", "-d", "--name", container, "-e", "POSTGRES_PASSWORD=postgres", IMAGE]);
+  assert.equal(started.status, 0, started.stderr || started.stdout);
+  t.after(() => docker(["rm", "-f", container]));
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const log = docker(["logs", container]);
+    if ((log.stdout + log.stderr).includes("PostgreSQL init process complete; ready for start up.") &&
+        docker(["exec", container, "pg_isready", "-U", "postgres"]).status === 0) break;
+    if (attempt === 59) assert.fail("Disposable PostgreSQL did not finish initialization");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  const create = docker(["exec", container, "createdb", "-U", "postgres", DATABASE]);
+  assert.equal(create.status, 0, create.stderr);
+  sql(container, "create role anon; create role authenticated; create role service_role bypassrls;"
+    + "create schema auth; create table auth.users(id uuid primary key);"
+    + "create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;"
+    + "grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;");
+  for (const file of (await readdir(MIGRATIONS)).filter((name) => name.endsWith(".sql")).sort()) {
+    sql(container, await readFile(new URL(file, MIGRATIONS), "utf8"));
+  }
+  const session = "set request.jwt.claim.sub='" + ADMIN + "'; set role authenticated;";
+  const call = (n) => "select public.staff_save_record('burial_record',null,null,'"
+    + JSON.stringify({
+      lot_id: 1, display_name: "Fictional Race " + n, interment_date: "2026-01-01",
+      interment_confirmed: true, interment_order_number: "RACE-" + n, public_display: false,
+      record_status: "active", interment_status: "PERMANENT", remains_type: "ASH",
+    }) + "','" + randomUUID() + "','save');";
+  sql(container, "insert into auth.users values ('" + ADMIN + "');"
+    + "insert into public.account(account_id,role_id,username,is_active,account_status,approved_at) select '" + ADMIN
+    + "',role_id,'fictional-race-admin',true,'ACTIVE',now() from public.role where role_name='ADMIN';"
+    + "insert into public.site(site_id,site_name,address) values (1,'Fictional Race Site','Synthetic');"
+    + "insert into public.area(area_id,site_id,area_code,area_name,area_category) values (1,1,'RACE','Race garden','garden');"
+    + session
+    + "select public.staff_save_record('lot',null,null,'{\"area_id\":1,\"lot_code\":\"RACE\",\"grave_type\":\"regular\",\"grave_policy_reference\":\"fictional approval\"}','"
+    + randomUUID() + "','save');"
+    + [1, 2, 3, 4, 5].map(call).join(""));
+  const lead = spawn("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-d", DATABASE, "-v", "ON_ERROR_STOP=1", "-X", "-Atq"]);
+  t.after(() => { lead.stdin.end(); lead.kill(); });
+  const ready = new Promise((resolve, reject) => {
+    let output = "", error = "";
+    lead.stdout.on("data", (data) => { output += data; if (output.includes("SLOT_LOCKED")) resolve(); });
+    lead.stderr.on("data", (data) => { error += data; });
+    lead.once("close", (status) => reject(new Error("Leader closed before readiness: " + status + " " + error)));
+  });
+  lead.stdin.write(session + "begin;" + call(6) + "\n\\echo SLOT_LOCKED\n");
+  await ready;
+  const contender = asyncSql(container, "set application_name='shared-interment-contender';" + session
+    + "begin isolation level repeatable read;" + call(7) + "commit;");
+  for (let attempt = 0; attempt < 25; attempt++) {
+    if (sql(container, "select count(*) from pg_stat_activity where application_name='shared-interment-contender' and wait_event_type='Lock'") === "1") break;
+    if (attempt === 24) assert.fail("Contender did not wait on a PostgreSQL lock");
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  const completed = new Promise((resolve) => lead.once("close", resolve));
+  lead.stdin.end("commit;\n");
+  assert.equal(await completed, 0);
+  const failed = await contender;
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stderr, /could not serialize|no remaining approved interment capacity/);
+  const retried = await asyncSql(container, session + call(7));
+  assert.notEqual(retried.status, 0);
+  assert.match(retried.stderr, /no remaining approved interment capacity/);
+  assert.equal(sql(container, "select count(*) from public.burial_record where lot_id=1 and interment_confirmed"), "6");
+  assert.equal(sql(container, "select count(*) from public.deceased"), "6");
+});

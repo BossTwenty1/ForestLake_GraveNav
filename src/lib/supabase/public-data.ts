@@ -80,6 +80,16 @@ export async function getPublicBurialRecord(id: string) {
   const mock = getGravesiteById(id);
   return mock ? toFallbackRecord(mock) : null;
 }
+export async function getPublicSharedPlotBurials(id: string) {
+  const client = getPublicSupabase();
+  if (!client || !/^\d+$/.test(id) || !Number.isSafeInteger(Number(id))) return [];
+  const { data, error } = await client.rpc("public_shared_plot_burials", { p_burial_id: Number(id) });
+  if (error || !Array.isArray(data)) return [];
+  return data.flatMap((entry) => entry && typeof entry === "object" && !Array.isArray(entry)
+    && typeof entry.id === "string" && /^\d+$/.test(entry.id) && typeof entry.name === "string"
+    ? [{ id: entry.id, name: entry.name }] : []);
+}
+
 export async function getPublicBurialRecordByPlot(plot: string) {
   if (!plot.trim()) return null;
   const client = getPublicSupabase();

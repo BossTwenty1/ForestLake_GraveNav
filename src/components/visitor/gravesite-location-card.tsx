@@ -74,7 +74,7 @@ export function GravesiteLocationCard({ record, mapScope = "legacy" }: { record:
         ) : null}
         {mapScope !== "unavailable" ? <Link
           className="button button--secondary button--lg"
-          href={mapScope === "phase2" ? `/phase2-map?id=${encodeURIComponent(record.id)}` : `/map?plot=${encodeURIComponent(record.plot)}`}
+          href={mapScope === "phase2" ? `/phase2-map?id=${encodeURIComponent(record.id)}` : `/map?id=${encodeURIComponent(record.id)}`}
         >
           <Icon name="map" size={19} />
           <span>{mapScope === "phase2" ? "View Phase 2 geographic map" : "View cemetery map"}</span>

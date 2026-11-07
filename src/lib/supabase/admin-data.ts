@@ -4,7 +4,7 @@ import { getBrowserSupabase } from "./config";
 import { acknowledgeRequest, mutationFingerprint, pendingRequestId } from "./mutation-receipts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "./database.types";
-import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
+import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, GraveType, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
 
 const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at";
 const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_display";
@@ -146,26 +146,13 @@ export async function getAdminRecordsPage(options: PageOptions = {}): Promise<Pa
 }
 
 export async function getAvailableBurialPlots() {
-  const client = requireClient();
-  const { data: lots, error: lotError } = await client.from("lot").select("lot_id,lot_code,area_id,status").eq("status", "AVAILABLE").is("deleted_at", null).order("lot_code");
-  if (lotError) throw lotError;
-  if (!lots?.length) return [];
-
-  const lotIds = lots.map((lot) => lot.lot_id);
-  const { data: usedRows, error: usedError } = await client.from("burial_record").select("lot_id").in("lot_id", lotIds);
-  if (usedError) throw usedError;
-  const usedLotIds = new Set((usedRows || []).map((row) => row.lot_id));
-  const unusedLots = lots.filter((lot) => !usedLotIds.has(lot.lot_id));
-  if (!unusedLots.length) return [];
-
-  const areaIds = unusedLots.map((lot) => lot.area_id).filter((areaId): areaId is number => areaId !== null && areaId !== undefined);
-  const { data: areas, error: areaError } = areaIds.length ? await client.from("area").select("area_id,area_name").in("area_id", areaIds) : { data: [], error: null };
-  if (areaError) throw areaError;
-  const areaById = new Map((areas || []).map((area) => [area.area_id, area]));
-  return unusedLots.map((lot) => {
-    const area = lot.area_id ? areaById.get(lot.area_id) : undefined;
-    return { lotId: lot.lot_id, lotCode: lot.lot_code, section: area?.area_name || "Unassigned garden", status: "AVAILABLE" } satisfies BurialPlotOption;
-  });
+  const { data, error } = await requireClient().rpc("staff_interment_plot_options");
+  if (error) throw error;
+  if (!Array.isArray(data) || !data.every((item) => isObject(item)
+    && isCount(item.lotId) && typeof item.lotCode === "string" && typeof item.section === "string"
+    && item.status === "AVAILABLE" && (item.graveType === null || item.graveType === "regular" || item.graveType === "mausoleum")
+    && isCount(item.confirmedCount) && isCount(item.remaining))) throw new Error("Plot availability could not be read.");
+  return data as BurialPlotOption[];
 }
 
 
@@ -294,6 +281,10 @@ function lotPayload(input: LotInput) {
     lot_code: input.lotCode, legacy_location_code: input.legacyLocationCode?.trim() || null,
     legacy_pa_number: input.legacyPaNumber || null, status: input.status, length_m: input.lengthM, width_m: input.widthM,
     location_geom: coordinate.location_geom, coordinate_accuracy_m: coordinate.coordinate_accuracy_m,
+    ...(input.graveType === undefined ? {} : {
+      grave_type: input.graveType, grave_policy_reference: input.gravePolicyReference?.trim() || null,
+      approved_mausoleum_capacity: input.graveType === "mausoleum" ? input.approvedMausoleumCapacity ?? null : null,
+    }),
   };
 }
 export async function createLot(input: LotInput) { return saveStaffRecord("lot", null, null, lotPayload(input)); }
@@ -559,6 +550,8 @@ export type BurialRecordInput = {
   intermentStatus: "PERMANENT" | "TEMPORARY";
   remainsType: "FRESH" | "ASH" | "BONE";
   referenceNo?: string;
+  intermentOrderNumber?: string;
+  intermentConfirmed?: boolean;
   serviceProvider?: string;
   recordSource?: string;
   qualityNotes?: string;
@@ -572,6 +565,9 @@ export type LotInput = {
   lotCode: string;
   legacyLocationCode?: string;
   legacyPaNumber?: string;
+  graveType?: GraveType | null;
+  gravePolicyReference?: string;
+  approvedMausoleumCapacity?: number | null;
   status: "AVAILABLE" | "BOOKED" | "HOLD";
   lengthM: number | null;
   widthM: number | null;
@@ -666,6 +662,8 @@ function burialPayload(input: BurialRecordInput) {
     interment_status: input.intermentStatus,
     remains_type: input.remainsType,
     reference_no: input.referenceNo || null,
+    ...(input.intermentOrderNumber === undefined ? {} : { interment_order_number: input.intermentOrderNumber.trim() || null }),
+    ...(input.intermentConfirmed === undefined ? {} : { interment_confirmed: input.intermentConfirmed }),
     service_provider: input.serviceProvider || null,
     record_source: input.recordSource || null,
     quality_notes: input.qualityNotes || null,

@@ -44,11 +44,10 @@ async function seedReadFixture(db) {
         insert into public.lot(lot_id,area_id,lot_code,status,coordinate_status,coordinate_verified,location_geom)
         values
           (101,1,'READ-101','AVAILABLE','pending',false,null),
-          (102,1,'READ-102','BOOKED','verified',true,null),
-          (103,1,'READ-103','HOLD','rejected',false,extensions.st_geomfromtext('POINT(123.006 13.006)',4326)::extensions.geography),
+          (102,1,'READ-102','AVAILABLE','verified',true,null),
+          (103,1,'READ-103','AVAILABLE','rejected',false,extensions.st_geomfromtext('POINT(123.006 13.006)',4326)::extensions.geography),
           (104,1,'READ-104','AVAILABLE','pending',false,null),
           (${LARGE_ID},${LARGE_ID},'READ-LARGE','AVAILABLE','pending',false,null);
-        update public.lot set deleted_at=transaction_timestamp() where lot_id=104;
 
         insert into public.deceased(deceased_id,display_name,public_display)
         values (101,'Visible Synthetic Person',true),(102,'Hidden Synthetic Person',false),
@@ -59,6 +58,9 @@ async function seedReadFixture(db) {
           (102,102,102,'active','PERMANENT','FRESH',null),
           (103,103,103,'pending','PERMANENT','FRESH',null),
           (104,104,104,'active','PERMANENT','FRESH',null);
+        update public.lot set status='BOOKED' where lot_id=102;
+        update public.lot set status='HOLD' where lot_id=103;
+        update public.lot set deleted_at=transaction_timestamp() where lot_id=104;
 
         insert into public.georeferencing_run(run_id,release_id,site_id,run_code,source_reference,source_hash,
           source_width,source_height,source_coordinate_space,working_srid,output_srid,method,processed_at,qgis_version,

@@ -2196,6 +2196,8 @@ export type Database = {
       }
     }
     Functions: {
+      staff_interment_plot_options: { Args: Record<PropertyKey, never>; Returns: Json }
+      public_shared_plot_burials: { Args: { p_burial_id: number }; Returns: Json }
       staff_save_georeferencing_run: {
         Args: {
           p_run_id: string | null

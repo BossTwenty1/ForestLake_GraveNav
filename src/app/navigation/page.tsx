@@ -14,11 +14,10 @@ export default async function NavigationPage({
   const params = await searchParams;
   const id = getParam(params.id);
   const plot = getParam(params.plot);
-  const record =
-    (await getPublicBurialRecord(id)) ||
-    (await getPublicBurialRecordByPlot(plot));
+  const record = id ? await getPublicBurialRecord(id) : await getPublicBurialRecordByPlot(plot);
 
   if (!record) {
+    if (!id && plot) redirect(`/map?${new URLSearchParams({ plot })}`);
     const query = id || plot || "that gravesite";
     redirect(`/record-not-found?${new URLSearchParams({ query })}`);
   }
