@@ -1,55 +1,65 @@
 # Forest Lake Phase 2 local defense candidate
 
-Local assessment, 7 November 2026. The GraveNav integration is installed and usable. The frozen viewer has one reproducible desktop redraw failure. Keep its error-free release gate open.
+Verified 7 November 2026 for the tentative final defense on 18 November. GraveNav now uses the corrected `phase2-planning-viewer-2026-11-07-redraw-fix` static package.
 
-## Run the demonstration
+## Local release and access
 
-Use the `gravenav-defense-rc/gravenav` worktree on branch `codex/defense-release-stabilization-20261106`. Its security baseline is `ea0bcfd6f79e611eb85b69bc81ec929583378b47`. Run `git rev-parse HEAD` for the local integration commit, which contains this handoff. The six runtime files are an independent, Git-ignored local installation.
+The adoption started from clean commit `46fdef1879c23d27e5e70eb63c3265960099b267` on `codex/defense-release-stabilization-20261106` in `C:\Users\Nash\.codex\worktrees\gravenav-defense-rc\gravenav`. Use `git rev-parse HEAD` for the documentation commit recording this adoption. The application source, homepage link, dependency lockfile, private environment settings, proxy configuration and 26 migrations retain their existing bytes.
 
-From this worktree, run `npm run build` and `npm start -- --hostname 127.0.0.1 --port 3217`. At [GraveNav on localhost](http://127.0.0.1:3217/), choose **Phase 2 Planning Map (CAD only)** under **Explore Memorial Park**. The viewer opens in the same tab. Browser Back returns to GraveNav. A direct refresh also works. [Direct local viewer](http://127.0.0.1:3217/phase2-viewer/index.html)
+The six runtime files are Git-ignored under `public/phase2-viewer/`. The homepage displays **Phase 2 Planning Map (CAD only)** when the local installation exists. It opens in the same tab. Browser Back returns to GraveNav.
 
-**Access decision.** The owner approved a local defense demonstration only. Bind the server to loopback. Next.js serves the installed public files directly, including the raw geometry, without checking an application session. Deploying this populated directory or its build unchanged would expose them. Git ignore prevents ordinary staging and has no effect on HTTP access or deployment tools that upload a local directory. Future public or staff access requires explicit Forest Lake management permission. Staff-only hosting would need to enforce authorization on every asset request.
+Access is approved for a local defense demonstration only. Run on `127.0.0.1`. A deployment containing these public files would make the raw CAD directly retrievable. Git ignore controls staging and provides no HTTP access restriction. Future public or authenticated hosting requires Forest Lake management permission.
 
-The visitor homepage displays the planning link when the local HTML file exists. With the package absent, it displays the original map link. The Phase 1 grounds map, GPS workflow, staff routes, security dependencies and 26 migrations are preserved. Next.js 16.4.5 uses the root URL with no base path, rewrite or catch-all route. Its proxy matches admin, admin API and auth routes. The common security headers apply to public assets.
+## Package and installed hashes
 
-## Frozen files
+The immutable source ZIP is `C:\Users\Nash\Documents\GraveNav-Phase2-CAD\phase2-digital-map\artifacts\phase2-planning-viewer-2026-11-07-redraw-fix.zip`.
 
-Use `artifacts/phase2-planning-viewer-2026-11-06.zip` from the separate Phase 2 project. Check the archive against its release record, read the archive manifest, and extract only the six files under its `site/` directory into `public/phase2-viewer/`, preserving all bytes and relative paths. Install before building and starting Next.js. The installed files sum to 17,922,211 bytes.
-
-- ZIP SHA-256 `7ae04068f27be38e3b00d4ac01340c8b386de5c6aa247e261ff0a8576b2c68ff`
-- Manifest SHA-256 `8381864aedc7cd463a210701715c8c20645e7dcfb75b0da859e5483c572ec7e6`
-
-| Relative path in the local viewer | SHA-256 verified in the archive, installation and HTTP response |
+| Item | SHA-256 |
 | --- | --- |
-| `index.html` | `d240948efca2f63994fa92418b5c3ff2c8ed6b2f062d26236569753731be8209` |
-| `assets/index-NqH5vG6W.js` | `495fa77d39a3c6ade35cecf06e1d1fe97152c33acfb621649ab87623cc4b947f` |
+| ZIP | `687719cd8c0181277702c7075ff68e12b6617d33c133c92bb69881202071ff6a` |
+| Packaged manifest | `f10e70c5b26ddba43374840859013ae8f89ce989f05a5861c8138d849d95f396` |
+| `index.html` | `55e383855df28bba12725ee623c66653e912e06cf4194dd56c152b6537cfb84a` |
+| `assets/index-DwP4JArH.js` | `7ededb145615b2a4002317b5ee5fb4ffafaf27657ae46e98eb79c48b17dc8470` |
 | `assets/index-D0PqAa_S.css` | `474c852c549338a66235d75793d56bfc5ce9dd098af21eef2c54a349d9c98e75` |
 | `data/phase2.local.json` | `02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77` |
 | `materials/lawn-grass.png` | `fe1ab82a8a3041083ffebf7fd7888bd357b4d0db43568553c0522eb4edf4fd0b` |
 | `materials/lawn-grass.prompt.txt` | `180d48f80942eb3ed4b975cb79913e9c88615cd33abc7c860cf51953e386618e` |
 
-## Validation
+The archive, manifest, all archived entries, six staged runtime files, active installation and six HTTP payloads were verified. The runtime inventory totals 17,922,148 bytes. The old `assets/index-NqH5vG6W.js` returns 404. Geometry, CSS, grass image and provenance text match November 6.
 
-| Gate | Observed in this candidate |
+## Integration checks
+
+| Gate | Actual result |
 | --- | --- |
-| Release integrity | ZIP, manifest, packaged handoff and all six site files passed. All six served files returned 200 with expected MIME types and matching hashes. Five missing file types and the deliberately omitted manifest returned 404 without redirection. |
-| Entry and return | Desktop click and mobile tap from the actual homepage, direct reload, full CAD extent and browser Back passed. A separate production build without the viewer restored the original map link and returned 404 for the HTML and raw CAD. |
-| Selection | Selected every candidate through the hosted viewer's search form and checked the resulting ID for each. All 4,146 lawn plus 348 estate outlines passed. Both internal CAD references in each of the 20 recorded overlap pairs selected distinct IDs. |
-| Layers and interaction | Nine place anchors focused at their expected CAD coordinates. All released geometry and label toggles, desktop native hit testing, touch selection and drag, wheel, keyboard zoom and pan, reset and hidden-layer search passed. Road, pathway and additional-context canvas pixels appeared and cleared as toggled. No external viewer requests or unexpected runtime asset responses were observed in the desktop and mobile diagnostic. |
-| Fault recovery | Missing and invalid geometry produced a retry screen and recovered. Missing and stalled grass imagery allowed the map to load. All 18 applicable desktop and touch-emulated mobile interaction regressions passed against Next.js. |
-| Main application | ESLint passed with one pre-existing unused import warning. Standalone TypeScript and production build passed. Production dependency audit reported zero vulnerabilities. Main suite had 159 passes, 2 failures and 1 skip. The M07 and M09 database concurrency tests require the unavailable Docker Linux engine. |
-| Main browser regressions | 32 of 34 passed, including anonymous staff redirects, API denials, record privacy, visitor search and map behavior. The existing Phase 1 Reset View overlap still blocks the zoom-in button at both 1440 and 390 pixels. Real staff sessions, hosted writes and physical phones were outside this run. |
+| Original redraw sequence | Twelve complete runs passed through the GraveNav homepage, combining three repetitions, desktop/mobile and reduced/ordinary animation. Each selected a lawn, hid lawns, selected `estates:1`, searched `18F9/AD5/23E`, and selected `18F9/AD6/23E`. Lawns became visible, IDs resolved correctly and the viewer emitted zero uncaught exceptions or external requests. |
+| Viewer regressions | 20 of 20 applicable desktop/mobile cases passed against Next.js. They cover rapid repeated estate/lawn transitions, hidden-category search recovery, stable selection canvas, highlight clearing, all layers, nine place anchors, native click/touch selection, touch drag, wheel, zoom/pan/reset, keyboard and missing/invalid asset recovery. |
+| Inventory | All 4,494 candidates selected individually through the hosted search form. Both CAD references in each of the 20 overlap-review pairs resolved to distinct candidate IDs. All nine anchors focused. Road, pathway and additional-context canvas pixels appeared and cleared as toggled. |
+| Navigation and routes | Homepage entry, same-tab navigation, Back, direct loading and refresh passed at desktop/mobile sizes. Six payload hashes and MIME types passed. Missing JS/CSS/JSON/PNG/HTML, the omitted manifest and obsolete JS returned 404 without redirection. |
+| Main gates | Production build, standalone TypeScript and production dependency audit passed. Audit returned zero vulnerabilities. ESLint passed with one existing unused-import warning. |
+| Main test suite | 159 passed, 2 failed, 1 skipped, 162 total. M07/M09 concurrency tests failed because Docker's Linux engine was unavailable. |
+| Main browser | 32 passed, 2 failed, 34 total. The existing Phase 1 zoom-in button is still obstructed by Reset View at both viewport widths. Public search, map rendering, anonymous staff redirects, private-record handling and unauthenticated API denials passed. |
 
-**Viewer blocker.** On desktop, hide lawn plots after selecting a lawn, select `estates:1`, then search `18F9/AD5/23E`. The search resolves, but Leaflet can raise a `clearRect` error in its canvas redraw. The strict smoke failed in five consecutive Next.js runs. The supplied standalone smoke also reproduced the exception against the same bytes. Rapid overlap switching can reproduce it with selections still resolving. The frozen package was preserved.
+The source viewer fix gives Leaflet ownership of the selection pane renderer for the map's lifetime. React replaces highlight paths while preserving the canvas. The previous queued redraw after renderer disposal was reproduced before correction. This adoption used only the frozen ZIP.
 
-**Rehearsed sequence.** After inspecting the estate, use **Clear selection**, enable **Lawn plots**, then search the overlap reference. This passed the complete desktop and emulated-mobile smoke in four consecutive paired runs. The sequence is a defense workaround. The underlying redraw defect remains open.
+Leaflet CRS.Simple retains local Cartesian CAD coordinates with unconfirmed units. These candidates have no verified operational grave IDs, occupant links or GPS transformation. Planned-place focus shows CAD design anchors.
 
-**Interpretation.** Leaflet CRS.Simple displays local Cartesian CAD coordinates with unconfirmed units. Candidate outlines and CAD references have no official grave ID, occupant or deceased-person crosswalk. The nine names locate planned features. The viewer supplies no geographic transformation or walking directions. Blender terrain and wall studies remain separate illustrative evidence.
+## Cold start and rollback
 
-## Rollback and next action
+For a fresh local defense setup, obtain the retained ZIP and existing approved private `.env.local` configuration through the project owner. Run `npm ci` using the locked application dependencies. Extract the ZIP to an empty staging folder outside `public/`. Verify the ZIP and manifest digests above, exactly six `site/` files, and each manifest file size/hash. Install only that complete `site/` directory as `public/phase2-viewer/` before building.
 
-Stop the local server, move the entire `public/phase2-viewer/` directory outside `public/`, rebuild, and restart on loopback. Verify the original homepage map link and 404 responses for both the viewer HTML and geometry. To remove the integration code as well, revert only its local commit. Rollback requires no database or migration changes.
+Run from this worktree:
 
-The tracked change comprises `.gitignore`, `eslint.config.mjs`, `src/app/page.tsx` and this handoff. The viewer is excluded from lint because the minified release must stay byte-identical.
+```powershell
+npm run build
+npm start -- --hostname 127.0.0.1 --port 3217
+```
 
-For the defense, prioritize the redraw reproducer in the separate viewer source. Validate a newly frozen, separately versioned replacement with the same desktop/mobile gates before substituting it. The existing frozen ZIP remains the rollback reference.
+Open [GraveNav](http://127.0.0.1:3217/) and choose the Phase 2 link, or load [the local viewer](http://127.0.0.1:3217/phase2-viewer/index.html) directly. Verify the original hidden-layer search and the obsolete asset's 404 response after each fresh installation.
+
+The exact former installation is retained at `C:\Users\Nash\.codex\visualizations\2026\11\07\01a1b45b-514b-7232-85ed-3116e541ac04\adoption\november-6-rollback`. Its original ZIP remains at `C:\Users\Nash\Documents\GraveNav-Phase2-CAD\phase2-digital-map\artifacts\phase2-planning-viewer-2026-11-06.zip`, SHA-256 `7ae04068f27be38e3b00d4ac01340c8b386de5c6aa247e261ff0a8576b2c68ff`. To roll back, stop the loopback server, move the active viewer outside public, restore the complete six-file November 6 directory, verify its manifest, rebuild and restart. That release retains the redraw defect and requires clearing selection and enabling the target layer before searching.
+
+## Defense readiness
+
+Treat the corrected Phase 2 package as frozen. Continue GraveNav functional rehearsal using a separate, approved demonstration database and clearly labelled synthetic records. Rehearse ADMIN/MANAGER sign-in, unused plot assignment, burial entry, public visibility, successful search/profile/map and archive/recovery.
+
+Open items include the Phase 1 control overlap, Docker concurrency gates, authenticated browser workflows and email delivery, a recoverable demo database with useful records, physical-device checks and field/GPS evidence. The adoption did not establish those outcomes. Raw test logs and browser helpers are retained under `C:\Users\Nash\.codex\visualizations\2026\11\07\01a1b45b-514b-7232-85ed-3116e541ac04\adoption`.
