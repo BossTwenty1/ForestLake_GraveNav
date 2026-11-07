@@ -1,3 +1,4 @@
+import { getBurialMapScope } from "@/lib/supabase/phase2-data";
 import { redirect } from "next/navigation";
 import { NavigationRouteMap } from "@/components/visitor/navigation-route-map";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
@@ -21,6 +22,10 @@ export default async function NavigationPage({
     const query = id || plot || "that gravesite";
     redirect(`/record-not-found?${new URLSearchParams({ query })}`);
   }
+
+  const mapScope = await getBurialMapScope(record.id);
+  if (mapScope === "unavailable") redirect(`/gravesite?id=${encodeURIComponent(record.id)}`);
+  if (mapScope === "phase2") redirect(`/phase2-map?id=${encodeURIComponent(record.id)}`);
 
   return (
     <VisitorShell

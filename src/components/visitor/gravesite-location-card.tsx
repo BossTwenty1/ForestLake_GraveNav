@@ -3,9 +3,15 @@ import { Icon } from "@/components/ui/icons";
 import { canNavigateToPublicRecord } from "@/lib/public-navigation";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 
-export function GravesiteLocationCard({ record }: { record: PublicBurialRecord }) {
-  const canNavigate = canNavigateToPublicRecord(record);
-  const state = locationState(record.coordinateStatus);
+export function GravesiteLocationCard({ record, mapScope = "legacy" }: { record: PublicBurialRecord; mapScope?: "legacy" | "phase2" | "unavailable" }) {
+  const canNavigate = mapScope === "legacy" && canNavigateToPublicRecord(record);
+  const state: LocationState = mapScope === "unavailable" ? {
+    label: "Map unavailable",
+    heading: "Geographic guidance unavailable",
+    description: "The record’s map area could not be confirmed. Reload to try again.",
+    tone: "unavailable",
+    icon: "alert",
+  } : locationState(record.coordinateStatus);
 
   return (
     <section
@@ -46,7 +52,7 @@ export function GravesiteLocationCard({ record }: { record: PublicBurialRecord }
         </span>
         <div>
           <strong>{state.heading}</strong>
-          <p>{state.description}</p>
+          <p>{mapScope === "phase2" ? "Published Phase 2 geometry and reviewed walking access are required for geographic guidance." : state.description}</p>
           {canNavigate && record.location ? (
             <code>
               {formatCoordinate(record.location.latitude, "N", "S")},{" "}
@@ -66,13 +72,13 @@ export function GravesiteLocationCard({ record }: { record: PublicBurialRecord }
             <span>Navigate to gravesite</span>
           </Link>
         ) : null}
-        <Link
+        {mapScope !== "unavailable" ? <Link
           className="button button--secondary button--lg"
-          href={`/map?plot=${encodeURIComponent(record.plot)}`}
+          href={mapScope === "phase2" ? `/phase2-map?id=${encodeURIComponent(record.id)}` : `/map?plot=${encodeURIComponent(record.plot)}`}
         >
           <Icon name="map" size={19} />
-          <span>View cemetery map</span>
-        </Link>
+          <span>{mapScope === "phase2" ? "View Phase 2 geographic map" : "View cemetery map"}</span>
+        </Link> : null}
       </div>
     </section>
   );

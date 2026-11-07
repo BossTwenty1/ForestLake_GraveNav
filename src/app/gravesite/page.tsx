@@ -1,3 +1,4 @@
+import { getBurialMapScope } from "@/lib/supabase/phase2-data";
 import { redirect } from "next/navigation";
 import { GravesiteLocationCard } from "@/components/visitor/gravesite-location-card";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
@@ -13,6 +14,8 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
   const record = await getPublicBurialRecord(id);
   if (!record) redirect(`/record-not-found?${new URLSearchParams({ query: id || "that gravesite" })}`);
 
+  const mapScope = await getBurialMapScope(record.id);
+
   return <VisitorShell backHref={returnTo} backLabel="Back to search results" wide><article className="public-profile">
     <section aria-labelledby="memorial-name" className="profile-memorial-card">
       <div aria-label="Memorial photograph unavailable" className={`profile-memorial-media ${record.tone}`} role="img">
@@ -27,7 +30,7 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
     </section>
 
     <div className="profile-information-column">
-      <GravesiteLocationCard record={record} />
+      <GravesiteLocationCard record={record} mapScope={mapScope} />
       <section aria-labelledby="memorial-information-title" className="profile-information-card"><div className="profile-section-heading"><div><p>Memorial information</p><h2 id="memorial-information-title">Public registry details</h2></div><Icon name="records" size={22} /></div><dl className="profile-registry-list"><div><dt>Full name</dt><dd>{record.name}</dd></div><div><dt>Life dates</dt><dd>{record.dates}</dd></div><div><dt>Burial date</dt><dd>{record.burialDate}</dd></div><div><dt>Record status</dt><dd>{record.status}</dd></div></dl><p className="profile-registry-note"><Icon name="info" size={17} />Only cemetery-approved public information is shown. Biography, family details, tributes, and marker inscriptions are omitted when they are not part of the public record.</p></section>
     </div>
   </article></VisitorShell>;

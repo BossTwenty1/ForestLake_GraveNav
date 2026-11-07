@@ -42,6 +42,7 @@ export default async function HomePage() {
         <h2>Explore Memorial Park</h2>
         {hasPlanningMap ? <a href="/phase2-viewer/index.html">Phase 2 Planning Map (CAD only)</a> : <Link href="/map">View map</Link>}
       </div>
+      <p><Link href="/phase2-map">Phase 2 Geographic Map</Link></p>
       <div className="stitch-feature-track">
         <Link className="stitch-feature-card stitch-feature-card--map" href="/map">
           <span className="stitch-feature-visual"><Icon name="map" size={34} /><b>Phase 1 grounds map</b></span>
