@@ -9,6 +9,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "public/phase2-viewer/**",
     "node_modules/**",
   ]),
 ]);

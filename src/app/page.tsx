@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import Link from "next/link";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
 import { Button } from "@/components/ui/button";
@@ -6,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getPublicGardenNames } from "@/lib/supabase/public-data";
 
 export default async function HomePage() {
+  const hasPlanningMap = existsSync(join(process.cwd(), "public", "phase2-viewer", "index.html"));
   const gardenNames = (await getPublicGardenNames()).slice(0, 3);
 
   return <VisitorShell wide><div className="visitor-home">
@@ -35,11 +38,14 @@ export default async function HomePage() {
     </section>
 
     <section className="stitch-explore">
-      <div className="stitch-section-heading"><h2>Explore Memorial Park</h2><Link href="/map">View map</Link></div>
+      <div className="stitch-section-heading">
+        <h2>Explore Memorial Park</h2>
+        {hasPlanningMap ? <a href="/phase2-viewer/index.html">Phase 2 Planning Map (CAD only)</a> : <Link href="/map">View map</Link>}
+      </div>
       <div className="stitch-feature-track">
         <Link className="stitch-feature-card stitch-feature-card--map" href="/map">
-          <span className="stitch-feature-visual"><Icon name="map" size={34} /><b>Official grounds map</b></span>
-          <span><strong>Memorial Park Grounds Map</strong><small>Explore mapped pathways and open the cemetery navigation view.</small></span>
+          <span className="stitch-feature-visual"><Icon name="map" size={34} /><b>Phase 1 grounds map</b></span>
+          <span><strong>Phase 1 Grounds Map</strong><small>Explore mapped pathways and open the cemetery navigation view.</small></span>
           <span className="stitch-feature-footer"><b>Live map</b><span>Open view <Icon name="chevronRight" size={13} /></span></span>
         </Link>
         <article className="stitch-feature-card stitch-feature-card--verification">
