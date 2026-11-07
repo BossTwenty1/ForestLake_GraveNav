@@ -15,7 +15,7 @@ const ROOT_REQUEST = "40000000-0000-0000-0000-000000000001";
 const REPORT = "50000000-0000-0000-0000-000000000001";
 const DIGEST = "a".repeat(64);
 const LIVE_DIGEST = "b".repeat(64);
-const M09 = "20260929000000_gis_publication.sql";
+const IMPORT_LOCK_FIX = "20261107000000_gis_begin_import_lock_order.sql";
 
 function docker(args, options = {}) {
   return spawnSync("docker", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, ...options });
@@ -170,7 +170,7 @@ test("M09 serializes publication and import lifecycle races without partial stat
     grant execute on function auth.uid() to anon, authenticated;
   `);
   const files = (await readdir(MIGRATIONS)).filter((file) => file.endsWith(".sql")).sort();
-  for (const file of files.slice(0, files.indexOf(M09) + 1)) sql(container, await readFile(new URL(file, MIGRATIONS), "utf8"));
+  for (const file of files.slice(0, files.indexOf(IMPORT_LOCK_FIX) + 1)) sql(container, await readFile(new URL(file, MIGRATIONS), "utf8"));
 
   const releases = [1, 2, 3, 4, 5].map((n) => `20000000-0000-0000-0000-00000000000${n}`);
   const restageRelease = "20000000-0000-0000-0000-000000000006";
@@ -285,13 +285,34 @@ test("M09 serializes publication and import lifecycle races without partial stat
     { selector: replacementWinner, events: 2, target: "approved" });
 
   const finalizeOperation = randomUUID();
-  const finalize = `set role authenticated; select set_config('request.jwt.claim.sub','${ADMIN}',false);
+  const finalize = `set application_name='gravenav-finalize-race'; begin;
+    select 1 from public.area where area_id=2 for no key update;
+    do $$begin
+      for attempt in 1..250 loop
+        perform pg_stat_clear_snapshot();
+        if exists (select 1 from pg_stat_activity where application_name='gravenav-restage-race'
+          and wait_event_type='Lock') then return; end if;
+        perform pg_sleep(0.02);
+      end loop;
+      raise exception 'Restage never waited on the finalizer area lock';
+    end$$;
+    set local role authenticated;
+    select set_config('request.jwt.claim.sub','${ADMIN}',true);
     select public.staff_finalize_mapping_import('${finalizeImport}'::uuid,2,'${DIGEST}',
-      '{"warnings":[],"reviewed_layer_hashes":{}}'::jsonb,'${finalizeRoot}'::uuid,'${finalizeOperation}'::uuid)::text;`;
+      '{"warnings":[],"reviewed_layer_hashes":{}}'::jsonb,'${finalizeRoot}'::uuid,'${finalizeOperation}'::uuid)::text;
+    commit;`;
   const restageManifest = Buffer.from('{"files":[]}', "utf8").toString("base64");
-  const restage = `set role authenticated; select set_config('request.jwt.claim.sub','${ADMIN}',false);
+  const restage = `set application_name='gravenav-restage-race'; set role authenticated; select set_config('request.jwt.claim.sub','${ADMIN}',false);
     select public.staff_begin_mapping_import('${restageRelease}'::uuid,2,'${restageRoot}'::uuid,'${DIGEST}','${restageManifest}')::text;`;
-  const lifecycle = await Promise.all([asyncSql(container, finalize), asyncSql(container, restage)]);
+  const finalizing = asyncSql(container, finalize);
+  // Start restage only after finalization's test transaction has acquired the area lock.
+  for (let attempt = 0; ; attempt += 1) {
+    if (sql(container, `select exists(select 1 from pg_stat_activity
+      where application_name='gravenav-finalize-race' and wait_event='PgSleep')`) === "t") break;
+    assert.ok(attempt < 15, "Finalizer did not reach the area-lock barrier");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const lifecycle = await Promise.all([finalizing, asyncSql(container, restage)]);
   assert.equal(lifecycle.filter((result) => result.status === 0).length, 1, JSON.stringify(lifecycle));
   assert.equal(lifecycle.filter((result) => result.status !== 0).length, 1, JSON.stringify(lifecycle));
   assert.match(lifecycle.find((result) => result.status !== 0).stderr, /stale release|revision|active_release|duplicate key/i);
