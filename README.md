@@ -1,75 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GraveNav
 
-## Getting Started
+GraveNav is a cemetery-record and navigation system for Forest Lake. The current map covers the complete Phase 2 CAD layout. The first operational-data release targets Majestic Palm Garden, Section D, with later expansion to other sections.
 
-First, run the development server:
+Start with the [current Phase 2 operational handoff](docs/phase2-local-defense.md). The [documentation index](docs/README.md) identifies current contracts and archived reports.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Current application
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- The visitor Map tab opens the integrated landscape at /map within the GraveNav interface.
+- Memorial search uses approved public records. CAD-candidate search preserves the technical outline references.
+- The layout contains 4,494 selectable candidates. Official plot-to-record associations require management verification.
+- Shared graves use individual deceased and burial records under one lot. Approved regular graves permit up to six interments, with individually reserved slots. Mausoleums require an approved arrangement and capacity.
+- The main map includes verified geographic gravesite selection, live location and reviewed-network guidance with updating distance. These require approved publication and field-reviewed settings. Section D identity matching, georeferencing and real-phone acceptance remain outstanding.
 
-## Supabase development setup
+## Run locally
 
-The frontend reads Supabase configuration from the uncommitted `.env.local` file. It shows `LOCAL` or `HOSTED DEVELOPMENT` in the protected administrator UI so the active target is visible.
+Use the project root. Obtain the approved private environment configuration and install the verified map assets using the current handoff.
 
-### Hosted development (approved project)
+~~~powershell
+npm ci
+npm run build
+npm start -- --hostname 127.0.0.1 --port 3217
+~~~
 
-Each groupmate must obtain the hosted project URL and publishable/anonymous key privately from the authorized project owner. Never commit `.env.local`. Most development tasks need only the public variables; the protected Account Management flow additionally requires the authorized project owner to place the server-only key in their own uncommitted `.env.local`.
+Open [GraveNav](http://127.0.0.1:3217/) or the [integrated map](http://127.0.0.1:3217/map).
 
-```powershell
-git clone REPOSITORY_URL
-cd GraveNav\web
-npm install
-copy .env.hosted.example .env.local
-notepad .env.local
-npm run dev
-```
+For loopback-only development, use npm run dev -- --hostname 127.0.0.1 --port 3000. The authentication callback currently uses that fixed origin during development. Production-mode builds use NEXT_PUBLIC_APP_ORIGIN. Match the configured origin and approved callback URLs when testing authentication.
 
-Set `NEXT_PUBLIC_SUPABASE_URL` to the approved hosted project URL, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to its publishable/anonymous key, and `NEXT_PUBLIC_APP_ORIGIN` to the public application origin. During `npm run dev`, GraveNav deliberately uses `http://localhost:3000` even if a production origin is present; a deployed production build uses the configured `NEXT_PUBLIC_APP_ORIGIN`. Restart the frontend after changing environment variables.
+## Environment and access
 
-For protected Auth Admin account provisioning, place the hosted Supabase Secret key in `.env.local` as `SUPABASE_SECRET_KEY`. The server also accepts the legacy `SUPABASE_SERVICE_ROLE_KEY` name. Do not prefix either variable with `NEXT_PUBLIC_`, do not put either key in browser code, and do not share or commit the value. Restart `npm run dev` after adding it.
+Keep .env.local private. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for the authorized target. NEXT_PUBLIC_SUPABASE_ANON_KEY is the compatibility fallback. Auth Admin provisioning additionally requires an authorized server-only SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY.
 
-For hosted invitation testing while the frontend runs locally, add this exact URL to the hosted Supabase Auth URL Configuration redirect allow list:
+Configure GRAVENAV_PHASE2_SITE_ID and GRAVENAV_PHASE2_AREA_ID only after management approves the operational site and area. The geographic adapter requires an approved publication.
 
-```text
-http://localhost:3000/auth/callback
-```
+The current CAD-distribution permission covers local review. Any public or restricted hosted rollout requires the corresponding authorization. Files under public are directly retrievable when deployed. Runtime CAD assets and private review records stay outside Git.
 
-The protected invitation endpoint sends invited users to that callback with an internal invitation marker. The callback exchanges the code for a session and routes the user to `/auth/set-password`; after the password is saved, the server verifies the linked GraveNav account before routing to the role-aware administrator workspace. The public homepage remains `/` and does not require authentication.
+## Validation
 
-For a later Vercel deployment, set `NEXT_PUBLIC_APP_ORIGIN` to the approved production application origin in that deployment and add its corresponding `/auth/callback` URL separately in hosted Supabase. Never use the production origin for local invitation tests.
+~~~powershell
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
+npm run security:audit
+~~~
 
-Visitors do not need accounts. Administrators and managers need individually approved Supabase Auth accounts linked to active GraveNav `account` records. Do not use one shared password.
+The full test suite needs a running Docker engine for genuine PostgreSQL concurrency tests. The remaining database contract tests use disposable PGlite instances. Check actual results and skips against the current handoff.
 
-### Local Docker fallback
+The retained map:rebuild command generates historical Phase 1 routing assets. Consult the archive before explicitly revisiting that retired tooling.
 
-Copy `.env.example` to `.env.local`, then use the local URL and anonymous key printed by `npx supabase status`. Keep the local Supabase stack running before starting the frontend. This fallback is separate from the hosted development project; do not run schema pushes from this frontend task.
+## Working rules
 
-The public visitor surfaces query only the approved active public view. Administrator surfaces use authenticated RLS policies, and account provisioning remains a protected server-only operation. Optional photo uploads use the private bucket named by `NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET`; uploads are validated, stored as pending, and kept non-public until an administrator review workflow approves them. Storage policies must permit only authenticated active staff to upload and manage objects.
+Read AGENTS.md and the current handoff before changing the system. Preserve source CAD geometry, official identities, privacy, staff authorization, audit history and recovery behavior. Record publication, hosted migrations, push, merge and deployment need explicit authorization.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Use the [production checklist](docs/production-readiness.md), [database contracts](docs/GraveNav_Database_Implementation_Notes.md), and [GIS import and publication runbook](docs/gis/import-and-publication.md) for the relevant workflow.

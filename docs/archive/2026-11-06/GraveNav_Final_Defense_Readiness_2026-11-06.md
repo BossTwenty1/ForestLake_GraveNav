@@ -1,3 +1,12 @@
+# Archived reference — superseded instructions
+
+> Archived on 9 November 2026. This document preserves a dated assessment or execution plan. Its old scope, constraints, counts and agent instructions are historical; use the [current operational handoff](../../phase2-local-defense.md) for ongoing work.
+
+Original location: docs/GraveNav_Final_Defense_Readiness_2026-11-06.md  
+Original content SHA-256: c4b3f0884e76816a9e2b3289efe9fd29520eadd4ddc89c2d1aade6c98723db2a
+
+---
+
 # GraveNav — final defense readiness report
 
 **Assessment date:** 6 November 2026, Asia/Manila. **Defense period begins:** Monday, 9 November 2026.

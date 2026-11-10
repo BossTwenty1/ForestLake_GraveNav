@@ -1,5 +1,7 @@
 # GraveNav production-readiness checklist
 
+Updated 9 November 2026. Read the [current Phase 2 operational handoff](phase2-local-defense.md) for scope, access decisions and actual test results. This checklist describes requirements; it does not establish that a hosted target has passed them.
+
 This checklist covers the controls that must be configured in the hosted Supabase project and deployment platform. The repository does not contain, and must not contain, secret or service-role values.
 
 ## Hosted Supabase Auth
@@ -31,9 +33,18 @@ The Auth Admin credential must remain server-only under `SUPABASE_SECRET_KEY` or
 
 - Keep the photo bucket private.
 - Allow uploads, metadata writes, signed reads, and deletes only through the intended authenticated policies.
-- Keep public views limited to approved anonymized data.
+- Keep public views limited to approved public records and permitted fields. Public-display consent and the active/removal filters apply to every individual in a shared-gravesite roster; owner contacts and restricted evidence remain private.
 - Confirm backups and point-in-time recovery are enabled before production use.
 - Review the audit log after account, plot, burial, photo, and approval changes.
+
+## Phase 2 activation and CAD access
+
+- Preserve the entire Phase 2 planning map; initially activate verified operational records only for Majestic Palm Garden Section D.
+- Require official plot/marker/burial confirmation, an exact CAD crosswalk, accepted ground control and independent validation before treating a planning candidate as a geographic gravesite.
+- Keep walking directions disabled until the published graph, permitted route/access endpoint and real-phone behavior pass field acceptance.
+- The present CAD installation is authorized only on loopback. A public Next.js deployment containing these static assets would expose the CAD data. Obtain Forest Lake's explicit access decision before packaging them for hosted delivery.
+- The locally committed shared-gravesite and M09 forward migrations require separate target authorization and compatibility checks before hosted application.
+- Test admission capacity, concurrent additions, privacy, staff authorization, shared-person search and one-destination behavior after an authorized migration. Unavailable checks remain outstanding.
 
 ## Deployment and maintenance
 

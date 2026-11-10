@@ -1,3 +1,12 @@
+# Archived reference — superseded instructions
+
+> Archived on 9 November 2026. This document preserves a dated assessment or execution plan. Its old scope, constraints, counts and agent instructions are historical; use the [current operational handoff](../../phase2-local-defense.md) for ongoing work.
+
+Original location: docs/superpowers/plans/2026-09-28-gis-foundation-implementation-plan.md  
+Original content SHA-256: d500954a69efebcff787522d01901c4d07c093693dbf6da2c9a910d364abfa84
+
+---
+
 # GraveNav GIS Foundation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development

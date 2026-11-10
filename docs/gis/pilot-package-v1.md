@@ -1,5 +1,7 @@
 # GraveNav pilot GIS package v1
 
+Current scope and evidence gates are in the [Phase 2 operational handoff](../phase2-local-defense.md). This contract/runbook remains in use; it grants no authorization for hosted mutations or publication.
+
 This document defines the offline structure accepted by
 `node scripts/validate-gis-package.mjs <directory>`. The command performs no
 network requests and does not create a Supabase client.

@@ -1,3 +1,12 @@
+# Archived reference — superseded instructions
+
+> Archived on 9 November 2026. This document preserves a dated assessment or execution plan. Its old scope, constraints, counts and agent instructions are historical; use the [current operational handoff](../../phase2-local-defense.md) for ongoing work.
+
+Original location: docs/forest-lake-phase1-kml-cleanup.md  
+Original content SHA-256: 4a85de884923cfdbf23c03162f9c7fc363b0dfe767a7cec3cbcc35fe806db9ba
+
+---
+
 # Forest Lake Phase 1 KML cleanup
 
 This output was generated from the supplied KML. The original KML was not modified. The cleaned site, garden, node, and edge geometry was imported into the existing hosted Supabase tables with the data-only SQL file in `docs/forest-lake-phase1-map-import.sql`.

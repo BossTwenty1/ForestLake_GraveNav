@@ -1,238 +1,212 @@
-# Forest Lake Phase 2 local defense candidate
+# GraveNav Phase 2 operational readiness
 
-Verified 7 November 2026 for the tentative final defense on 18 November. GraveNav now uses the corrected `phase2-planning-viewer-2026-11-07-redraw-fix` static package.
+Updated 10 November 2026. This is the current main-application handoff. The filename is retained for existing links. Earlier audits and release results are preserved in the [history snapshot](archive/2026-11-09/phase2-readiness-history.md).
 
-## Full Phase 2 planning map and Section D operational pilot
+## Accepted scope and visitor experience
 
-The corrected November 7 viewer at `/phase2-viewer/index.html` covers the entire Forest Lake Phase 2 CAD layout. All 4,494 selectable planning candidates (4,146 lawn and 348 estate outlines), road and pathway linework, and reviewed CAD labels remain available. The separate `/phase2-map` geographic view is for officially verified operational gravesites. Its first data release is **Forest Lake Phase 2 → Majestic Palm Garden → Section D**, starting with one verified burial-to-plot association. An approved walking approach may connect a permitted entrance to Section D. Other sections remain visible in the complete CAD planning viewer and can receive operational coverage through later approved releases.
+**Full Phase 2 map coverage, Section D operational-data coverage.** GraveNav is intended to become a real operational cemetery system. Its first verified records and on-site navigation serve Forest Lake Phase 2 -> Majestic Palm Garden -> Section D. Other sections remain visible and can receive approved operational data later.
 
-### Section D workbook evidence
+The entire CAD layout remains: **4,494 selectable candidates**, comprising 4,146 lawn and 348 estate outlines, all 20 overlap-review pairs and nine CAD-backed planned-place anchors. A selectable CAD candidate is planning geometry; it is not an officially identified or occupied grave. Landscape surfaces, trees and protection illustrations do not establish constructed site conditions.
 
-The interment workbook's `Leg2` sheet has **109 clearly D-coded burial rows** among 298 `MPG/` rows. Each has a distinct interment order, a populated deceased name and PA number, a typed interment date, and the LEG2 tag. Locations consistently follow `MPG/D<block-like number>/<lot-like number>/<product class>` with slash or space before the class. The source gives the literal `D` token and numbers. It lacks a Section D field or written legend that assigns those tokens to the official Phase 2 subdivision.
+The intended flow is: search an authorized public deceased record; show the correct gravesite and live phone location with reported accuracy on the same GraveNav map; draw a reviewed permitted walking route to its access endpoint; update the remaining distance in metres while the visitor moves. Poor, stale, denied or unavailable fixes pause guidance. Preserve the selected individual's identity when multiple deceased people share one lot.
 
-- The 109 rows represent 98 distinct location keys with both number tokens preserved as text and product class included. Converting the number tokens to integers collapses one leading-zero variant, leaving 97 keys. Dropping class alone does not change the count. Ten full keys recur across 21 rows. Eleven PA keys recur. Preserve the class and source format in review, and have management resolve duplicate assignments, class changes and multiple interments under the existing one-burial-per-lot rule.
-- All 109 agree with `Interment summary` on interment order, normalized plot key, PA, deceased name and date. That sheet adds five D-coded order leads, of which three contain a second garden location in the same cell. The detailed `summary` and `FINAL` sheets contain 51 and 34 D-coded rows respectively, including overlapping orders and different sheet coverage. Reconcile their differences by interment order and site tag in restricted review before adding any leads to the pilot. Do not sum sheet totals.
-- **109 workbook candidates, zero independently verified Section D plot memberships, zero official plot-to-CAD matches.** These counts refer to different levels of evidence. Forest Lake must confirm the meaning of MPG and the D-coded components, the official Section D boundary and lot register, and which record and physical marker correspond to a specific plot. The Leg1 inventory cannot establish that authority.
+The final defense target is tentatively 18 November 2026. Passing local software checks does not replace management approval or on-site evidence.
 
-### Section D CAD evidence
+## Actual implementation and checkout
 
-The semantic audit identifies model-space sector-label text `D` at source handle `18BC`, the Majestic Palm Garden label at `18BE`, and the distinct Majestic Palm Court C label at `18C1`. The audit provides no geometry link from `18BC` to a Section D boundary, subdivision or set of plots. The Phase 2 property outline at source `1924` covers the full CAD site. Each of the 4,494 candidates has a traceable instance path. None has a populated official plot identifier. This supports showing exact candidates for a reviewer to confirm and supplies no basis for deriving Section D membership from label proximity. See the [semantic audit](<C:/Users/Nash/Documents/GraveNav-Phase2-CAD/phase2-digital-map/qa/dxf-semantic-audit.json>) and [DXF validation report](<C:/Users/Nash/Documents/GraveNav-Phase2-CAD/phase2-dxf-validation-2026-10-16/Forest_Lake_Phase2_DXF_Validation_Report.md:308>).
+Work in `C:\Users\Nash\.codex\worktrees\gravenav-defense-rc\gravenav`. Check `git rev-parse HEAD` and `git status --short` before changing anything; the chat's default worktree can be different.
 
-Ask management and the surveyor for an approved plotted plan or a signed markup that identifies the Section D limits and official lot numbering. Review it alongside the full frozen viewer, then record the confirmed source revision, boundary reference and explicit selected CAD instance paths. Mark ambiguous or overlapping candidates for review and retain their original geometry.
+The last committed baseline checked for this update is `345fcbf7dd453d1ecd9c857116a1881b9c9da2c2`. It includes shared gravesites and field preparation. M09 lock ordering is separately committed as `dd1723db3bdf1938e3da5d908cae6736956ebf89`. The native November 9 integration, November 10 navigation implementation and documentation remain uncommitted. Preserve that work. No commit, hosted mutation or deployment was performed for this navigation task.
 
-### Operational setup and field sequence
+| Capability | Current state |
+| --- | --- |
+| Main map | `/map` renders the November 9 landscape inside GraveNav's existing header, navigation, memorial search and map controls. The administrator map uses the same component. |
+| Native CAD interaction | All candidate geometry, independent overlap selection, categories, highlighting, nine anchor focuses and technical reference search remain available. The map owns persistent canvas renderers. |
+| Reference viewer | `/phase2-viewer/index.html` is the installed standalone local reference. The main Map tab stays in `/map`. |
+| Geographic adapter | Integrated into /map as the verified geographic mode using existing public_mapping_layer and public_burial_gis. The old /phase2-map URL redirects to /map. Publication, burial, lot, polygon and access identities remain checked. |
+| Search and staff records | Individual public deceased search/profiles, protected staff workflows and shared-gravesite contracts exist. No Section D records have been imported by this work. |
+| Geographic readiness | No Section D boundary, official plot-to-CAD match or independently validated Section D ground transformation has been established by the available evidence. |
+| Phone navigation | Location/accuracy, directed reviewed-edge routing, remaining distance, off-route/arrival and failure handling are implemented and locally tested. Guidance needs a published release and its field-reviewed policy. Actual Section D activation and real-phone acceptance remain blocked. |
 
-1. **Available now.** The [restricted Section D management queue](#restricted-section-d-management-queue) preserves all 109 source order links. Use it to select one accessible review lead. The queue carries no import or publication authority.
-2. **Management review.** Confirm the official site, Section D scope and the first physical grave marker and burial association. Decide whether the derivative geometry can be published. The public GIS readers expose the approved publication to anonymous users. Staff-only access would require a protected read path.
-3. **Survey and route review.** Identify common CAD and ground control points, collect independent held-out validation, and record datum, method, timestamps, device accuracy and observed errors. The existing checklist covers the required capture protocol. Walk a permitted entrance-to-Section-D approach, noting barriers, restrictions and a reachable access node. Keep the plot marker and walking endpoint distinct.
-4. **Existing GIS workflow.** Bind the official Section D identifier to the approved operational `lot_id` and authorized burial record, then attach the confirmed CAD correspondence, independently validated geographic polygon, and reviewed access point. Use one approved operational `area_id` with a reviewed Section D boundary and an explicit `pilot_lot_ids` list containing the one authorized lot. The pilot package supports 1–50 lot IDs, so expand in later reviewed releases. Reuse the approved site, area and existing publication selector. The adapter already pins one site/area release and checks plot/burial/access identities. If the existing area is broader than Section D, resolve the administrative area scope with management before configuring the adapter. The current selector and adapter expose no separate subsection filter. No schema change is needed for a confirmed Section D area under the existing model.
-5. **Validation and activation.** Run offline and protected validation, then obtain separate approval for operational records and publication. Test the approved derivative against its exact release ID and record/lot relation. Rehearse with actual Android and iOS phones over an approved HTTPS origin at Forest Lake. Verify fresh and poor GPS fixes, containment, permitted approach, loss of connectivity, physical arrival and the reviewed endpoint. Directions stay disabled until the route and device error checks pass. Retain scoped publication rollback. The tentative defense target remains 18 November 2026.
+Phase 1 is retired from the active map interface. Its historical data, source files and tests remain preserved. Legacy Phase 1 routing thresholds and graph counts are not Phase 2 acceptance evidence.
 
-## Local release and access
+Set server-side `GRAVENAV_PHASE2_SITE_ID` and `GRAVENAV_PHASE2_AREA_ID` only to management-approved existing identities. Until confirmed, leave them unset and preserve the adapter's unconfigured/unpublished states. Public GIS readers expose an approved publication independently of the UI; restricted hosting needs an approved protected read path. Public search/profile IDs currently use JavaScript safe integers; larger GIS bigint identifiers need compatible text-safe record lookup before use.
 
-The adoption started from clean commit `46fdef1879c23d27e5e70eb63c3265960099b267` on `codex/defense-release-stabilization-20261106` in `C:\Users\Nash\.codex\worktrees\gravenav-defense-rc\gravenav`. Use `git rev-parse HEAD` for the documentation commit recording this adoption. The application source, homepage link, dependency lockfile, private environment settings, proxy configuration and 26 migrations retain their existing bytes.
+## November 10 navigation integration
 
-The six runtime files are Git-ignored under `public/phase2-viewer/`. The homepage displays **Phase 2 Planning Map (CAD only)** when the local installation exists. It opens in the same tab. Browser Back returns to GraveNav.
+The existing /map workspace now has **Full Phase 2 layout** and **Verified gravesite & GPS** modes. Both retain the application shell, search and details. All planning geometry remains unchanged/selectable. GPS appears only in geographic space; there is no assumed CAD-to-GPS overlay or invented transformation.
 
-Access is approved for a local defense demonstration only. Run on `127.0.0.1`. A deployment containing these public files would make the raw CAD directly retrievable. Git ignore controls staging and provides no HTTP access restriction. Future public or authenticated hosting requires Forest Lake management permission.
+Search -> eligible profile -> **View gravesite on map** resolves the public burial ID to its exact approved lot polygon/access point. Main-map record results open that individual in the same workspace. Shared deceased identities lead to the same destination. Missing/private/unmapped/unverified records never select an arbitrary CAD outline. Legacy /navigation and /phase2-map entries converge on /map.
 
-## Package and installed hashes
+Routes begin at a bounded projection onto a published reviewed directed edge and end at the exact access node. Published metric costs and one-way restrictions apply. No straight GPS-to-node or access-to-grave connector is added. Outside coverage, plot-interior positions, off-route, unreachable, stale or inaccurate fixes pause guidance. Arrival requires short remaining network distance and reported position/accuracy within the reviewed endpoint arrival radius.
 
-The immutable source ZIP is `C:\Users\Nash\Documents\GraveNav-Phase2-CAD\phase2-digital-map\artifacts\phase2-planning-viewer-2026-11-07-redraw-fix.zip`.
+The visitor requests GPS explicitly; positions remain on-device and are not uploaded to Supabase. The read-only /api/map/phase2?id=<burial-id> endpoint rechecks the public record/publication before guidance and returns a no-store response. Checks repeat every 15 seconds while moving; requests time out at 10 seconds and guidance expires 30 seconds after the last successful verification. A changed/withdrawn release, revision, target, access point or policy pauses directions. These technical refresh limits are separate from field navigation tolerances.
+
+A failed/malformed shared-roster RPC is now distinct from a successful empty roster. Profiles show an unavailable message and retry link; only eligible IDs/names are returned. Unconfigured public readers no longer substitute fictional records.
+
+### Field-reviewed navigation configuration
+
+The existing GRAVENAV_PHASE2_SITE_ID and GRAVENAV_PHASE2_AREA_ID remain unset until management approves the real scope. No private environment values were invented or changed.
+
+GRAVENAV_PHASE2_NAVIGATION_POLICY is optional server-only JSON. Without a valid policy, an approved geographic map can display a grave/current position, but walking guidance is unavailable. No operational accuracy, corridor or arrival defaults are supplied.
+
+| Field | Required value |
+| --- | --- |
+| releaseId | Exact approved published release UUID |
+| scopeRevision | Exact current publication scope revision |
+| reviewReference | Restricted field/navigation approval reference, nonempty, at most 250 characters; stripped from public responses |
+| maxAccuracyM | Field-approved maximum reported horizontal accuracy, positive finite metres |
+| maxOffRouteM | Field-approved maximum distance to the reviewed walking corridor, positive finite metres |
+| arrivalDistanceM | Field-approved access-endpoint arrival radius, positive finite metres |
+| maxFixAgeMs | Approved maximum fix age, positive finite milliseconds, at most the existing 30,000 ms freshness ceiling |
+
+Set this configuration only after accepting device/map/route evidence, then restart the authorized application. A different release or publication revision needs corresponding reviewed settings; rollback does not bypass the policy gate. No new database migration or package dependency was introduced.
+
+### Exact field information required for activation
+
+1. Official Section D boundary/register, literal lot identifier, numbering convention and resolution of repeated orders/leading zeros.
+2. Authorized individual burial/order -> physical marker -> exact CAD candidate/source revision/instance-path correspondence.
+3. Confirmed CAD units/ground dimensions; matched controls with method, datum, timestamps and accuracy; independent held-out checkpoints and reviewed transformation errors.
+4. Accepted geographic lot polygon; permitted entrances, paths, directions and barriers; exact reachable gravesite access endpoint.
+5. Actual phone observations supporting accuracy/corridor/arrival/freshness settings, then real Forest Lake search-to-arrival tests over an approved secure origin.
+6. Explicit audience, record visibility and target-specific migration/import/publication/CAD-distribution permission.
+
+The 9 November 65-item checklist remains a historical audit snapshot. MAP08, SHARED08 and navigation implementation items have progressed under the local tests below; field and hosted activation gates remain outstanding.
+
+## Existing Section D evidence
+
+Reuse the completed audit and restricted queue. Do not repeat the workbook extraction or infer membership from ordering.
+
+- The original interment workbook's `Leg2` sheet contains **109 interment orders with MPG/D-prefixed locations**, grouped into **98 distinct composite location keys**, including product class and preserving leading zeros.
+- These are review leads. Management has not independently verified their official Section D membership. Neither 109 orders nor 98 keys is a physical-grave count.
+- Ten keys contain multiple orders: 21 rows. Nine groups contain distinct normalized name strings; one repeats a normalized name. Shared PA references, different dates and alternate names across worksheets do not resolve duplicate orders, people, events or current occupancy.
+- Converting source number tokens to integers would collapse one leading-zero distinction. Preserve literal identifiers until management resolves it. Eleven repeated PA identifiers affect twelve queue entries.
+- The CAD contains text D at handle `18BC`, Majestic Palm Garden at `18BE` and the separate Majestic Palm Court C at `18C1`. The full-site outline is `1924`. No official Section D boundary or plot correspondence follows from those labels.
+- Candidates retain reproducible full CAD instance paths, but no authoritative official plot IDs have been populated. Current confirmed Section D-to-CAD matches: **zero**.
+- A regular outline measures 1 by 2.5 drawing units and has a metric-style block name, while the drawing header reports inches. Confirm actual units and constructed dimensions before using CAD measurements as ground distances. Local CAD X/Y are not latitude/longitude.
+- Earlier Royal Palm/Yellow Palm readings and layout-derived field-tester references do not independently validate Section D. Original workbook review does not establish public-display permission.
+
+Original sources remain unchanged:
+
+| Source | Location / SHA-256 |
+| --- | --- |
+| Interment workbook | `C:/Users/Nash/Downloads/GRAVE NAV/GRAVE NAV.xlsx` — `aee550df7a00bd5a923be1dfc5f7fcb9519c7c7222cb8dc4fd4305beaf51492e` |
+| Audited engineering DXF | `C:/Users/Nash/Documents/GraveNav-Phase2-CAD/FL LGP PH2_Sch 6.2_ for Pama.dxf` — `c8c4c922d3293da6490c30ffcce79c6ac810d32e0cdf6907ee448537eba3844c` |
+
+Use the existing [semantic audit](<C:/Users/Nash/Documents/GraveNav-Phase2-CAD/phase2-digital-map/qa/dxf-semantic-audit.json>) and accepted source-workspace reports for extraction provenance. Source audits document their audited revision and do not authorize operational mapping.
+
+## Restricted management and field review
+
+Review artifacts stay outside Git and the web root, in:
+
+`C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/restricted-section-d-review/`
+
+- [Management review queue](<C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/restricted-section-d-review/section-d-management-review.xlsx>): one entry per composite key, preserving all 109 source order/row links. Initial SHA-256 `53fad96a25a6677632ae137a7a06b8c29c5030985180721b5a2fefdcdf5549a2`; reviewer changes will change the hash.
+- [First field-verification record](<C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/restricted-section-d-review/section-d-first-field-verification.md>): one source-checked lead, selected for review only. Management may choose another. Membership, marker, burial authorization, CAD match, survey and walking approach remain unresolved.
+
+The existing Windows ACL restricts this directory to the current user, SYSTEM and local administrators. Share with Forest Lake through its approved restricted channel. Keep names, order identifiers, client details, marker photos and review evidence out of public pages, logs and general summaries.
+
+Forest Lake management must supply or confirm:
+
+1. The meaning of LEG2 and MPG/D, the current official Section D boundary/register, numbering direction, product classes and leading-zero distinctions.
+2. One full official plot identity and its physical marker, the authoritative individual burial/order association, visibility permission and resolution of corrected or repeated orders.
+3. A dated approved plan or signed markup linking the boundary and lot numbering to the audited CAD revision. Record exact candidate ID, full instance path, layer and source handles; independently reopen the same candidate for second-reviewer approval. Proximity to the D label, row order and matching counts cannot establish a crosswalk.
+4. Approved access for survey and phone testing, permitted entrance/path/endpoints, barriers and restrictions, reviewer identity/date and restricted evidence provenance.
+5. Specific permission for any later public or authenticated release of records or derivative mapping. Review and survey permission do not grant publication authority.
+
+## Shared-gravesite rules and compatibility
+
+Use one existing operational `lot` for each verified physical grave, individual `deceased` and `burial_record` identities, and one geographic polygon/access destination per lot. Do not join names into a single person or split a grave into artificial lots.
+
+The local forward migration `20261107010000_shared_gravesite_interments.sql` replaces the global one-burial-per-lot restriction with reserved `(lot_id, interment_slot)` positions:
+
+- Approved regular graves permit six actual-interment slots.
+- Mausoleums require an individually approved arrangement and numeric capacity before admission.
+- Unclassified lots retain one-assignment behavior pending review.
+- Pending, archived, removed and restored records retain reservations. Capacity release and exhumation/correction policy remain unresolved.
+- Lot locking and protected writes prevent concurrent overbooking. New admissions require actual reviewed interments and order/date evidence; ambiguous repeated orders stay in reconciliation.
+- Existing IDs, relationships, audit history and private visibility remain protected. Public shared-plot rosters apply each individual's eligibility filters.
+
+This migration is locally committed; this document does not establish that it has been applied to any hosted target. See [database notes](GraveNav_Database_Implementation_Notes.md) and [safe editing](search-navigation-safe-edits.md).
+
+## Geographic evidence and activation sequence
+
+The intended survey derives lot positions from CAD using matched controls, avoiding a GPS capture at every lot. Section corners may be useful controls when unambiguously matched, but corners alone do not establish accuracy.
+
+1. **Confirm identity first.** Have management approve one Section D location, source order/person, physical marker, exact CAD outline and intended audience. Retain unresolved fields explicitly. Create no live records during review.
+2. **Establish the transformation.** Confirm units and ground dimensions. Identify well-distributed common CAD/ground controls. The existing protocol targets 12–15 fitting controls, 3–5 independent held-out checkpoints and five fresh observations per point/session. A surveyor must confirm the method and suitability for this section. Keep independent checks out of fitting.
+3. **Retain evidence.** Record datum, device/method, timestamps, every raw observation including poor readings, reported accuracy, source point identity, reviewer and transformation residuals. Establish tolerances before accepting results. Work in EPSG:32651 and export accepted longitude/latitude geometry in EPSG:4326.
+4. **Verify lots and access.** Confirm representative markers/numbering, the selected geographic polygon, permitted walking approach and exact reachable access node. Record barriers, entrances, crossing permissions and edge direction. A plot location and walking endpoint can differ.
+5. **Review hosted prerequisites separately.** Obtain explicit authorization for the target and forward migrations, backups and compatibility checks. Operational lot/burial creation or import needs its own authorization and must use existing protected workflows. No hosted mutation is authorized by this runbook.
+6. **Use the existing GIS pipeline.** Link approved official identity -> operational lot -> authorized burial -> reviewed CAD reference -> accepted polygon -> reviewed access endpoint. Pin the approved site/area and explicit pilot lot IDs. The existing package supports 1–50 lots; start with one. If the administrative area is broader than Section D, resolve that scope before configuring the selector; the adapter has no independent subsection filter.
+7. **Validate, review, publish.** Follow the [15-file contract](gis/pilot-package-v1.md) and [protected import/publication runbook](gis/import-and-publication.md). Offline validation precedes database stage/resume/validate/finalize. Finalization produces an unapproved release. ADMIN review, approval and publication are separate authorized operations with revision checks and rollback.
+8. **Field acceptance of integrated navigation.** Validate the implemented routing against the real published graph, geographic containment, eligible origin and exact access node. Test real phones at Forest Lake over an approved secure origin: accuracy, stale/poor/denied fixes, route restrictions, off-route conditions, connectivity and physical arrival. Measure route/device errors before choosing thresholds. Enable directions only after these gates pass.
+
+For database import, export walkways as LineString and grave-access graph nodes using a supported database node type such as junction. The offline contract also accepts MultiLineString and an access node type, which are broader than current database storage constraints.
+
+The next field task is management review of the existing first-gravesite record and survey preparation. Integrated navigation can be tested further with approved contracts and test-only fixtures; real activation remains gated on the evidence above.
+
+## Current map package, installation and rollback
+
+Selected package: `phase2-full-landscape-2026-11-09`, in:
+
+`C:/Users/Nash/Documents/GraveNav-Phase2-CAD/phase2-digital-map/artifacts/`
 
 | Item | SHA-256 |
 | --- | --- |
-| ZIP | `687719cd8c0181277702c7075ff68e12b6617d33c133c92bb69881202071ff6a` |
-| Packaged manifest | `f10e70c5b26ddba43374840859013ae8f89ce989f05a5861c8138d849d95f396` |
-| `index.html` | `55e383855df28bba12725ee623c66653e912e06cf4194dd56c152b6537cfb84a` |
-| `assets/index-DwP4JArH.js` | `7ededb145615b2a4002317b5ee5fb4ffafaf27657ae46e98eb79c48b17dc8470` |
-| `assets/index-D0PqAa_S.css` | `474c852c549338a66235d75793d56bfc5ce9dd098af21eef2c54a349d9c98e75` |
-| `data/phase2.local.json` | `02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77` |
-| `materials/lawn-grass.png` | `fe1ab82a8a3041083ffebf7fd7888bd357b4d0db43568553c0522eb4edf4fd0b` |
-| `materials/lawn-grass.prompt.txt` | `180d48f80942eb3ed4b975cb79913e9c88615cd33abc7c860cf51953e386618e` |
+| Sibling ZIP | `e67b623d89ae599f715e034a5f0339efa9e9e5fa7f64878b66a3459f7bacc6fe` |
+| Package manifest | `97ee08ee48f8d0a6d762141b67d5a9c877caa0628b6bc9dfa0777326197036a2` |
+| Geometry data | `02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77` |
+| Landscape manifest | `7231314fc2aa5ad72df98a050bea717a069591a08dca82700d7e62e96b1c9ebc` |
+| Native place labels | `ccb2ef4624573ff918e789ec9035efccf847880c5908ea91c9e9111ce03c381b` |
 
-The archive, manifest, all archived entries, six staged runtime files, active installation and six HTTP payloads were verified. The runtime inventory totals 17,922,148 bytes. The old `assets/index-NqH5vG6W.js` returns 404. Geometry, CSS, grass image and provenance text match November 6.
+The package contains exactly **12 runtime files, 20,945,916 bytes**, under `site/`. Preserve the sealed source package and its manifest. Its static JS is `assets/index-CKaF1Nmu.js`; GraveNav's native map uses its data/landscape assets within the existing application.
 
-## Integration checks
+For a fresh local setup:
 
-| Gate | Actual result |
-| --- | --- |
-| Original redraw sequence | Twelve complete runs passed through the GraveNav homepage, combining three repetitions, desktop/mobile and reduced/ordinary animation. Each selected a lawn, hid lawns, selected `estates:1`, searched `18F9/AD5/23E`, and selected `18F9/AD6/23E`. Lawns became visible, IDs resolved correctly and the viewer emitted zero uncaught exceptions or external requests. |
-| Viewer regressions | 20 of 20 applicable desktop/mobile cases passed against Next.js. They cover rapid repeated estate/lawn transitions, hidden-category search recovery, stable selection canvas, highlight clearing, all layers, nine place anchors, native click/touch selection, touch drag, wheel, zoom/pan/reset, keyboard and missing/invalid asset recovery. |
-| Inventory | All 4,494 candidates selected individually through the hosted search form. Both CAD references in each of the 20 overlap-review pairs resolved to distinct candidate IDs. All nine anchors focused. Road, pathway and additional-context canvas pixels appeared and cleared as toggled. |
-| Navigation and routes | Homepage entry, same-tab navigation, Back, direct loading and refresh passed at desktop/mobile sizes. Six payload hashes and MIME types passed. Missing JS/CSS/JSON/PNG/HTML, the omitted manifest and obsolete JS returned 404 without redirection. |
-| Main gates | Production build, standalone TypeScript and production dependency audit passed. Audit returned zero vulnerabilities. ESLint passed with one existing unused-import warning. |
-| Main test suite | 159 passed, 2 failed, 1 skipped, 162 total. M07/M09 concurrency tests failed because Docker's Linux engine was unavailable. |
-| Main browser | 32 passed, 2 failed, 34 total. The existing Phase 1 zoom-in button is still obstructed by Reset View at both viewport widths. Public search, map rendering, anonymous staff redirects, private-record handling and unauthenticated API denials passed. |
+1. Obtain the approved private environment configuration, install locked dependencies with `npm ci`, and use the current compatible native map code.
+2. Verify the ZIP and manifest hashes. Extract and stage the complete `site/` outside `public/`; verify exactly 12 runtime entries with each manifest size/hash.
+3. Stop the existing local server. Preserve the previous complete viewer outside `public/`, then install the staged directory as `public/phase2-viewer/`. Do not merge old JS assets into the new directory.
+4. Copy the matching `src/landmarks.json` from the separate Phase 2 source workspace to `public/phase2-planning/places.json`, verifying the native-place-label digest above. Both asset directories are Git-ignored; a fresh checkout will not contain them.
+5. Build and start on loopback:
 
-The source viewer fix gives Leaflet ownership of the selection pane renderer for the map's lifetime. React replaces highlight paths while preserving the canvas. The previous queued redraw after renderer disposal was reproduced before correction. This adoption used only the frozen ZIP.
-
-Leaflet CRS.Simple retains local Cartesian CAD coordinates with unconfirmed units. These candidates have no verified operational grave IDs, occupant links or GPS transformation. Planned-place focus shows CAD design anchors.
-
-## Cold start and rollback
-
-For a fresh local defense setup, obtain the retained ZIP and existing approved private `.env.local` configuration through the project owner. Run `npm ci` using the locked application dependencies. Extract the ZIP to an empty staging folder outside `public/`. Verify the ZIP and manifest digests above, exactly six `site/` files, and each manifest file size/hash. Install only that complete `site/` directory as `public/phase2-viewer/` before building.
-
-Run from this worktree:
-
-```powershell
+~~~powershell
 npm run build
 npm start -- --hostname 127.0.0.1 --port 3217
-```
+~~~
 
-Open [GraveNav](http://127.0.0.1:3217/) and choose the Phase 2 link, or load [the local viewer](http://127.0.0.1:3217/phase2-viewer/index.html) directly. Verify the original hidden-layer search and the obsolete asset's 404 response after each fresh installation.
+Open [GraveNav](http://127.0.0.1:3217/) and the [integrated map](http://127.0.0.1:3217/map). Verify candidate inventory, labels, hidden-layer selection, refresh, Back and missing-asset recovery after installation.
 
-The exact former installation is retained at `C:\Users\Nash\.codex\visualizations\2026\11\07\01a1b45b-514b-7232-85ed-3116e541ac04\adoption\november-6-rollback`. Its original ZIP remains at `C:\Users\Nash\Documents\GraveNav-Phase2-CAD\phase2-digital-map\artifacts\phase2-planning-viewer-2026-11-06.zip`, SHA-256 `7ae04068f27be38e3b00d4ac01340c8b386de5c6aa247e261ff0a8576b2c68ff`. To roll back, stop the loopback server, move the active viewer outside public, restore the complete six-file November 6 directory, verify its manifest, rebuild and restart. That release retains the redraw defect and requires clearing selection and enabling the target layer before searching.
+The November 7 rollback assets remain outside the web root at:
 
-## Real on-site readiness — direction corrected 7 November 2026
+`C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/landscape-adoption-2026-11-09/november-7-rollback/`
 
-The target is physical testing at Forest Lake Phase 2 around 18 November using authorized real burial records, real phones and independently checked geographic evidence. Fictional records and simulated positions have no role as substitutes for field readiness. The corrected static planning viewer remains frozen.
+Rollback requires compatible application code **and** complete assets before rebuilding; the native November 9 loader cannot use only the earlier six-file package. Original November 6/7 archives and hashes remain in the [historical handoff](archive/2026-11-09/phase2-readiness-history.md). The November 6 viewer retains the old redraw defect.
 
-### Current findings
+## Access boundary
 
-The RC was clean at `b4206934b6229dbed7a514b89e2e35d0d50608a5`. A read-only hosted check confirmed M09, PostGIS and GIS security controls, three pending burial records, zero coordinate geometries, zero verified coordinates, and zero releases/imports/publication selectors. Existing legacy graph rows remain 41 nodes and 18 edges. The deployed GIS schema can be reused. These counts establish readiness state and do not establish the identity or accuracy of any burial record.
+The product goal is operational use. The **current CAD hosting authorization remains local-only**. Keep the present installation on loopback until Forest Lake approves an access policy. Git ignore is not HTTP protection: deploying these Next.js public assets unchanged makes the geometry and images publicly retrievable, even when staff pages require login.
 
-Record/plot CRUD, ADMIN/MANAGER authorization, coordinate review/history, field captures, georeferencing runs, versioned plot geometry, reviewed grave access points, pilot package validation/import and manual review/publication/rollback exist. The public mapping and burial GIS decoders/wrappers exist in `src/lib/supabase/gis-data.ts`, but no visitor page consumes them. The visitor map and navigation still use Phase 1 data. Coordinate entry is manual, and the review drawer does not provide an integrated field capture/control-point/run/publication interface.
+Do not modify hosted Supabase, import real records, apply hosted migrations, publish GIS data, push, merge or deploy without explicit authorization. Preserve original CAD/GIS workbooks, accepted Blender studies and sealed packages.
 
-The GPS field sheet has 36 Royal Palm/Yellow Palm rows representing 21 unique coordinate pairs. All retain NEEDS REVIEW and COORDS ENTERED / NOT APPROVED. Its alignment review explicitly records no independent accuracy verification. The separate field tester loads layout-derived, unverified draft reference points. These materials do not validate Phase 2 CAD-to-GPS alignment.
+## Latest validation and remaining blockers — 10 November 2026
 
-### Critical path
-
-1. **P0, management/team dependency.** Select one actual occupied gravesite in Majestic Palm Garden Section D. Obtain written scope, field access, record-use/visibility permission and approved device access. Obtain the current official plot register, burial-to-plot association, official garden/block/row/plot identity and physical marker. Crosswalk the operational `lot_id` and official identifier to the frozen CAD source hash plus candidate layer/FID and full CAD instance path. Record who reconciled the plan and actual constructed graves. Candidate IDs alone establish no association. Expand to a few graves only after this first end-to-end result passes.
-2. **P0, surveyor/field dependency.** Establish identifiable CAD-to-ground control pairs around the pilot, verified datum/CRS/units/orientation and independent held-out checks. Preserve the CAD original and transform a derivative in QGIS. Current GIS protocol targets 12–15 fitting points and 3–5 independent validation points, with five distinct timestamped readings per capture and reviewed deviations. Those counts do not certify accuracy. Reject mismatches between constructed features and the plan. A suitably controlled survey may be required if phone measurements cannot resolve the pilot geometry.
-3. **P0, management/field dependency.** Walk the actual entrance-to-target route. Record permitted walking corridors, connected junctions, barriers, closures and a safe reviewed endpoint at each gravesite. Keep a grave reference point distinct from a route access point. No straight connector through plots or inferred CAD road can establish walkability.
-4. **P0, technical work available now.** Add a release-aware Phase 2 geographic map/data adapter using `getPublicMappingLayer` and `getPublicBurialGis`. Preserve exact lot identities and one release ID across pagination. Return explicit unavailable states for unpublished, missing, unreviewed or unreachable destinations. Reuse the visitor map UI and browser GPS subscription. Keep the frozen full CAD viewer as its separate planning entry. The operational map should display only the authorized, georeferenced and published pilot derivative.
-5. **P0, technical work plus evidence.** Adapt the existing Dijkstra traversal to the published graph, respecting edge direction, walking restrictions and the reviewed access node. Replace rectangle-only containment and unlimited nearest-node snapping with geographic containment and reviewed distance limits. Existing 30 m origin eligibility and 15 m near-plot thresholds are code defaults without field acceptance evidence. Derive tolerances from measured map/device errors and actual plot/path separation. Preserve coordinate review and GIS readiness as independent gates. A missing GPS fix must never be displayed as a current position at the entrance.
-6. **P0, explicit approval dependency.** Review the real pilot crosswalk, geographic output, evidence and topology. Run the existing offline and database validation, then separate ADMIN approval and publication. Import finalization does not publish. Every hosted write, migration, deployment and CAD exposure still requires its specific approval.
-7. **P0, real device dependency.** Provide an approved HTTPS origin reachable by the phones, either a restricted host or trusted local HTTPS network. Laptop loopback cannot serve the phones. Check cookies, auth callbacks, permissions, connectivity and actual browsers before field testing. No public CAD hosting is authorized by this plan.
-
-### Field acceptance and schedule
-
-The initial target is one verified burial-to-gravesite route serving Majestic Palm Garden Section D. Expand after the first verified route passes. Obtain management scope and records by 9 November, control/path evidence and acceptance criteria by 11–12 November, implementation/review by 14–15 November and full site rehearsal on 16–17 November. These dates depend on timely field access, records and a qualified geographic reviewer.
-
-Before collecting acceptance results, management and the survey reviewer must agree on tolerances for the supported endpoint. Measure held-out map alignment error separately from repeated phone error against independently known ground positions. Record device/browser, timestamps, reported accuracy, acquisition time, error distributions/maxima, route-start eligibility and physical endpoint/marker confirmation. Test open/obstructed areas, stale/poor fixes, denied permission, interrupted connectivity and staff login/authorized save/review/recovery/logout. Browser accuracy is reported uncertainty, not independent validation. If error cannot distinguish neighboring graves, provide only the reviewed access-point guidance plus explicit physical plot/marker identification. That is partial completion of exact-grave GPS positioning.
-
-**P1.** Resolve the existing map-control overlap where reused, rehearse real authorized staff operations, verify backup/restore and cold start, close Docker concurrency checks, and handle record/network outages honestly. Connected search/admin operations currently depend on Supabase availability. Cache/private offline data require separate design and permission.
-
-**P2.** Additional gardens, full 4,494-candidate coverage, optional refinements and wider compatibility follow the accepted pilot.
-
-The publication-aware Phase 2 adapter is now implemented. Complete field evidence and access determine feasibility by 18 November.
-
-### Phase 2 geographic pilot integration
-
-The visitor homepage now links to `/phase2-map`. Configure server-side `GRAVENAV_PHASE2_SITE_ID` and `GRAVENAV_PHASE2_AREA_ID` with the management-approved database site and area IDs before starting the application. These IDs are the Phase 2 scope because the public RPCs expose publication by site/area and have no Phase 2 discovery field. Leave both unset until the scope is confirmed. The route reports unconfigured, unpublished or unavailable status as appropriate. The separate local planning link still loads the frozen viewer.
-
-The map reads the existing anonymous `public_mapping_layer` and `public_burial_gis` contracts. A record starts with the existing active/public burial lookup. The adapter resolves the exact burial, area, lot, official plot code and approved polygon and checks one published release and scope revision through all pages and the final read. A target requires the existing coordinate verification. A reviewed access point additionally requires `routingReady` and an exact node association in that release. An access node and its graph are data for a future navigation integration. Directions remain disabled and the route requests no phone location. The existing published layers are public independently of the frontend. A staff-only pilot would need a protected geographic read contract and access policy. The current public burial view/profile uses JavaScript safe-integer IDs, while GIS contracts support full bigint strings. Supporting a larger burial ID end to end requires a text-safe public burial lookup and profile/search serialization. Neither gap requires a migration for a public, approved pilot using current supported IDs.
-
-#### One-gravesite input and acceptance checklist
-
-- Management approves the site/area IDs, physical access, record visibility and which derivative geometry may be shared. Supply the official site/garden/block/row/plot identity, operational `lot_id`, active burial ID, and physical marker confirmation. Reconcile these with the source plan version/hash, full CAD instance reference and field reviewer. Keep personal and survey evidence outside the public layers.
-- Collect accepted controls and independent held-out checks for that subarea. Record ground point identity, method, datum, CAD correspondence, timestamps, device accuracy and review. The existing protocol targets 12–15 fitting points, 3–5 held-out points and five distinct readings per capture. Record residuals and reviewed deviations. Set evidence-based tolerances before accepting field results. Process in EPSG:32651 and export approved geometry as longitude/latitude EPSG:4326.
-- Walk the authorized entry, permitted path and destination access. Record crossings, barriers and directional restrictions. Supply the approved boundary and area, the single grave polygon, permitted walkway linework, exact access node and directed route edges. For this pipeline use LineString walkway features and an existing database node type such as junction for a grave access node. Access is represented by its own layer linking the lot and node. The offline v1 spec also accepts MultiLineString walkways and an access node type. Those forms do not fit the current database storage constraints and need to be normalized in the source export before database validation.
-- Review the operational plot coordinate separately. Produce the existing 15-file pilot package and verify hashes, evidence, topology, privacy and live identifiers. Run the offline validator first. Accepted captures and a reviewed transform precede protected stage/validate/finalize. ADMIN approval and publication are distinct operations with revision checks. Obtain authorization for every hosted mutation. See [pilot package contract](gis/pilot-package-v1.md) and [import/publication runbook](gis/import-and-publication.md).
-- Before navigation activation, measure actual device and map uncertainty at held-out points and across the intended start corridor. Check geographic polygon containment, a bounded origin distance to the reviewed route, direction and restrictions, and reachability to the exact access node. For poor, stale, denied or unavailable positions offer only the published map and physical reference. No Phase 1 tolerance is a Phase 2 acceptance threshold.
-
-The import/finalize concurrency correction is already committed locally. Before running an approved real package through the existing validation workflow, confirm that the authorized target includes that correction. Test the first published snapshot and physical endpoint on site before enabling guidance.
-
-## Forest Lake source audit and field activation
-
-### Local implementation
-
-Commit `60669df2c0b855e93f54e13bba72c24e2dbf4a2f` preserves the publication-aware Phase 2 map adapter, visitor profile and navigation integration, map components and regression tests. The six November 7 viewer asset hashes match the inventory above. The 26 baseline migrations and security dependency locks retain their original content. The RC still requires an approved site/area and published pilot before it can show operational Phase 2 geography. Walking directions require separate field validation.
-
-### Workbooks reviewed
-
-Both requested sources were found in Downloads and opened read-only. Preserve the originals in restricted storage. This handoff reports aggregate counts and schema details only.
-
-- `C:/Users/Nash/Downloads/Inventory List as of 08.20.2026 - LEG1.xlsx`, SHA-256 `5423414ef0567c2054fcf56baef6ae3f4126be0118fbd7dfb11c3e3fa7514fcf`. The `InventoryList` title identifies Forest Lake Development Inc. in Legazpi City and the August 20, 2026 snapshot.
-- `C:/Users/Nash/Downloads/GRAVE NAV/GRAVE NAV.xlsx`, SHA-256 `aee550df7a00bd5a923be1dfc5f7fcb9519c7c7222cb8dc4fd4305beaf51492e`. The extracted copy matches the workbook in `C:/Users/Nash/Downloads/GRAVE NAV.zip` byte for byte. The workbook identifies Forest Lake–Legazpi and includes both Leg1 and Leg2.
-
-`InventoryList` has 6,689 populated sector identifiers and one additional populated row without a sector. After case and whitespace normalization, all 6,689 sector labels are unique. Source status counts are 6,393 BOOKED, 271 AVAILABLE and 25 HOLD. BOOKED rows have a usable PA number and customer name. AVAILABLE and HOLD rows lack a usable PA and customer name. OCCUPIED does not appear in the status column, and the workbook supplies no explicit status legend or interment relationship. Treat these as inventory statuses. The `No. of Lots` field totals 8,083 across the 6,689 rows, so a row can represent more than one physical unit. Columns include sale date, PA number, `Sector (Lot No.)`, status, customer, lot count, and payment/collection fields. Preserve identifiers as text and keep customer and financial fields out of the visitor map.
-
-| Interment workbook sheet | Populated record-like rows | Relevant fields and reconciliation |
-| --- | ---: | --- |
-| `Leg1 ` (visible, trailing space in title) | 2,607 | I.O. number, PA number, composite lot location, deceased label, interment date/time, birth/death dates, and Leg1 tag. 2,603 deceased labels match the LEG1-number placeholder pattern. One I.O. key repeats. |
-| `Leg2` (hidden) | 348 | Same fields as Leg1. 347 rows carry the LEG2 tag and one is blank. 348 distinct I.O. numbers, 307 PA numbers and 314 lot locations. 40 PA keys and 34 lot-location keys repeat. 345 interment-date cells are typed dates, two are other populated values and one is blank or a placeholder. |
-| `Interment summary` (hidden) | 2,954 | Consolidated view with 2,598 LEG1, 347 LEG2, eight other labels and one blank. Two lot locations are missing or placeholders. All 2,953 distinct I.O. keys appear in the split sheets. |
-| `summary` (hidden) | 2,165 | Detailed transactions, plot text, product class, primary and alternate deceased fields, dates, remains class, burial status and site tag. 1,988 LEG1, 174 LEG2 and three other tags. The 2,162 distinct I.O. keys overlap the split tabs on 2,161 keys. |
-| `FINAL` (hidden) | 1,032 | Detailed interment records and additional deceased slots. 911 LEG1 and 121 LEG2. All 1,032 I.O. keys occur in the split tabs. |
-| `Sheet1`, `Sheet2`, `Others` (hidden) | 1, 10, 7 populated data rows respectively | Auxiliary interment example, service-provider table and lookup material. Keep these out of the burial import. |
-
-Counts use record-like rows with a populated deceased label and at least one populated order, location or typed interment date. They include placeholders and overlapping views. In `summary`, 1,988 rows say PERMANENT, 174 TEMPORARY and three TEMPORARY-PERMANENT. Remains values are 1,857 FRESH, 254 BONE, 52 ASH, one BONE BABY and one EXHUME. The canonical database enums support PERMANENT/TEMPORARY and FRESH/ASH/BONE. 1,999 rows in that sheet passed the basic field screen for order, PA, location, deceased label, typed interment date and supported enums. This is a format screen across both sites and leaves identity, authority, visibility and geographic review open. Repeated PA and plot keys and alternate deceased slots can represent genuine multiple interments or shared inventory. Resolve those with management because the existing operational constraint permits a single burial assignment per lot, including reservations for recoverable records.
-
-### What can be reconciled
-
-- The interment sheets provide real PA and I.O. keys, lot text and date fields. A normalized PA matched the LEG1 inventory on 2,504 of 2,607 Leg1 rows and one of 348 Leg2 rows. Exact sector text and the exact PA-plus-sector join yielded zero matches because the lot strings use different formats. An exploratory comparison that removed the trailing LEG1 qualifier and separators agreed on 1,754 Leg1 rows and the single Leg2 PA hit. Normalization can collapse sector identities, so use these only as review candidates.
-- The Leg2 sheet has 298 `MPG/` lot-location labels. The frozen Phase 2 CAD has a Majestic Palm Garden anchor. That gives management a concrete place to start the reconciliation. It establishes neither a LEG2-to-Phase-2 equivalence nor an individual plot association. The 4,494 CAD candidates have no populated official plot identifier and zero exact matches against the audited inventory sectors or interment lot locations. Proven CAD-to-burial matches currently total zero. Keep the two LEG labels separate from the engineering phase until management confirms their meaning.
-- The detailed sheet's `Lot Code` values are product classes such as STD, SPR and PRM. Use the verified official lot identity for `lot_code`, preserve the original PA in `legacy_pa_number` where appropriate, and retain source I.O. and workbook row references in restricted reconciliation. Map the authority-confirmed site and garden to existing IDs before proposing any new scopes. Use supported burial status/remains enums only after management resolves exceptions and repeated assignments. The source does not grant public-display permission. Enter an approved record through the existing protected workflow and keep nonapproved records private.
-- The detailed sheet has columns labelled x, Y and z, but x is text, Y contains a small set of short integer codes, and there are zero numeric x/Y pairs. The GPS field-sheet template has zero numeric raw coordinate pairs. The separately labelled example has ten and is excluded as field evidence. Earlier Royal Palm/Yellow Palm field records have 36 rows and 21 distinct coordinate pairs marked for review. Those do not supply independent Phase 2 control or a verified marker. The prior read-only hosted aggregate found no verified lot coordinates or published release. These workbook findings supply no basis for adding either.
-
-### Restricted Section D management queue
-
-Use the [local management review workbook](<C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/restricted-section-d-review/section-d-management-review.xlsx>). It is outside the repository and web root, with Windows access limited to the current user, SYSTEM and local administrators. Give Forest Lake reviewers access through their approved restricted channel. Keep it out of Git, public pages and import staging. The initial workbook was reopened and verified against all 109 distinct source orders. Its initial SHA-256 is `53fad96a25a6677632ae137a7a06b8c29c5030985180721b5a2fefdcdf5549a2`; reviewer edits will change it.
-
-The [first field-verification record](<C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/restricted-section-d-review/section-d-first-field-verification.md>) holds one single-order lead with no queue flags. The source lot text and order were checked against the original worksheet row. Membership, plot and marker, burial authorization, CAD match, survey and approach remain unresolved. The choice is for review only; management may select a different candidate.
-
-Each of the 98 entries groups the exact `Leg2` row, order reference and original lot text for each order by the two source number tokens and product class. Ten keys hold multiple orders (21 orders total). One leading-zero collision affects two keys, and 11 distinct repeated PA identifiers affect 12 queue entries. No PA values, names, interment dates or client details are copied. All 98 entries start with membership, official identity, marker and burial authorization unconfirmed; CAD references are unresolved and reviewer and evidence fields are blank. A queue key does not establish a physical grave.
-
-### Questions for Forest Lake management
-
-1. Does `LEG2` refer to this engineering phase, and does `MPG/D…` identify Majestic Palm Garden, Section D in the current register? Which approved revision controls the numbering? What do the two number tokens, leading zeros and product classes mean? How should repeated orders and PA references be resolved?
-2. Can management provide a dated, approved Section D plan or signed markup identifying the boundary edges, numbering orientation and plot-level labels, tied to this CAD revision by a reproducible crosswalk? Confirm Section D separately from Majestic Palm Court C.
-3. Which accessible grave should we verify first? Provide the full official lot identifier, the authoritative active burial/order tied to it, and a matching marker inscription or identifier observed in the field. If orders conflict, identify the authoritative record and why. Record the reviewer, date and restricted evidence reference. Keep personal information and marker photos in approved restricted storage.
-4. Which entrance, paths and access endpoint may we survey and test? Who can authorize visibility of the selected record and derivative geography, and for which audience? Permission to review or survey does not authorize publication.
-
-### Reproducible CAD crosswalk
-
-1. Pin the plan to the audited `FL LGP PH2_Sch 6.2_ for Pama.dxf` (SHA-256 `c8c4c922d3293da6490c30ffcce79c6ac810d32e0cdf6907ee448537eba3844c`) and the November 7 viewer geometry in the installed inventory. Record the management plan revision, approver and evidence reference. Trace the approved boundary on a separate review overlay. Record source handles and full instance paths for identified CAD boundary segments. If no source feature defines an edge, retain the signed markup and its reproducible references to identifiable CAD controls. Handle `18BC` is a label and does not define the boundary.
-2. Have management and the surveyor identify the exact outline from the approved plan and marker evidence. In the frozen viewer, search the full instance path or candidate ID, then open **Source provenance** and record the candidate ID, complete instance path, source layer and root block/handle. Capture the validated extraction FID with its layer if available. Have a second reviewer reopen the same candidate by exact reference, inspect the CAD instance and sign off the match. The full path distinguishes repeated block insertions.
-3. If multiple outlines qualify, record each exact reference and leave the candidate unresolved. Never assign from label proximity, visual approximation, row order or matching counts. Preserve both overlap members and the complete frozen map.
-
-### Activate one real gravesite
-
-**Available locally:** protected burial and plot workflows, interment capacity rules, coordinate review, and the publication-aware geographic map. The full CAD viewer remains available for local reference. The field record supplies workbook provenance only; it cannot create a record, approve geography or enable directions.
-
-1. **Confirm the record and lot.** The workbook supplies source order, lot text, product class and supporting burial fields for authorized reviewers. Management and field staff must supply the official boundary and identifier, authoritative active burial link, marker, CAD match and authorization. Before any hosted change, obtain explicit approval for the target and migration, confirm backup and recovery, and verify the target has the required shared-gravesite and M09 corrections. With separate authorization for record writes, use Plot Management to reconcile or create the one approved operational lot and record its approved classification. In Burial Records, enter the reviewed order and interment date, confirm the actual interment, and apply only the authorized visibility setting. Keep ambiguous leads in the queue. Record `site_id`, Section D `area_id`, `lot_id` and burial ID. A broader area cannot be treated as Section D; resolve scope with management before configuration.
-2. **Verify the geography.** Survey identifiable fitting controls and independent held-out points. Record datum, method, timestamps, device accuracy and observed error; agree acceptance criteria before fitting. Use `staff_save_survey_point`, `staff_record_survey_capture` and `staff_review_survey_capture` for accepted field evidence; use `staff_save_georeferencing_run` and `staff_review_georeferencing_run` for the selected transform. After datum confirmation, work in EPSG:32651 and export the approved derivative in EPSG:4326 longitude/latitude. CAD X/Y are local. Verify the separate operational lot coordinate through Admin → Coordinate Verification against the same surveyed lot.
-3. **Survey the walking approach.** Walk the permitted entrance and corridor with staff. Record barriers, directional restrictions and the reviewed access endpoint, distinct from the marker. The polygon and access point must share the approved `lot_id` and `area_id`, and the access point must reference the reviewed route node via `node_source_feature_id`. Use the node and walkway types noted in the acceptance checklist. Keep directions disabled.
-4. **Build and validate the scoped release.** Prepare the existing [15-file package](gis/pilot-package-v1.md) with `pilot_lot_ids` containing only the approved lot, traceable `source_feature_id` values and accepted evidence hashes. Run `node scripts/validate-gis-package.mjs <directory>` offline. In an authorized environment, confirm the M09 forward correction is present, create a scoped draft via `staff_create_mapping_release`, and follow the protected [import runbook](gis/import-and-publication.md): `stage` (or `resume`), `validate`, then `finalize` against the current revision, exact report digest, warning tokens and reviewed layer hashes. This produces a validated, unapproved release.
-5. **Approve and publish only if separately authorized.** Obtain ADMIN review via `staff_review_mapping_release` using the exact package and report digests and suitability, omissions and privacy acknowledgements. If anonymous disclosure is authorized, publish via `staff_publish_mapping_release` with current release and publication-scope revisions. Keep receipts and any eligible prior publication for `staff_rollback_mapping_release`. For a first publication, confirm a supported withdrawal plan before activation. Set `GRAVENAV_PHASE2_SITE_ID` and `GRAVENAV_PHASE2_AREA_ID` to the approved scope. Verify `/phase2-map` reads the same published release via `public_mapping_layer` and `public_burial_gis` and joins the authorized active burial to its verified lot, polygon and access node, with no other pilot burials. For staff-only authorization, the current anonymous readers are unsuitable; leave publication inactive. Keep the complete planning viewer separate.
-6. **Test on site before enabling guidance.** Use actual Android and iOS phones at Forest Lake over an approved HTTPS origin. Check fresh and poor GPS, denied location, loss of connectivity, route restrictions, arrival at the reviewed endpoint and the marker. Record the phone models, times, reported accuracy and field outcomes. Have Forest Lake and the survey reviewer sign off on the allowed route and endpoint. The current Phase 2 page leaves directions disabled; any later enabling change requires a separate authorized release and on-site acceptance. The November 18 target depends on that evidence.
-
-### Confirmed multiple-interment rules (implemented locally)
-
-Forest Lake confirmed up to **six actual interments** at a regular grave/lapida and separate mausoleum arrangements with no universal numerical cap. The lot remains the official physical identifier. GraveNav preserves existing person and burial IDs and assigns internal IDs only when an authorized record is admitted. Staff must confirm the official lot type from management evidence; CAD categories, dimensions and workbook product classes do not set it.
-
-- [Forward migration](../supabase/migrations/20261107010000_shared_gravesite_interments.sql): replaces the single-burial index with unique reserved slots on the existing lot. An administrator records the classification and an evidence reference. A regular grave has six slots. A mausoleum accepts new interments only after an administrator records an arrangement reference and its approved numeric capacity; blank means admissions are blocked. Unclassified plots retain the prior single-assignment behavior. Reservations serialize in the database and do not change coordinate-review status or the staff plot revision.
-- Each new classified record must have a reviewed order, interment date and explicit staff confirmation before becoming active. A pending record can reserve space without becoming public. Archived, soft-deleted and restored records retain their reservations. Existing associations and publication behavior are preserved; legacy records reserve space but are not counted as newly confirmed until reviewed. Confirmed order references are retained. Moving a confirmed record or moving it out of a classified plot requires separate reconciliation. The protected save, idempotency, version checks, recovery and audit history remain in place. The server blocks duplicate order references at a lot and flags matching name and life-date combinations for manual review rather than merging identities.
-- Staff can pick eligible shared plots, see confirmed counts and remaining slots after reservations, and expand the plot assignment to see individual records. Plot and coordinate review lists still return one row per physical lot. Visitor search and profiles retain a separate link for each eligible person. The public shared-plot list uses the exact lot behind an eligible public record and never includes a private, pending, archived or removed record. The selected burial ID resolves to the existing lot, polygon and access point. No GIS publication or frozen viewer changes were needed.
-- **Section D import remains blocked for unresolved associations.** Retain the 109 original order references in the existing restricted queue. Obtain a signed lot identity and burial association, confirm each physical interment and record visibility, and resolve duplicate/corrected orders before allocating any GraveNav IDs. A repeated name, PA or order count does not establish a person or a physical interment. Ask management how exhumations, amended orders and historical interments affect physical capacity before any release of a reservation. An arrangement without a usable mausoleum capacity decision stays in review.
-
-**Local verification:** TypeScript and production build passed. Lint had no errors and one existing unused-import warning. The final full suite reported 187 passes, 0 failures and 1 Windows symlink skip. A focused regression reproduced and fixed a case where an unresolved duplicate draft prevented recovery of a confirmed record; the draft remains ineligible for confirmation. Two genuine PostgreSQL sessions competed for the sixth regular-grave slot: one committed, the other was rejected, and no extra deceased row survived. Chromium desktop and touch-emulated mobile passed the two-name search, shared profile and destination, private-record and navigation gates, and synthetic authenticated staff admission.
-
-**Next approval:** confirm the first real Section D lot, marker and individual burial association through the restricted queue. Review the forward migration and test evidence, then obtain separate authorization before any hosted migration or record import. Survey, publication and field navigation gates still apply.
-
-### Shared gravesites: pre-migration compatibility review
-
-The project requirement is **up to six deceased names for a regular grave/lapida** and **no fixed numerical maximum for a mausoleum, subject to the owner arrangement**. At the time of this review, Forest Lake had not confirmed either rule. The later clarification and implementation are recorded above. Confirm product classification, eligibility for additional interments, and which current, pending, historical or restored records count. Do not apply a six-interment cap or infer a mausoleum from STD, SPR, PRM, lot dimensions or CAD category.
-
-| Layer | Behavior before the shared-interment migration |
+| Check | Actual local result |
 | --- | --- |
-| Supabase schema | Each `burial_record` references exactly one `deceased` and one physical `lot`. Person-level name and birth/death dates are separate from interment date, status, remains, order/reference and optional exhumation date. [The single-plot migration](../supabase/migrations/20260831120000_enforce_single_burial_per_plot.sql) adds `burial_record_single_plot_key`, an unconditional unique index on `lot_id`. Pending, archived and soft-deleted rows still reserve that lot. There is no unique `deceased_id` on burial rows and no operational regular-grave/mausoleum type or capacity field. Stored lot status (AVAILABLE/BOOKED/HOLD) describes inventory. |
-| Staff writes and duplicate protection | `staff_save_record` delegates to `admin_create_burial_record` and `admin_update_burial_record`. Creation and moves lock the destination and require AVAILABLE status with no other burial row; same-lot edits are allowed. Creation makes a new deceased row rather than selecting an existing person. The original schema also has a unique `(lot_id, interment_order_number)` index for non-null orders, but the supported staff path does not write that field. Request UUIDs prevent exact retries and revision checks prevent stale edits; neither detects a duplicate person or a duplicate submission with a new UUID. Keep role checks, RLS, revoked direct writes/legacy RPC access, history and soft-delete/restore. |
-| Staff screens | `getAvailableBurialPlots` excludes any assigned lot. The burial form edits one person and one interment. `staff_plot_management` and `staff_coordinate_verification` join the assigned burial directly, so removing the index alone would duplicate plot rows and skew their lists and counts. The dashboard already counts distinct assigned lots. |
-| Visitor search, profile and GIS | `search_public_burials` and `/gravesite?id=…` already read each approved burial by its own ID and preserve individual names and dates. The public view requires an active burial, public-display approval for the person, and a non-deleted burial and lot. The profile has no same-grave roster. Plot-only navigation returns no record if `lot_code` matches multiple public rows; the legacy map can choose the first match. Bare codes can also repeat across areas. Phase 2 `public_burial_gis` resolves a burial ID to its lot; multiple eligible burial IDs can share one approved lot polygon and access node without changing GIS geometry or publication contracts. |
+| Focused navigation/adapter/visitor tests | 43 passed, 0 failed, 0 skipped |
+| Full Node suite | 204 total: 200 passed, 3 failed, 1 skipped |
+| Three failures | Genuine M07, M09 and shared-slot PostgreSQL concurrency checks cannot reach Docker's Linux engine; not passes |
+| Native CAD browser scenarios | Desktop, touch-emulated mobile and missing-image retry passed: 4,494 candidates, all 40 overlap members, nine anchors, hidden-layer recovery and controls |
+| Actual Next.js navigation acceptance | 28 desktop/mobile checks passed with isolated test-only RPC fixtures: search/profile/main-map, shared destination, GPS progress/arrival, denial/staleness/accuracy/off-route, missing data, changed publication/service failure, stalled-request timeout, roster recovery and legacy links |
+| HTTP/asset/access checks | 38 passed, 0 failed, including all 12 runtime HTTP hashes, old asset 404s, anonymous staff denials, no-store responses and stripped private policy evidence |
+| TypeScript / production build | Passed |
+| ESLint | 0 errors, 1 existing unused-import warning |
+| Real field / hosted acceptance | Not performed; no record import, hosted mutation/publication or actual phone GPS test is claimed |
 
-These findings are from the checked-out migrations and application callers; no hosted catalog inspection or database change was performed.
+Browser fixtures live only in automated tests, under an explicit transport that blocks hosted access. Normal product code has no fixture loader or fictional-record fallback. The temporary fixture server is stopped after testing.
 
-**Section D evidence.** A focused comparison of the 21 existing `Leg2` rows in the ten flagged keys found distinct normalized name strings throughout nine groups; one group repeated a normalized name. Each group shares a PA reference and has distinct interment dates within the group. The detailed `summary` sheet matched 15 of the 21 orders, with alternate name text on all 15 and a match to another name from the same queue group on four. `FINAL` matched 13 orders, with alternate name text on seven and a match to another name from the same group on three. These tabs overlap and must not be added together. This supports shared-location and repeat-event leads, but name strings, distinct dates, a shared PA and alternate slots cannot prove unique identities, current occupancy, duplicate/corrected transactions, transfers, or an official physical lot match. Have Forest Lake classify each affected order against its current register and marker before reconciling it. No names, dates or order identifiers are reproduced here.
+Evidence: C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/navigation-2026-11-10/.
 
-**Smallest compatible change, after confirmation.** Keep one `lot` per physical grave, one `deceased` per verified person and one burial row per approved person/interment association. Do not split lots, concatenate names, or duplicate a person to represent an event. In one forward migration, replace the global single-lot index and the create/move rejection with an explicit eligibility rule for approved shared lots. Keep current behavior for lots with unknown or single occupancy policy. Use the lot lock and consistent lock ordering for create, move, restore and undo; retain audit, revisions and protected writes. Add a minimal verified plot classification or sharing-policy field only if the confirmed policy needs it. Use a stable, restricted source identity for duplicate detection: populate the existing order field if an order uniquely identifies one association at a lot; if one order legitimately covers multiple people, confirm an authoritative per-person or event discriminator before changing uniqueness. Do not deduplicate on names, PA or dates. If management confirms a need for repeat events for the same person, preserve a single person identity and separate current placement/public visibility from event history before importing those rows.
+Remaining blockers: official Section D identity/CAD crosswalk, accepted ground control/checkpoints, permitted route/access evidence, reviewed navigation settings, real-phone acceptance, target-specific migration/import/publication/hosting authorization and genuine PostgreSQL race gates. The local Auth callback-origin/preview-port mismatch and optional photo activation remain separate audit items, unchanged by this task.
 
-Update the picker to offer only eligible shared lots, and make Plot Management and Coordinate Verification return one row per lot with a protected occupant list or count. Keep per-person search/profile URLs. Add a same-plot list using stable `lot_id` and the existing public visibility filters; use burial-ID or exact lot-ID routing instead of choosing the first result by code. Reuse the one coordinate, polygon and access node for everyone at that plot. No new GIS model or viewer rebuild is needed.
-
-**Import gate and next step.** Keep the ten groups and all disputed associations out of import. A single independently confirmed and authorized burial on an eligible unused lot can still be the initial pilot under the current model, subject to the existing field and publication gates. After Forest Lake confirms the policy, obtain one approved shared-plot example with two independently verified people or a documented repeat-event example. Use a disposable database with synthetic equivalents to prove create/move/restore, concurrent duplicate protection, one-row-per-plot staff views, two public searches reaching the same verified destination, and exclusion of private or removed records. Then review the minimum forward migration before any import.
-
-### GIS begin-import and finalization concurrency
-
-The earlier full suite had 179 passes, one deadlock failure and one skip. Inspection found opposite lock orders. Begin-import locked the release and then requested a shared area lock through the scope helper. Finalization held the area and waited for the release. A disposable PostgreSQL test forced that interleaving against the original migrations and reproduced the deadlock. The new local forward migration takes the pilot area lock first and rechecks scope and revision under the release lock. The same test then allowed finalization and rejected restage as stale while preserving transaction and receipt invariants. Both focused PostgreSQL tests passed, along with 33 Phase 2 and GIS readiness tests. The full suite then passed 180 tests with one Windows symlink skip and zero failures. Lint passed with the existing unused import warning. The 26 existing migrations were retained. A separate local commit `dd1723db3bdf1938e3da5d908cae6736956ebf89` records the forward migration and race regression. Both targeted PostgreSQL tests passed again during the Section D review. The handoff remains an uncommitted documentation update. Apply the forward migration to an authorized target only after separate approval.
+The historical Phase 1 Reset/zoom overlap was not claimed fixed. See the [documentation index](README.md) for current contracts.

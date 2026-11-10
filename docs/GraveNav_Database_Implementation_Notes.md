@@ -1,27 +1,51 @@
 # GraveNav database implementation notes
 
-The initial migration is local-first and contains no cemetery seed records. It does not import the sensitive Excel workbook. All GPS and image-map coordinates remain nullable, and no real or fictional coordinates are included.
+Updated 9 November 2026 against the local release candidate. Use the [current operational handoff](phase2-local-defense.md) for scope and the [GIS package contract](gis/pilot-package-v1.md) for mapping inputs. Hosted migration state requires an authorized target inspection.
 
-The public burial view contains only active records for deceased records with `deceased.public_display = true`. A non-null `lot.location_geom` is returned regardless of `coordinate_status` or `coordinate_verified`; the view also returns existing pixel-map coordinates and a `location_verified` indicator. Pending and archived records are excluded.
+## Physical plots, people and interments
 
-The approved roles are `ADMIN` and `MANAGER`. Active `ADMIN` accounts have full operational access, account provisioning and lifecycle authority, and audit read/export access. Active `MANAGER` accounts have operational cemetery-record access, coordinate verification, photo approval, and audit read/export access, but cannot access account-management mutations. Inactive, pending, suspended, and revoked accounts cannot use administrator functions.
+The operational hierarchy is site -> area/garden -> lot. A lot is one physical gravesite with an official lot_code, unique within area_id. Nullable block references and older sector structures provide compatibility with earlier data.
 
-Account passwords are managed only by Supabase Auth. The public `account` table stores no password or password hash. A protected server-side Auth Admin operation creates or invites the Auth user first; the protected database functions then create or approve the matching `account` row. The first ADMIN is a controlled service-side bootstrap with `created_by = NULL`; it is not public self-registration.
+Each deceased row has its existing internal deceased_id and individual display name and life dates. Each burial_record associates a deceased person with a lot and retains its own burial_id, interment date, status, remains and source references. Photos continue to reference a burial record. Owners retain their existing relationships to lots.
 
-Account mutations are function-only: `admin_create_account`, `admin_approve_account`, `admin_activate_account`, `admin_deactivate_account`, and `admin_change_account_role`. Only active ADMIN accounts may call them. `bootstrap_first_admin` is granted only to the protected `service_role` and refuses to run after an active ADMIN exists. No frontend call should receive or use a service-role credential.
+The forward migration 20261107010000_shared_gravesite_interments.sql replaces the global single-burial index with a unique (lot_id, interment_slot) reservation. The supported workflow creates distinct individual records under the shared lot. A repeated source order requires reconciliation before another confirmed association. Matching names and dates trigger review rather than identity merging.
 
-Audit triggers cover application-table inserts, updates, deletes, and state changes. Verification, approval, and status-change events are classified explicitly. `export_audit_log` records audit exports and permits only active ADMIN or MANAGER accounts to read/export logs. Owner identity/contact fields, cause of death, service-provider data, quality notes, and account usernames are redacted from JSON snapshots. `audit_log.table_name` plus `record_id` is a polymorphic reference, not one ordinary foreign key. Audit records are intended to be retained for the lifetime of the system unless an institutional retention policy is later approved.
+## Classification and capacity
 
-Photos remain database metadata only. Configure a private Supabase Storage bucket and storage-object RLS policies separately; approved public photos should be delivered through short-lived signed URLs. No uploads occur in this migration.
+- An administrator records grave_type and a restricted approval reference.
+- Approved regular graves have six slots.
+- Mausoleums use their individually approved numeric capacity and arrangement reference. Admissions wait while capacity is unconfigured.
+- Unclassified lots retain the earlier one-assignment behavior pending classification.
+- Pending, archived, removed and restored records retain their reserved slots. Exhumations, corrected orders and capacity release require further policy decisions.
+- New classified records require a reviewed order, interment date and explicit actual-interment confirmation before activation. Legacy rows retain their identities and unknown confirmation state until reviewed.
+- Confirmed orders and associations are retained for reconciliation. The current workflow restricts moves from classified or confirmed interments.
 
-## Map data and routing
+The database serializes admissions through the lot and private write fence. Staff-visible plot revisions and coordinate review state are independent of slot reservations. See the migration and shared-interment tests for exact guards.
 
-The administrator cemetery map reads Phase 1 `site`, garden `area`, `map_node`, and `map_edge` rows from Supabase. If those protected map tables are unavailable or not populated, the UI uses the checked-in Phase 1 GeoJSON as a display fallback and labels the source. The public visitor map continues to use that public static asset so anonymous visitors do not need access to protected map tables.
+## Protected staff changes
 
-The navigation screen uses the recorded Phase 1 node/edge network and Dijkstra shortest-path calculation. It starts at the recorded main entrance, targets the nearest network node to an existing burial coordinate, follows stored edge geometry, and appends the destination coordinate. It does not invent a grave coordinate or repair a missing network connection. A route is therefore available only when the record has a coordinate and the network is connected.
+staff_save_record is the application mutation boundary. It checks an active ADMIN or MANAGER account, allowed fields, expected revision and request UUID, then commits related writes atomically. Direct application table writes and older mutation RPC access are revoked.
 
-The transactional burial functions in `supabase/migrations/20260830200000_transactional_burial_operations.sql` and the coordinate-validation trigger in `supabase/migrations/20260830210000_validate_lot_coordinates.sql` are now applied to the approved hosted development project. Keep the server’s guarded cleanup fallback for environments that have not received the migrations yet, and apply future migrations only through the project’s approved database process.
+ADMIN authority is required for classification/capacity approval, coordinate and photo review, account lifecycle, removal and recovery. MANAGER accounts retain permitted operational create/edit access. Recovery snapshots are protected, and revision checks prevent undo from overwriting subsequent changes. Removed burials retain their relationships and reservations.
 
-The current location hierarchy is `site -> area/garden -> plot`. The ERD retains `sector`, `block`, and nullable `lot.block_id` only for legacy compatibility; new plots use `lot.area_id` and `UNIQUE(area_id, lot_code)`.
+Request receipts protect exact retries. A new request UUID does not establish that a person or workbook transaction is new. Keep ambiguous Section D entries in restricted reconciliation.
 
-The local migration `supabase/migrations/20260830210000_validate_lot_coordinates.sql` adds a database trigger that rejects a non-null plot coordinate unless it is covered by the selected garden boundary. It also prevents a coordinate outside that boundary from being marked verified. This protects direct SQL/import writes as well as a future coordinate-entry screen; the current plot form still does not collect GPS coordinates.
+## Public records and privacy
+
+The public burial view includes active burial records with deceased.public_display enabled, while excluding removed burials and lots. Search and profiles use burial IDs. The shared-plot roster applies the same eligibility filters to every individual. Its reader distinguishes unavailable/invalid responses from an empty roster, projects only IDs/names, and offers profile retry. Public readers have no fictional-record fallback.
+
+The public view exposes the recorded coordinate and its verification status. Coordinate presence alone does not establish a valid navigation destination. Phase 2 additionally requires the correct published lot geometry and reviewed access association.
+
+Keep owner contact details, private notes, source review evidence, survey/device details and credentials in their authorized stores. Supabase Auth manages passwords. Photos use a private Storage bucket and the protected approval workflow.
+
+## Coordinates and GIS
+
+A lot coordinate is nullable. Plot Management accepts optional coordinates, and new or changed coordinates return to pending. Coordinate Verification is a protected review workflow. Existing database containment checks apply.
+
+The main map at /map renders the Phase 2 CAD landscape in local Cartesian coordinates. The geographic mode within /map uses the existing adapter for public_mapping_layer and public_burial_gis, checking scope, publication revision, burial identity, lot, polygon and access node. The old /phase2-map URL redirects into this workspace. One physical lot retains one geographic destination for its eligible deceased records.
+
+Survey captures, georeferencing runs, versioned geometry, graph access, import validation and explicit release review/publication remain governed by the [GIS runbook](gis/import-and-publication.md). The native planning display does not itself establish a geographic transformation.
+
+## Migration provenance
+
+The shared-gravesite migration and M09 lock-order correction are committed locally at the baseline recorded in the handoff. Their hosted application remains subject to separate authorization. Preserve immutable earlier migrations, established IDs, foreign keys and audit history. Apply reviewed forward migrations once, in order, to an explicitly approved target.

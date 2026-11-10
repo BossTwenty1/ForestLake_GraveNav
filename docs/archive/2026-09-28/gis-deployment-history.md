@@ -1,3 +1,12 @@
+# Archived reference — superseded instructions
+
+> Archived on 9 November 2026. This document preserves a dated assessment or execution plan. Its old scope, constraints, counts and agent instructions are historical; use the [current operational handoff](../../phase2-local-defense.md) for ongoing work.
+
+Original location: docs/gis/deployment-checklist.md  
+Original content SHA-256: eb4c9cef39a93d4e527e84d8c0f1b09c29cb19a47e5872354dd4bf5dd3eb9edd
+
+---
+
 # GIS deployment checklist
 
 ## B1 / Task 1 — release foundation
