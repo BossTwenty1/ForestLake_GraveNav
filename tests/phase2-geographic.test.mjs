@@ -99,9 +99,9 @@ test("Pagination is complete and fenced to the same publication",async()=>{
   const read=f.reader.layer;f.reader.layer=async args=>({...await read(args),totalPages:3});
   assert.equal((await loadPhaseTwoGeography(f.reader,scope)).data,null);
 });
-test("Directions remain disabled and use no Phase 1 GPS thresholds",async()=>{
+test("Legacy geographic links use the main map and the adapter has no Phase 1 GPS fallback",async()=>{
   const page=await readFile(new URL("../src/app/phase2-map/page.tsx",import.meta.url),"utf8");
-  assert.match(page,/disabled>Phase 2 directions unavailable/);
+  assert.match(page,/redirect\("\/map\?"/);
   const adapter=await readFile(new URL("../src/lib/phase2-geographic.ts",import.meta.url),"utf8");
   assert.doesNotMatch(adapter,/phase1|nearPlot|nearestNode|mock-data|CRS.Simple/);
 });

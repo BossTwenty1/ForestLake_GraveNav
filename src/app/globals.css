@@ -5145,3 +5145,48 @@ html[data-theme="dark"] .admin-burial-page {
     font-size: 1.4rem;
   }
 }
+
+.phase-two-map-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  pointer-events: none;
+}
+.phase-two-map-controls button {
+  position: absolute;
+  pointer-events: auto;
+}
+.phase-two-place-label {
+  border: 1px solid var(--visitor-border);
+  border-radius: 6px;
+  background: var(--visitor-surface);
+  color: var(--visitor-ink);
+  font: 600 10px/1.3 Inter, "Segoe UI", sans-serif;
+  padding: 3px 5px;
+  box-shadow: var(--shadow);
+}
+.phase-two-layer-options {
+  display: grid;
+  gap: 10px;
+  padding-block: 12px;
+}
+.phase-two-layer-options label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+  font-size: 0.82rem;
+}
+.phase-two-layer-options input {
+  accent-color: var(--visitor-accent);
+}
+.phase-two-candidate-search {
+  grid-template-columns: minmax(0, 1fr);
+}
+.map-destination-card dd {
+  overflow-wrap: anywhere;
+}
+
+/* Verified geographic mode stays in the existing map workspace. */
+.public-map-stage.map-stage--geographic { height: auto; min-height: 360px; }
+.map-stage--geographic .map-loading { min-height: 360px; align-content: center; gap: 1rem; padding: 1.25rem; text-align: center; }

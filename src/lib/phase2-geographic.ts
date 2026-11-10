@@ -1,6 +1,7 @@
 // @ts-expect-error Native Node contract tests require the explicit TypeScript extension.
 import { parseGisBigintId } from "./supabase/gis-types.ts";
 import type { GeoJsonGeometry, PublicBurialGis, PublicGisFeature, PublicMappingLayer, PublicMappingPage } from "./supabase/gis-types";
+import type { PhaseTwoNavigationPolicy } from "./phase2-routing";
 import type { PublicBurialRecord } from "./supabase/types";
 
 export type PhaseTwoScope = { siteId: string; areaId: string };
@@ -11,6 +12,8 @@ export type PhaseTwoReader = {
 export type PhaseTwoGeography = {
   releaseId: string;
   scopeRevision: number;
+  navigationPolicy?: PhaseTwoNavigationPolicy | null;
+  checkedAt?: number;
   layers: Record<PublicMappingLayer, PublicGisFeature[]>;
   target: PublicGisFeature | null;
   accessPoint: PublicGisFeature | null;

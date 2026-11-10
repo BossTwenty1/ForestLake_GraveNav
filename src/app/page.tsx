@@ -40,14 +40,14 @@ export default async function HomePage() {
     <section className="stitch-explore">
       <div className="stitch-section-heading">
         <h2>Explore Memorial Park</h2>
-        {hasPlanningMap ? <a href="/phase2-viewer/index.html">Phase 2 Planning Map (CAD only)</a> : <Link href="/map">View map</Link>}
+        {hasPlanningMap ? <Link href="/map">Phase 2 landscape map</Link> : <Link href="/map">View map</Link>}
       </div>
       <p><Link href="/phase2-map">Phase 2 Geographic Map</Link></p>
       <div className="stitch-feature-track">
         <Link className="stitch-feature-card stitch-feature-card--map" href="/map">
-          <span className="stitch-feature-visual"><Icon name="map" size={34} /><b>Phase 1 grounds map</b></span>
-          <span><strong>Phase 1 Grounds Map</strong><small>Explore mapped pathways and open the cemetery navigation view.</small></span>
-          <span className="stitch-feature-footer"><b>Live map</b><span>Open view <Icon name="chevronRight" size={13} /></span></span>
+          <span className="stitch-feature-visual"><Icon name="map" size={34} /><b>Phase 2 landscape</b></span>
+          <span><strong>Phase 2 Planning Map</strong><small>Explore the full landscape and selectable CAD plot candidates.</small></span>
+          <span className="stitch-feature-footer"><b>Planning map</b><span>Open view <Icon name="chevronRight" size={13} /></span></span>
         </Link>
         <article className="stitch-feature-card stitch-feature-card--verification">
           <span className="stitch-feature-icon"><Icon name="verification" size={18} /></span>

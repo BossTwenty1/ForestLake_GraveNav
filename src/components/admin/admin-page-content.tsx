@@ -16,8 +16,8 @@ import { AdminPhotoUploader } from "@/components/admin/admin-photo-uploader";
 import { accountAction, getAdminAccounts, getAllAdminRecords, getAuditLog, getAuditLogPage } from "@/lib/supabase/admin-data";
 import type { AdminAccount, AdminRecord, AuditLogEntry } from "@/lib/supabase/types";
 
-export function AdminCemeteryMapPage() {
-  return <AdminPageFrame title="Cemetery Map" description="Use the Phase 1 geometry reference with live burial records from Supabase."><AdminCemeteryMap /></AdminPageFrame>;
+export function AdminCemeteryMapPage({ hasPlanningMap = false }: { hasPlanningMap?: boolean }) {
+  return <AdminPageFrame title="Cemetery Map" description="Explore the Phase 2 landscape and review CAD planning candidates."><AdminCemeteryMap hasPlanningMap={hasPlanningMap} /></AdminPageFrame>;
 }
 
 export function AdminPhotosPage() { return <AdminPageFrame title="Photos" description="Upload optional cemetery photos into private Supabase Storage for administrator review."><AdminPhotoUploader /></AdminPageFrame>; }

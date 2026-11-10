@@ -15,7 +15,7 @@ const destinations: Array<{ id: string; label: string; icon: IconName; href: str
 function activeDestination(pathname: string) {
   if (pathname === "/") return "home";
   if (["/search", "/results", "/record-not-found", "/gravesite"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "search";
-  if (["/map", "/navigation"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "map";
+  if (["/map", "/navigation", "/phase2-map"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "map";
   return null;
 }
 

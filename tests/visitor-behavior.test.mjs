@@ -395,31 +395,26 @@ test(
   },
 );
 
-test(
-  "development demo profiles retain slug IDs while hosted lookups require numeric IDs",
-  async () => {
-    const demo = { id: "demo-person", name: "Demo Person" };
-    const local = load("src/lib/supabase/public-data.ts", {
-      "./config": {
-        getPublicSupabase: () => null,
-        localSupabaseConfig: { environment: "local" },
-      },
-      "@/lib/mock-data": {
-        getGravesiteById: (id) => (id === demo.id ? demo : null),
-      },
-      "@/lib/map-layout": { phaseOneGardenNames: [] },
-    });
+test("Unconfigured public readers never substitute fictional records", async () => {
+  const local = load("src/lib/supabase/public-data.ts", { "./config": {getPublicSupabase:()=>null} });
+  await assert.rejects(local.getPublicBurialRecord("5"), /temporarily unavailable/);
+  await assert.rejects(local.searchPublicBurials({query:"anything"}), /temporarily unavailable/);
+  await assert.rejects(local.getPublicBurialRecordByPlot("anything"), /temporarily unavailable/);
+  assert.deepEqual(await local.getPublicGardenNames(),[]);
+  assert.equal(await publicModule({data:null,error:{}}).getPublicBurialRecord("not-an-id"),null);
+});
 
-    assert.equal(
-      (await local.getPublicBurialRecord(demo.id)).id,
-      demo.id,
-    );
-    assert.equal(
-      await publicModule({
-        data: null,
-        error: {},
-      }).getPublicBurialRecord(demo.id),
-      null,
-    );
-  },
-);
+test("Shared-grave roster distinguishes unavailable, malformed, empty and authorized results",async()=>{
+  let response={data:null,error:{code:"PGRST202"}};
+  const reader=load("src/lib/supabase/public-data.ts",{"./config":{getPublicSupabase:()=>({rpc:async()=>response})}});
+  assert.deepEqual(await reader.getPublicSharedPlotBurials("5"),{state:"unavailable",items:[]});
+  response={data:[],error:null};
+  assert.deepEqual(await reader.getPublicSharedPlotBurials("5"),{state:"ready",items:[]});
+  response={data:[{id:"6",name:"Synthetic eligible person"}],error:null};
+  assert.deepEqual(await reader.getPublicSharedPlotBurials("5"),{state:"ready",items:response.data});
+  response={data:[{id:"6",name:"Synthetic eligible person",restrictedNote:"test-only restricted detail"}],error:null};
+  assert.deepEqual((await reader.getPublicSharedPlotBurials("5")).items,[{id:"6",name:"Synthetic eligible person"}]);
+  response={data:[{id:"bad",name:"Synthetic malformed person"}],error:null};
+  assert.equal((await reader.getPublicSharedPlotBurials("5")).state,"unavailable");
+  assert.equal((await reader.getPublicSharedPlotBurials("unsafe")).state,"unavailable");
+});

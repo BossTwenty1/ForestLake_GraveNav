@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
-import { canNavigateToPublicRecord } from "@/lib/public-navigation";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 
-export function GravesiteLocationCard({ record, mapScope = "legacy" }: { record: PublicBurialRecord; mapScope?: "legacy" | "phase2" | "unavailable" }) {
-  const canNavigate = mapScope === "legacy" && canNavigateToPublicRecord(record);
+export function GravesiteLocationCard({ record, mapScope = "unavailable" }: { record: PublicBurialRecord; mapScope?: "phase2" | "unavailable" }) {
   const state: LocationState = mapScope === "unavailable" ? {
     label: "Map unavailable",
     heading: "Geographic guidance unavailable",
-    description: "The record’s map area could not be confirmed. Reload to try again.",
+    description: "This record has no approved Phase 2 plot association.",
     tone: "unavailable",
     icon: "alert",
   } : locationState(record.coordinateStatus);
@@ -53,32 +51,17 @@ export function GravesiteLocationCard({ record, mapScope = "legacy" }: { record:
         <div>
           <strong>{state.heading}</strong>
           <p>{mapScope === "phase2" ? "Published Phase 2 geometry and reviewed walking access are required for geographic guidance." : state.description}</p>
-          {canNavigate && record.location ? (
-            <code>
-              {formatCoordinate(record.location.latitude, "N", "S")},{" "}
-              {formatCoordinate(record.location.longitude, "E", "W")}
-            </code>
-          ) : null}
         </div>
       </div>
 
       <div className="profile-location-actions">
-        {canNavigate ? (
-          <Link
-            className="button button--primary button--lg"
-            href={`/navigation?id=${encodeURIComponent(record.id)}`}
-          >
-            <Icon name="navigation" size={19} />
-            <span>Navigate to gravesite</span>
-          </Link>
-        ) : null}
-        {mapScope !== "unavailable" ? <Link
+        <Link
           className="button button--secondary button--lg"
-          href={mapScope === "phase2" ? `/phase2-map?id=${encodeURIComponent(record.id)}` : `/map?id=${encodeURIComponent(record.id)}`}
+          href={`/map?id=${encodeURIComponent(record.id)}`}
         >
           <Icon name="map" size={19} />
-          <span>{mapScope === "phase2" ? "View Phase 2 geographic map" : "View cemetery map"}</span>
-        </Link> : null}
+          <span>View gravesite on map</span>
+        </Link>
       </div>
     </section>
   );
@@ -139,8 +122,4 @@ function locationState(
     tone: "unavailable",
     icon: "location",
   };
-}
-
-function formatCoordinate(value: number, positive: string, negative: string) {
-  return `${Math.abs(value).toFixed(6)}° ${value >= 0 ? positive : negative}`;
 }

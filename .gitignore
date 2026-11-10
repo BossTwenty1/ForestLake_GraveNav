@@ -59,3 +59,4 @@ next-env.d.ts
 
 # Local defense installation; CAD distribution requires management approval.
 /public/phase2-viewer/
+/public/phase2-planning/
