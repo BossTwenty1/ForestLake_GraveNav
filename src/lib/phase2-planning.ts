@@ -1,3 +1,6 @@
+import { validateCadDetails, type CadDetails } from "./phase2-cad-details";
+import { validatePlotCoordinates, type PlotCoordinateReferences } from "./phase2-plot-coordinates";
+
 export type Position = [number, number, ...number[]]
 export type Bounds = [number, number, number, number]
 export type Shape =
@@ -41,6 +44,12 @@ export const initialVisibility: Visibility = {
 
 export function featureLayer(feature: CadFeature): LayerKey {
   return feature.id.split(':')[0] as LayerKey
+}
+
+export function landmarkName(name: string): string {
+  if (name === "NEW MPH (CAD name)") return "Multipurpose hall";
+  if (name === "Standard Gazebo") return "Gazebo";
+  return name;
 }
 
 // Leaflet calls these lat/lng; with CRS.Simple they are strictly local Y/X.
@@ -109,12 +118,16 @@ export interface PlanningBundle {
   data: LocalData;
   landscape: PlanningLandscape;
   places: PlanningPlaces;
+  details: CadDetails;
+  coordinates: PlotCoordinateReferences;
 }
 export const planningAssetRoot = "/phase2-viewer/";
 const frozenDigests = {
   data: "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77",
   landscape: "7231314fc2aa5ad72df98a050bea717a069591a08dca82700d7e62e96b1c9ebc",
   places: "ccb2ef4624573ff918e789ec9035efccf847880c5908ea91c9e9111ce03c381b",
+  details: "00fd5a81075418e916a11ae28d442d57534ee0fb6dbf57b3ad43eaa584ab1de5",
+  coordinates: "11939315dbd2ea87de374e57290bb96acd6f1bf6a30a9f136b71c441b91c7b23",
 };
 async function verifiedJson(url: string, expected: string, signal: AbortSignal) {
   const response = await fetch(url, { signal, cache: "no-store" });
@@ -126,10 +139,12 @@ async function verifiedJson(url: string, expected: string, signal: AbortSignal) 
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 export async function loadPlanningBundle(signal: AbortSignal): Promise<PlanningBundle> {
-  const [raw, landscape, places] = await Promise.all([
+  const [raw, landscape, places, rawDetails, rawCoordinates] = await Promise.all([
     verifiedJson(planningAssetRoot + "data/phase2.local.json", frozenDigests.data, signal),
     verifiedJson(planningAssetRoot + "landscape/manifest.json", frozenDigests.landscape, signal),
     verifiedJson("/phase2-planning/places.json", frozenDigests.places, signal),
+    verifiedJson("/phase2-planning/cad-details/manifest.json", frozenDigests.details, signal),
+    verifiedJson("/phase2-planning/plot-coordinates.json", frozenDigests.coordinates, signal),
   ]);
   const data = validateData(raw);
   if (landscape.format !== "gravenav-full-landscape-v1" ||
@@ -138,5 +153,10 @@ export async function loadPlanningBundle(signal: AbortSignal): Promise<PlanningB
       places.geometrySha256 !== frozenDigests.data || places.landmarks.length !== 9) {
     throw new Error("The landscape and CAD references do not match.");
   }
-  return { data, landscape, places };
+  const details = validateCadDetails(rawDetails, frozenDigests.data);
+  if (details.bounds.some((coordinate, index) => coordinate !== landscape.bounds[index])) {
+    throw new Error("The CAD details and landscape use different map extents.");
+  }
+  const coordinates = validatePlotCoordinates(rawCoordinates, frozenDigests.data, [...data.layers.lawn, ...data.layers.estates]);
+  return { data, landscape, places, details, coordinates };
 }

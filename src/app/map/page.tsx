@@ -25,7 +25,7 @@ export default async function MapPage({ searchParams }: { searchParams: SearchPa
     const [names, result] = await Promise.all([getPublicGardenNames(), searchPublicBurials({ query, section, page })]);
     gardens = names; records = result.items; total = result.total; pageSize = result.pageSize;
   } catch {
-    recordsError = "Memorial search is temporarily unavailable. The planning map remains available.";
+    recordsError = "Memorial search is temporarily unavailable. You can still explore the park map.";
   }
   const selected = await destination;
   return <VisitorShell wide>

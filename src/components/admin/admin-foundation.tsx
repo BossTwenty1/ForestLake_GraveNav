@@ -115,6 +115,12 @@ function DashboardContent({ canAdmin, data }: { canAdmin: boolean; data: Dashboa
         />
       </section>
 
+      <p className="input-hint">
+        Synthetic project plots: {summary.syntheticPlots ?? "Count requires the staff read-model update"}.
+        {summary.syntheticPlots !== undefined
+          ? " Physical plot totals and coordinate reviews exclude these samples." : ""}
+      </p>
+
       <div className="admin-dashboard-insights">
         <BurialsBySection sections={data.burialsBySection} />
         <div className="admin-dashboard-insights__rail">
@@ -194,13 +200,15 @@ function CemeteryOccupancy({ occupancy }: { occupancy: DashboardData["occupancy"
   const occupiedStop = occupancy.total ? (occupancy.occupied / occupancy.total) * 100 : 0;
   const availableStop = occupancy.total ? occupiedStop + (occupancy.available / occupancy.total) * 100 : occupiedStop;
   const bookedStop = occupancy.total ? availableStop + (occupancy.booked / occupancy.total) * 100 : availableStop;
+  const holdStop = occupancy.total ? bookedStop + (occupancy.onHold / occupancy.total) * 100 : bookedStop;
   const donutStyle = {
     "--occupancy-occupied": `${occupiedStop}%`,
     "--occupancy-available": `${availableStop}%`,
     "--occupancy-booked": `${bookedStop}%`,
+    "--occupancy-hold": `${holdStop}%`,
   } as CSSProperties;
   const chartLabel = occupancy.total
-    ? `${occupancy.occupancyPercent}% occupied: ${occupancy.occupied} occupied, ${occupancy.available} available, ${occupancy.booked} booked, and ${occupancy.onHold} on hold`
+    ? `${occupancy.occupancyPercent}% occupied: ${occupancy.occupied} occupied, ${occupancy.available} available, ${occupancy.booked} booked, ${occupancy.onHold} on hold, and ${occupancy.unknown} unknown — not assessed`
     : "No current plots are available for occupancy reporting";
 
   return (
@@ -215,13 +223,14 @@ function CemeteryOccupancy({ occupancy }: { occupancy: DashboardData["occupancy"
           <OccupancyLegendItem label="Available" tone="available" value={occupancy.available} />
           <OccupancyLegendItem label="Booked" tone="booked" value={occupancy.booked} />
           <OccupancyLegendItem label="On hold" tone="hold" value={occupancy.onHold} />
+          <OccupancyLegendItem label="Unknown — not assessed" tone="unknown" value={occupancy.unknown} />
         </dl>
       </CardContent>
     </Card>
   );
 }
 
-function OccupancyLegendItem({ label, value, tone }: { label: string; value: number; tone: "occupied" | "available" | "booked" | "hold" }) {
+function OccupancyLegendItem({ label, value, tone }: { label: string; value: number; tone: "occupied" | "available" | "booked" | "hold" | "unknown" }) {
   return <div><dt><span aria-hidden="true" className={`admin-occupancy-legend__key admin-occupancy-legend__key--${tone}`} />{label}</dt><dd>{value.toLocaleString()}</dd></div>;
 }
 

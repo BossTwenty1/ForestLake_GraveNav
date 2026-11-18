@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
+import { visitorPlotDetails } from "@/lib/visitor-presentation";
 
-export function GravesiteLocationCard({ record, mapScope = "unavailable" }: { record: PublicBurialRecord; mapScope?: "phase2" | "unavailable" }) {
+export function GravesiteLocationCard({ record, mapScope = "unavailable", showMapLink = true }: {
+  record: PublicBurialRecord;
+  mapScope?: "phase2" | "unavailable";
+  showMapLink?: boolean;
+}) {
+  const plot = visitorPlotDetails(record);
   const state: LocationState = mapScope === "unavailable" ? {
-    label: "Map unavailable",
-    heading: "Geographic guidance unavailable",
-    description: "This record has no approved Phase 2 plot association.",
+    label: "Location unavailable",
+    heading: "Gravesite location unavailable",
+    description: "Please ask cemetery staff for help locating this gravesite. The recorded plot details are shown above.",
     tone: "unavailable",
     icon: "alert",
   } : locationState(record.coordinateStatus);
@@ -18,8 +24,7 @@ export function GravesiteLocationCard({ record, mapScope = "unavailable" }: { re
     >
       <div className="profile-section-heading">
         <div>
-          <p>Gravesite location</p>
-          <h2 id="plot-location-title">Recorded plot details</h2>
+          <h2 id="plot-location-title">Gravesite Details</h2>
         </div>
         <span className={`profile-status profile-status--${state.tone}`}>
           <Icon name={state.icon} size={14} />
@@ -30,15 +35,15 @@ export function GravesiteLocationCard({ record, mapScope = "unavailable" }: { re
       <dl className="profile-plot-grid">
         <div>
           <dt>Garden</dt>
-          <dd>{record.section}</dd>
+          <dd>{plot.garden}</dd>
         </div>
         <div>
-          <dt>Block / row</dt>
-          <dd>{record.row}</dd>
+          <dt>Block</dt>
+          <dd>{plot.block}</dd>
         </div>
         <div>
-          <dt>Plot</dt>
-          <dd>{record.plot}</dd>
+          <dt>Lot</dt>
+          <dd>{plot.lot}</dd>
         </div>
       </dl>
 
@@ -50,11 +55,11 @@ export function GravesiteLocationCard({ record, mapScope = "unavailable" }: { re
         </span>
         <div>
           <strong>{state.heading}</strong>
-          <p>{mapScope === "phase2" ? "Published Phase 2 geometry and reviewed walking access are required for geographic guidance." : state.description}</p>
+          <p>{state.description}</p>
         </div>
       </div>
 
-      <div className="profile-location-actions">
+      {showMapLink ? <div className="profile-location-actions">
         <Link
           className="button button--secondary button--lg"
           href={`/map?id=${encodeURIComponent(record.id)}`}
@@ -62,7 +67,7 @@ export function GravesiteLocationCard({ record, mapScope = "unavailable" }: { re
           <Icon name="map" size={19} />
           <span>View gravesite on map</span>
         </Link>
-      </div>
+      </div> : null}
     </section>
   );
 }
@@ -80,10 +85,10 @@ function locationState(
 ): LocationState {
   if (status === "verified") {
     return {
-      label: "Verified",
-      heading: "Verified destination",
+      label: "Location available",
+      heading: "Gravesite location available",
       description:
-        "This recorded coordinate is eligible for gravesite guidance.",
+        "Open the map to view the gravesite and check available walking directions.",
       tone: "verified",
       icon: "verification",
     };
@@ -91,11 +96,10 @@ function locationState(
 
   if (status === "rejected") {
     return {
-      label: "Not valid",
+      label: "Location unavailable",
       heading: "Navigation unavailable",
       description:
-        "The previous coordinate did not pass cemetery verification. " +
-        "Staff must correct it before guidance can be offered.",
+        "Please ask cemetery staff for help locating this gravesite.",
       tone: "unavailable",
       icon: "alert",
     };
@@ -103,22 +107,20 @@ function locationState(
 
   if (status === "pending") {
     return {
-      label: "Awaiting review",
-      heading: "Coordinate verification pending",
+      label: "Location unavailable",
+      heading: "Walking directions unavailable",
       description:
-        "A coordinate exists, but exact guidance remains unavailable until " +
-        "cemetery staff verify it.",
+        "Walking directions are not available for this gravesite yet. Please ask cemetery staff for assistance.",
       tone: "pending",
       icon: "clock",
     };
   }
 
   return {
-    label: "Not recorded",
-    heading: "No navigation coordinate",
+    label: "Location unavailable",
+    heading: "Gravesite location unavailable",
     description:
-      "This memorial has no public GPS destination. You can still view its " +
-      "recorded section and plot on the cemetery map.",
+      "You can still view the recorded garden, block and plot details. Please ask cemetery staff for help locating the gravesite.",
     tone: "unavailable",
     icon: "location",
   };

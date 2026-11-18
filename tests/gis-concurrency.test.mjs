@@ -370,7 +370,7 @@ test("shared regular grave serializes two real PostgreSQL sessions competing for
     + "insert into public.site(site_id,site_name,address) values (1,'Fictional Race Site','Synthetic');"
     + "insert into public.area(area_id,site_id,area_code,area_name,area_category) values (1,1,'RACE','Race garden','garden');"
     + session
-    + "select public.staff_save_record('lot',null,null,'{\"area_id\":1,\"lot_code\":\"RACE\",\"grave_type\":\"regular\",\"grave_policy_reference\":\"fictional approval\"}','"
+    + "select public.staff_save_record('lot',null,null,'{\"area_id\":1,\"status\":\"AVAILABLE\",\"lot_code\":\"RACE\",\"grave_type\":\"regular\",\"grave_policy_reference\":\"fictional approval\"}','"
     + randomUUID() + "','save');"
     + [1, 2, 3, 4, 5].map(call).join(""));
   const lead = spawn("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-d", DATABASE, "-v", "ON_ERROR_STOP=1", "-X", "-Atq"]);

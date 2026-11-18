@@ -10,7 +10,7 @@ export type GisReadinessReason =
   | "unreviewed_access_point"
   | "unreachable"
   | null;
-export type GisOccupancy = "occupied" | "booked" | "hold" | "available";
+export type GisOccupancy = "occupied" | "booked" | "hold" | "available" | "unknown";
 export type LegacyCoordinateState = "missing" | "pending" | "verified" | "rejected";
 export type PublicMappingLayer = "boundaries" | "plots" | "access_points" | "walkways" | "nodes" | "edges" | "landmarks";
 export type AdminMappingLayer = "metadata" | PublicMappingLayer;
@@ -217,7 +217,7 @@ export function decodeGisReadinessPage(value: unknown): GisReadinessPage {
   const rows=row.rows.map((item,index)=>{
     const entry=object(item,`readiness.rows[${index}]`);
     exact(entry,["lotId","lotCode","areaId","occupancy","legacyCoordinate","geometryReady","routingReady","reason"],`readiness.rows[${index}]`);
-    if(!["occupied","booked","hold","available"].includes(String(entry.occupancy))) throw new Error("occupancy is unsupported");
+    if(!["occupied","booked","hold","available","unknown"].includes(String(entry.occupancy))) throw new Error("occupancy is unsupported");
     if(!["missing","pending","verified","rejected"].includes(String(entry.legacyCoordinate))) throw new Error("legacyCoordinate is unsupported");
     return { lotId:parseGisBigintId(entry.lotId,"lotId"),lotCode:text(entry.lotCode,"lotCode"),areaId:parseGisBigintId(entry.areaId,"areaId"),
       occupancy:entry.occupancy as GisOccupancy,legacyCoordinate:entry.legacyCoordinate as LegacyCoordinateState,

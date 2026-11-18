@@ -1,27 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { isSyntheticPlot, syntheticPlotDescription } from "@/lib/synthetic-plots";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { recordInputFromRecord } from "@/lib/burial-records";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
-import { AdminPageFrame } from "@/components/admin/admin-page-content";
 import { BurialRecordList } from "@/components/admin/burial-record-list";
 import { PlotManagementList } from "@/components/admin/plot-management-list";
 import {
-  createBurialRecord,
   createLot,
-  createLotOwner,
   deleteBurialRecord,
   deleteLot,
-  deleteLotOwner,
-  getAvailableBurialPlots,
   getDashboardCounts,
   getOwnerRecords,
   getOwnerRecordsPage,
@@ -30,37 +26,30 @@ import {
   getStaffBurialRecords,
   updateBurialRecord,
   updateLot,
-  updateLotOwner,
-  type BurialRecordInput,
   type BurialRecordQuery,
   type DashboardCounts,
   type LotInput,
-  type OwnerInput,
   type PlotManagementQuery,
 } from "@/lib/supabase/admin-data";
-import type { AdminRecord, BurialPlotOption, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "@/lib/supabase/types";
+import type { AdminRecord, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "@/lib/supabase/types";
 
 type BurialRecordsCrudProps = {
-  showAdd?: boolean;
   selectedRecordId?: string;
   initialQueryState: BurialRecordQuery;
 };
 
 export function BurialRecordsCrud({
-  showAdd = false,
   selectedRecordId = "",
   initialQueryState,
 }: BurialRecordsCrudProps) {
   const canAdmin = useStaff()?.role === "ADMIN";
+  const router = useRouter();
   const [records, setRecords] = useState<AdminRecord[]>([]);
-  const [plots, setPlots] = useState<BurialPlotOption[]>([]);
   const [total, setTotal] = useState(0);
   const [totalAll, setTotalAll] = useState(0);
   const [sections, setSections] = useState<string[]>([]);
   const [counts, setCounts] = useState<DashboardCounts | null>(null);
   const [queryState, setQueryState] = useState(initialQueryState);
-  const [formOpen, setFormOpen] = useState(showAdd);
-  const [editing, setEditing] = useState<AdminRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -95,7 +84,6 @@ export function BurialRecordsCrud({
 
   useEffect(() => {
     void Promise.all([
-      getAvailableBurialPlots().then(setPlots),
       getDashboardCounts().then(setCounts),
     ]).catch((reason) => setError(errorMessage(reason)));
   }, []);
@@ -103,7 +91,6 @@ export function BurialRecordsCrud({
   const refresh = useCallback(async () => {
     await Promise.all([
       loadRecords(queryState),
-      getAvailableBurialPlots().then(setPlots),
       getDashboardCounts().then(setCounts),
     ]);
   }, [loadRecords, queryState]);
@@ -168,6 +155,9 @@ export function BurialRecordsCrud({
 
   return (
     <div className="admin-page-frame admin-burial-page">
+      <Link className="subtle-link" href="/admin/burial-records/preview">
+        Preview Visitor Search
+      </Link>
       {error && error !== loadError ? <DataError message={error} /> : null}
       {message ? (
         <Alert icon="check" title="Record update" variant="success">{message}</Alert>
@@ -176,23 +166,6 @@ export function BurialRecordsCrud({
         <Alert title={`Selected burial ${selected.burialId}`} variant="info">
           {selected.name} · {selected.plot}
         </Alert>
-      ) : null}
-      {formOpen ? (
-        <BurialRecordForm
-          availablePlots={plots}
-          key={editing?.burialId ?? "new"}
-          record={editing}
-          onCancel={() => {
-            setFormOpen(false);
-            setEditing(null);
-          }}
-          onSaved={async () => {
-            setFormOpen(false);
-            setEditing(null);
-            setMessage(editing ? "Burial record updated." : "Burial record created.");
-            await refresh();
-          }}
-        />
       ) : null}
       <BurialRecordList
         busy={busy}
@@ -206,10 +179,9 @@ export function BurialRecordsCrud({
         selectedRecordId={selectedRecordId}
         total={total}
         totalAll={totalAll}
-        onAdd={() => {
-          setEditing(null);
-          setFormOpen(true);
-        }}
+        onAdd={() => router.push("/admin/burial-records/new?" + new URLSearchParams({
+          returnTo: window.location.pathname + window.location.search,
+        }))}
         onBatchStatus={(selectedRecords, status) => {
           void changeStatuses(selectedRecords, status);
         }}
@@ -217,10 +189,8 @@ export function BurialRecordsCrud({
           void changeStatus(record, status);
         }}
         onDelete={setDeleteTarget}
-        onEdit={(record) => {
-          setEditing(record);
-          setFormOpen(true);
-        }}
+        onEdit={(record) => router.push("/admin/burial-records/" + record.burialId +
+          "/edit?" + new URLSearchParams({ returnTo: window.location.pathname + window.location.search }))}
         onQueryStateChange={setQueryState}
         onRetry={() => void loadRecords(queryState)}
       />
@@ -244,26 +214,6 @@ export function BurialRecordsCrud({
   );
 }
 
-function BurialRecordForm({ record, availablePlots, onCancel, onSaved }: { record: AdminRecord | null; availablePlots: BurialPlotOption[]; onCancel: () => void; onSaved: () => Promise<void> }) {
-  const initial = record ? recordInputFromRecord(record) : { name: "", lotId: 0, birthDate: "", deathDate: "", publicDisplay: false, intermentDate: "", recordStatus: "pending" as const, intermentStatus: "PERMANENT" as const, remainsType: "FRESH" as const, referenceNo: "", serviceProvider: "", recordSource: "", qualityNotes: "" };
-  const plotOptions: Array<[string, string]> = [
-    ...(record ? [[String(record.lotId), `Current: ${record.plot} — ${record.section}`] as [string, string]] : []),
-    ...availablePlots.filter((plot) => !record || plot.lotId !== record.lotId).map((plot) => [String(plot.lotId), `${plot.lotCode} — ${plot.section}${plot.graveType ? ` — ${plot.confirmedCount} confirmed · ${plot.remaining} open` : ""}`] as [string, string]),
-  ];
-  const [form, setForm] = useState<BurialRecordInput>(initial);
-  const plot = availablePlots.find((item) => item.lotId === form.lotId);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  function setField<K extends keyof BurialRecordInput>(key: K, value: BurialRecordInput[K]) { setForm((current) => ({ ...current, [key]: value })); }
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (saving) return; setError("");
-    if (!form.name.trim() || !Number.isInteger(form.lotId) || form.lotId <= 0) { setError("A name and an available plot must be selected."); return; }
-    if (form.birthDate && form.deathDate && form.birthDate > form.deathDate) { setError("Birth date cannot be later than death date."); return; }
-    setSaving(true);
-    try { if (record) await updateBurialRecord(record.burialId, { ...form, name: form.name.trim() }); else await createBurialRecord({ ...form, name: form.name.trim() }); await onSaved(); } catch (reason) { setError(errorMessage(reason)); } finally { setSaving(false); }
-  }
-  return <Card className="admin-form-card"><CardHeader><CardTitle>{record ? "Edit burial record" : "Add burial record"}</CardTitle><Badge variant="info">Protected database operation</Badge></CardHeader><CardContent><form className="admin-form" onSubmit={(event) => void submit(event)}><div className="filter-grid"><Input id="burial-display-name" label="Display name" onChange={(event) => setField("name", event.target.value)} required value={form.name} /><PlotPicker value={form.lotId ? String(form.lotId) : ""} onChange={(value) => setField("lotId", Number(value))} options={plotOptions} disabled={record?.intermentConfirmed === true} hint={plot?.graveType ? `${plot.confirmedCount} confirmed; ${plot.remaining} open after reservations.` : "Select the official physical plot."} /></div><div className="filter-grid"><Input id="burial-birth-date" label="Birth date" onChange={(event) => setField("birthDate", event.target.value)} type="date" value={form.birthDate || ""} /><Input id="burial-death-date" label="Death date" onChange={(event) => setField("deathDate", event.target.value)} type="date" value={form.deathDate || ""} /></div><div className="filter-grid"><Input id="burial-interment-date" label="Interment date" onChange={(event) => setField("intermentDate", event.target.value)} type="date" value={form.intermentDate || ""} /><SelectField id="burial-record-status" label="Record status" value={form.recordStatus || "pending"} onChange={(value) => setField("recordStatus", value as AdminRecord["recordStatus"])} options={[["pending", "Pending"], ["active", "Active"], ["archived", "Archived"]]} /></div><div className="filter-grid"><SelectField id="burial-interment-status" label="Interment status" value={form.intermentStatus} onChange={(value) => setField("intermentStatus", value as BurialRecordInput["intermentStatus"])} options={[["PERMANENT", "Permanent"], ["TEMPORARY", "Temporary"]]} /><SelectField id="burial-remains-type" label="Remains type" value={form.remainsType} onChange={(value) => setField("remainsType", value as BurialRecordInput["remainsType"])} options={[["FRESH", "Fresh"], ["ASH", "Ash"], ["BONE", "Bone"]]} /></div><Input id="burial-interment-order" label="Verified interment order" readOnly={record?.intermentConfirmed === true} onChange={(event) => setField("intermentOrderNumber", event.target.value)} value={form.intermentOrderNumber ?? ""} /><label className="checkbox-field"><input checked={form.intermentConfirmed === true} disabled={record?.intermentConfirmed === true} onChange={(event) => setField("intermentConfirmed", event.target.checked)} type="checkbox" /><span>I verified this actual interment and checked for duplicates at this plot</span></label><label className="checkbox-field"><input checked={form.publicDisplay} onChange={(event) => setField("publicDisplay", event.target.checked)} type="checkbox" /><span>Show this record in the active public visitor view</span></label><label className="input-field" htmlFor="burial-quality-notes"><span className="input-label">Quality notes</span><textarea className="input-control" id="burial-quality-notes" onChange={(event) => setField("qualityNotes", event.target.value)} rows={3} value={form.qualityNotes || ""} /></label>{error ? <DataError message={error} /> : null}<div className="admin-form-actions"><Button onClick={onCancel} type="button" variant="secondary">Cancel</Button><Button disabled={saving || (!record && !availablePlots.length) || !form.lotId} icon="check" type="submit">{saving ? "Saving…" : record ? "Save changes" : "Create record"}</Button></div></form></CardContent></Card>;
-}
 
 export function PlotManagementCrud({ initialQueryState }: { initialQueryState: PlotManagementQuery }) {
   const canAdmin = useStaff()?.role === "ADMIN";
@@ -336,46 +286,15 @@ export function PlotManagementCrud({ initialQueryState }: { initialQueryState: P
 
 function LotForm({ lot, areas, owners, onSearchOwners, onCancel, onSaved }: { lot: PlotManagementItem | null; areas: PlotAreaOption[]; owners: LotOwner[]; onSearchOwners: (search: string) => Promise<LotOwner[]>; onCancel: () => void; onSaved: () => Promise<void> }) {
   const canApprove = useStaff()?.role === "ADMIN";
-  const [form, setForm] = useState<LotInput>(() => lot ? lotInputFromLot(lot) : { areaId: 0, lotOwnerId: null, lotCode: "", legacyLocationCode: "", legacyPaNumber: "", status: "AVAILABLE", lengthM: null, widthM: null });
+  const [form, setForm] = useState<LotInput>(() => lot ? lotInputFromLot(lot) : { areaId: 0, lotOwnerId: null, lotCode: "", legacyLocationCode: "", legacyPaNumber: "", status: "UNKNOWN", lengthM: null, widthM: null });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   function setField<K extends keyof LotInput>(key: K, value: LotInput[K]) { setForm((current) => ({ ...current, [key]: value })); }
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (saving) return; setError(""); if (!form.areaId || !form.lotCode.trim()) { setError("Select a garden / area and enter a plot label or code."); return; } if ((form.lengthM !== null && form.lengthM <= 0) || (form.widthM !== null && form.widthM <= 0)) { setError("Plot dimensions must be greater than zero."); return; } const hasLongitude = form.longitude !== null && form.longitude !== undefined && String(form.longitude) !== ""; const hasLatitude = form.latitude !== null && form.latitude !== undefined && String(form.latitude) !== ""; if (hasLongitude !== hasLatitude) { setError("Enter both longitude and latitude, or leave both coordinates blank."); return; } if (hasLongitude && (!Number.isFinite(form.longitude) || !Number.isFinite(form.latitude))) { setError("Enter valid numeric coordinates."); return; } const coordinatesChanged = Boolean(lot && (form.longitude !== (lot.location?.longitude ?? null) || form.latitude !== (lot.location?.latitude ?? null))); setSaving(true); try { const input = { ...form, graveType: canApprove ? form.graveType : undefined, lotCode: form.lotCode.trim(), legacyLocationCode: form.legacyLocationCode?.trim() || "", coordinateStatus: coordinatesChanged ? "pending" as const : form.coordinateStatus, coordinateVerified: coordinatesChanged ? false : form.coordinateVerified }; await (lot ? updateLot(lot.lotId, input) : createLot(input)); await onSaved(); } catch (reason) { setError(errorMessage(reason)); } finally { setSaving(false); } }
-  return <Card className="admin-form-card"><CardHeader><CardTitle>{lot ? "Edit plot" : "Add plot"}</CardTitle><Badge variant="info">Coordinate-safe operation</Badge></CardHeader><CardContent><form className="admin-form" onSubmit={(event) => void submit(event)}><div className="filter-grid"><SelectField id="plot-area" label="Garden / area" value={String(form.areaId || "")} onChange={(value) => setField("areaId", Number(value))} options={[["", "Select a garden / area"], ...areas.map((area) => [String(area.areaId), `${area.label} (${area.areaCode})`] as [string, string])]} hint="Choose one of the four Phase 1 gardens." /><Input id="plot-code" label="Plot label or code" hint="The visible identifier used by administrators." onChange={(event) => setField("lotCode", event.target.value)} required value={form.lotCode} /></div><div className="filter-grid"><Input id="plot-legacy-location" label="Original location reference (optional)" hint="Use the old Lot Location value when this plot has an older record. Leave blank for a new plot." onChange={(event) => setField("legacyLocationCode", event.target.value)} value={form.legacyLocationCode || ""} /><Input id="plot-legacy-pa" label="Old PA number (optional)" hint="Leave blank if no confirmed value exists." onChange={(event) => setField("legacyPaNumber", event.target.value)} value={form.legacyPaNumber || ""} /></div><div className="filter-grid"><OwnerPicker owners={owners} onSearchOwners={onSearchOwners} value={form.lotOwnerId ? String(form.lotOwnerId) : ""} onChange={(value) => setField("lotOwnerId", value ? Number(value) : null)} /><SelectField id="plot-status" label="Plot availability" value={form.status} onChange={(value) => setField("status", value as LotInput["status"])} options={[["AVAILABLE", "Available for a new burial"], ["BOOKED", "Reserved or assigned"], ["HOLD", "Temporarily unavailable"]]} /></div><div className="filter-grid">{canApprove ? <><SelectField id="plot-grave-type" label="Approved grave type" value={form.graveType ?? ""} onChange={(value) => setForm((current) => ({ ...current, graveType: value === "regular" || value === "mausoleum" ? value : null, gravePolicyReference: value ? current.gravePolicyReference : "", approvedMausoleumCapacity: null }))} options={[["", "Unclassified"], ["regular", "Regular grave (six interments)"], ["mausoleum", "Mausoleum"]]} />{form.graveType ? <Input id="plot-policy-reference" label="Restricted approval reference" maxLength={250} required value={form.gravePolicyReference ?? ""} onChange={(event) => setField("gravePolicyReference", event.target.value)} /> : null}{form.graveType === "mausoleum" ? <Input id="plot-mausoleum-capacity" label="Approved mausoleum capacity (leave blank to block admissions)" min={1} step={1} type="number" value={form.approvedMausoleumCapacity ?? ""} onChange={(event) => setField("approvedMausoleumCapacity", optionalNumber(event.target.value))} /> : null}</> : null}<Input id="plot-length" label="Plot length (m)" min="0" onChange={(event) => setField("lengthM", optionalNumber(event.target.value))} step="0.01" type="number" value={form.lengthM ?? ""} /><Input id="plot-width" label="Plot width (m)" min="0" onChange={(event) => setField("widthM", optionalNumber(event.target.value))} step="0.01" type="number" value={form.widthM ?? ""} /></div><div className="filter-grid"><Input id="plot-longitude" label="Longitude (optional)" hint="Paste the longitude recorded in Google Earth or on site." onChange={(event) => setField("longitude", optionalNumber(event.target.value))} step="any" type="number" value={form.longitude ?? ""} /><Input id="plot-latitude" label="Latitude (optional)" hint="Paste the latitude recorded in Google Earth or on site." onChange={(event) => setField("latitude", optionalNumber(event.target.value))} step="any" type="number" value={form.latitude ?? ""} /></div><Input id="plot-coordinate-accuracy" label="Coordinate accuracy in meters (optional)" min="0" onChange={(event) => setField("coordinateAccuracyM", optionalNumber(event.target.value))} step="0.01" type="number" value={form.coordinateAccuracyM ?? ""} /><Alert icon="info" title="Coordinate verification">New or changed coordinates are saved as pending until an administrator verifies them in Coordinate Verification.</Alert>{error ? <DataError message={error} /> : null}<div className="admin-form-actions"><Button onClick={onCancel} type="button" variant="secondary">Cancel</Button><Button disabled={saving || !areas.length || !form.areaId} icon="check" type="submit">{saving ? "Saving…" : lot ? "Save changes" : "Create plot"}</Button></div></form></CardContent></Card>;
+  return <Card className="admin-form-card"><CardHeader><CardTitle>{lot ? "Edit plot" : "Add plot"}</CardTitle><Badge variant="info">Coordinate-safe operation</Badge></CardHeader><CardContent><form className="admin-form" onSubmit={(event) => void submit(event)}>{isSyntheticPlot(form.lotCode) ? <p className="input-hint">{syntheticPlotDescription}</p> : null}<div className="filter-grid"><SelectField id="plot-area" label="Garden / area" value={String(form.areaId || "")} onChange={(value) => setField("areaId", Number(value))} options={[["", "Select a garden / area"], ...areas.map((area) => [String(area.areaId), `${area.label} (${area.areaCode})`] as [string, string])]} hint="Choose the recorded Phase 2 garden / area for this plot." /><Input id="plot-code" label="Plot label or code" hint="The visible identifier used by administrators." onChange={(event) => setField("lotCode", event.target.value)} required value={form.lotCode} /></div><div className="filter-grid"><Input id="plot-legacy-location" label="Original location reference (optional)" hint="Use the old Lot Location value when this plot has an older record. Leave blank for a new plot." onChange={(event) => setField("legacyLocationCode", event.target.value)} value={form.legacyLocationCode || ""} /><Input id="plot-legacy-pa" label="Old PA number (optional)" hint="Leave blank if no confirmed value exists." onChange={(event) => setField("legacyPaNumber", event.target.value)} value={form.legacyPaNumber || ""} /></div><div className="filter-grid"><OwnerPicker owners={owners} onSearchOwners={onSearchOwners} value={form.lotOwnerId ? String(form.lotOwnerId) : ""} onChange={(value) => setField("lotOwnerId", value ? Number(value) : null)} /><SelectField id="plot-status" label="Plot availability" hint={isSyntheticPlot(form.lotCode) ? syntheticPlotDescription : "Unknown means availability has not been assessed. It does not mean vacant, unsold, or available for booking. Confirm availability before selecting Available."} value={form.status} onChange={(value) => setField("status", value as LotInput["status"])} options={[["UNKNOWN", "Unknown — not assessed"], ["AVAILABLE", isSyntheticPlot(form.lotCode) ? "Sample admission eligible" : "Available — confirmed"], ["BOOKED", "Reserved or assigned"], ["HOLD", "Temporarily unavailable"]]} /></div><div className="filter-grid">{canApprove ? <><SelectField id="plot-grave-type" label={isSyntheticPlot(form.lotCode) ? "Synthetic reservation configuration" : "Approved grave type"} value={form.graveType ?? ""} onChange={(value) => setForm((current) => ({ ...current, graveType: value === "regular" || value === "mausoleum" ? value : null, gravePolicyReference: value ? current.gravePolicyReference : "", approvedMausoleumCapacity: null }))} options={[["", "Unclassified"], ["regular", isSyntheticPlot(form.lotCode) ? "Synthetic six-slot configuration" : "Regular grave (six interments)"], ["mausoleum", "Mausoleum"]]} />{form.graveType ? <Input id="plot-policy-reference" label="Restricted approval reference" maxLength={250} required value={form.gravePolicyReference ?? ""} onChange={(event) => setField("gravePolicyReference", event.target.value)} /> : null}{form.graveType === "mausoleum" ? <Input id="plot-mausoleum-capacity" label="Approved mausoleum capacity (leave blank to block admissions)" min={1} step={1} type="number" value={form.approvedMausoleumCapacity ?? ""} onChange={(event) => setField("approvedMausoleumCapacity", optionalNumber(event.target.value))} /> : null}</> : null}<Input id="plot-length" label="Plot length (m)" min="0" onChange={(event) => setField("lengthM", optionalNumber(event.target.value))} step="0.01" type="number" value={form.lengthM ?? ""} /><Input id="plot-width" label="Plot width (m)" min="0" onChange={(event) => setField("widthM", optionalNumber(event.target.value))} step="0.01" type="number" value={form.widthM ?? ""} /></div><div className="filter-grid"><Input id="plot-longitude" label="Longitude (optional)" hint="Paste the longitude recorded in Google Earth or on site." onChange={(event) => setField("longitude", optionalNumber(event.target.value))} step="any" type="number" value={form.longitude ?? ""} /><Input id="plot-latitude" label="Latitude (optional)" hint="Paste the latitude recorded in Google Earth or on site." onChange={(event) => setField("latitude", optionalNumber(event.target.value))} step="any" type="number" value={form.latitude ?? ""} /></div><Input id="plot-coordinate-accuracy" label="Coordinate accuracy in meters (optional)" min="0" onChange={(event) => setField("coordinateAccuracyM", optionalNumber(event.target.value))} step="0.01" type="number" value={form.coordinateAccuracyM ?? ""} /><Alert icon="info" title="Coordinate verification">New or changed coordinates are saved as pending until an administrator verifies them in Coordinate Verification.</Alert>{error ? <DataError message={error} /> : null}<div className="admin-form-actions"><Button onClick={onCancel} type="button" variant="secondary">Cancel</Button><Button disabled={saving || !areas.length || !form.areaId} icon="check" type="submit">{saving ? "Saving…" : lot ? "Save changes" : "Create plot"}</Button></div></form></CardContent></Card>;
 }
 
-export function OwnerDataCrud() {
-  const canAdmin = useStaff()?.role === "ADMIN";
-  const [owners, setOwners] = useState<LotOwner[]>([]);
-  const [editing, setEditing] = useState<LotOwner | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<LotOwner | null>(null);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const refresh = useCallback(async () => { try { const ownerPage = await getOwnerRecordsPage({ page: 0 }); setOwners(ownerPage.items); setPage(0); setHasMore(ownerPage.hasMore); setError(""); } catch (reason) { setError(errorMessage(reason)); } }, []);
-  useEffect(() => { const timer = window.setTimeout(() => { void refresh(); }, 0); return () => window.clearTimeout(timer); }, [refresh]);
-  async function loadMore() { if (loadingMore || !hasMore) return; setLoadingMore(true); try { const nextPage = await getOwnerRecordsPage({ page: page + 1 }); setOwners((current) => [...current, ...nextPage.items]); setPage((current) => current + 1); setHasMore(nextPage.hasMore); } catch (reason) { setError(errorMessage(reason)); } finally { setLoadingMore(false); } }
-  async function removeOwner() { if (!deleteTarget || busy) return; setBusy(true); try { await deleteLotOwner(deleteTarget.lotOwnerId, deleteTarget.revision); setDeleteTarget(null); setMessage("Owner removed. It can be restored in Recovery."); await refresh(); } catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); } }
-  return <AdminPageFrame title="Owner data" description="Create, edit, and remove protected lot-owner records used by cemetery operations." actions={<Button icon="plus" onClick={() => { setEditing(null); setFormOpen(true); }}>Add owner</Button>}>
-    {error ? <DataError message={error} /> : null}{message ? <Alert icon="check" title="Owner update" variant="success">{message}</Alert> : null}<Alert icon="shield" title="Restricted operational data" variant="warning">This surface remains available only inside the protected ADMIN/MANAGER workspace and is never included in visitor views.</Alert>
-    {formOpen ? <OwnerForm key={editing?.lotOwnerId ?? "new"} owner={editing} onCancel={() => { setFormOpen(false); setEditing(null); }} onSaved={async () => { setFormOpen(false); setEditing(null); setMessage(editing ? "Owner updated." : "Owner created."); await refresh(); }} /> : null}
-    <Card><CardHeader><CardTitle>Lot owners</CardTitle><Badge variant="info">{owners.length}{hasMore ? "+" : ""} loaded</Badge></CardHeader>{owners.length ? <><Table caption="Approved lot owners"><TableHead><TableRow><TableHeaderCell>Owner</TableHeaderCell><TableHeaderCell>Aliases</TableHeaderCell><TableHeaderCell>Address</TableHeaderCell><TableHeaderCell>Representative</TableHeaderCell><TableHeaderCell>Actions</TableHeaderCell></TableRow></TableHead><TableBody>{owners.map((owner) => <TableRow key={owner.lotOwnerId}><TableCell><strong>{[owner.firstName, owner.middleName, owner.lastName, owner.suffix].filter(Boolean).join(" ")}</strong></TableCell><TableCell>{owner.aliases || "None recorded"}</TableCell><TableCell>{owner.address}</TableCell><TableCell>{owner.representativeName ? owner.representativeName + (owner.representativeContact ? " · " + owner.representativeContact : "") : "None recorded"}</TableCell><TableCell><div className="table-actions"><Button size="sm" variant="secondary" onClick={() => { setEditing(owner); setFormOpen(true); }}>Edit</Button><Button disabled={busy || !canAdmin} title={canAdmin ? "Remove record" : "Only administrators can remove records"} size="sm" variant="danger" onClick={() => setDeleteTarget(owner)}>Delete</Button></div></TableCell></TableRow>)}</TableBody></Table>{hasMore ? <CardContent><Button disabled={loadingMore} onClick={() => void loadMore()} variant="secondary">{loadingMore ? "Loading more…" : "Load more owners"}</Button></CardContent> : null}</> : <CardContent><EmptyState description="Add owner data when an authorized administrator is ready to manage it." icon="userSearch" title="No owner data" /></CardContent>}</Card>
-    <ConfirmationDialog open={Boolean(deleteTarget)} title="Delete owner?" description={<p>Only unassigned owners can be removed. Administrators can restore them in Recovery.</p>} confirmLabel={busy ? "Deleting…" : "Delete owner"} variant="danger" onConfirm={() => void removeOwner()} onClose={() => { if (!busy) setDeleteTarget(null); }} />
-  </AdminPageFrame>;
-}
-
-function OwnerForm({ owner, onCancel, onSaved }: { owner: LotOwner | null; onCancel: () => void; onSaved: () => Promise<void> }) {
-  const [form, setForm] = useState<OwnerInput>(() => owner ? ownerInputFromOwner(owner) : { firstName: "", middleName: "", lastName: "", suffix: "", aliases: "", address: "", representativeName: "", representativeContact: "", representativeRelation: "" });
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  function setField<K extends keyof OwnerInput>(key: K, value: OwnerInput[K]) { setForm((current) => ({ ...current, [key]: value })); }
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (saving) return; setError(""); if (!form.firstName.trim() || !form.lastName.trim() || !form.address.trim()) { setError("First name, last name, and address are required."); return; } setSaving(true); try { const input = { ...form, firstName: form.firstName.trim(), lastName: form.lastName.trim(), address: form.address.trim() }; await (owner ? updateLotOwner(owner.lotOwnerId, input) : createLotOwner(input)); await onSaved(); } catch (reason) { setError(errorMessage(reason)); } finally { setSaving(false); } }
-  return <Card className="admin-form-card"><CardHeader><CardTitle>{owner ? "Edit owner" : "Add owner"}</CardTitle><Badge variant="info">Protected database operation</Badge></CardHeader><CardContent><form className="admin-form" onSubmit={(event) => void submit(event)}><div className="filter-grid"><Input id="owner-first-name" label="First name" onChange={(event) => setField("firstName", event.target.value)} required value={form.firstName} /><Input id="owner-middle-name" label="Middle name" onChange={(event) => setField("middleName", event.target.value)} value={form.middleName || ""} /></div><div className="filter-grid"><Input id="owner-last-name" label="Last name" onChange={(event) => setField("lastName", event.target.value)} required value={form.lastName} /><Input id="owner-suffix" label="Suffix" onChange={(event) => setField("suffix", event.target.value)} value={form.suffix || ""} /></div><Input id="owner-aliases" label="Aliases" onChange={(event) => setField("aliases", event.target.value)} value={form.aliases || ""} /><label className="input-field" htmlFor="owner-address"><span className="input-label">Address</span><textarea className="input-control" id="owner-address" onChange={(event) => setField("address", event.target.value)} required rows={3} value={form.address} /></label><div className="filter-grid"><Input id="owner-representative" label="Representative name" onChange={(event) => setField("representativeName", event.target.value)} value={form.representativeName || ""} /><Input id="owner-relation" label="Representative relation" onChange={(event) => setField("representativeRelation", event.target.value)} value={form.representativeRelation || ""} /></div><Input id="owner-contact" label="Representative contact" onChange={(event) => setField("representativeContact", event.target.value)} value={form.representativeContact || ""} />{error ? <DataError message={error} /> : null}<div className="admin-form-actions"><Button onClick={onCancel} type="button" variant="secondary">Cancel</Button><Button disabled={saving} icon="check" type="submit">{saving ? "Saving…" : owner ? "Save changes" : "Create owner"}</Button></div></form></CardContent></Card>;
-}
+export { OwnerDirectory as OwnerDataCrud } from "./owner-pages";
 
 function OwnerPicker({ value, owners, onSearchOwners, onChange }: { value: string; owners: LotOwner[]; onSearchOwners: (search: string) => Promise<LotOwner[]>; onChange: (value: string) => void }) {
   const [query, setQuery] = useState("");
@@ -392,16 +311,11 @@ function OwnerPicker({ value, owners, onSearchOwners, onChange }: { value: strin
   const hasSearch = normalizedQuery.length >= 2;
   const ownerName = (owner: LotOwner) => [owner.firstName, owner.middleName, owner.lastName, owner.suffix].filter(Boolean).join(" ");
   function selectOwner(owner: LotOwner) { onChange(String(owner.lotOwnerId)); setQuery(ownerName(owner)); }
-  return <div className="input-field"><span className="input-label">Plot owner (optional)</span><input aria-controls="plot-owner-results" aria-expanded={hasSearch && matches.length > 0} aria-label="Search plot owners" aria-autocomplete="list" className="input-control" id="plot-owner-search" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); selectOwner(matches[0]); } }} placeholder="Search owner name or alias" role="combobox" value={query} />{selected ? <span className="input-hint">Selected owner: <strong>{ownerName(selected)}</strong> <button className="text-button" onClick={() => { onChange(""); setQuery(""); }} type="button">Clear</button></span> : null}{hasSearch && matches.length ? <div aria-label="Matching plot owners" className="owner-picker-results" id="plot-owner-results" role="listbox">{matches.slice(0, 20).map((owner) => <button aria-selected={owner.lotOwnerId === selected?.lotOwnerId} className="text-button" key={owner.lotOwnerId} onClick={() => selectOwner(owner)} role="option" type="button">{ownerName(owner)}</button>)}</div> : null}{hasSearch && !matches.length ? <span className="input-hint">No owners found. <Link className="subtle-link" href="/admin/owner-data">Create a new owner in Owner Data.</Link></span> : null}{!owners.length && !hasSearch ? <span className="input-hint">No owners found. <Link className="subtle-link" href="/admin/owner-data">Create a new owner in Owner Data.</Link></span> : null}<span className="input-hint">Type at least 2 characters to search. One owner may have multiple plots.</span></div>;
+  return <div className="input-field"><span className="input-label">Plot owner (optional)</span><input aria-controls="plot-owner-results" aria-expanded={hasSearch && matches.length > 0} aria-label="Search plot owners" aria-autocomplete="list" className="input-control" id="plot-owner-search" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); selectOwner(matches[0]); } }} placeholder="Search owner name or alias" role="combobox" value={query} />{selected ? <span className="input-hint">Selected owner: <strong>{ownerName(selected)}</strong> <button className="text-button" onClick={() => { onChange(""); setQuery(""); }} type="button">Clear</button></span> : null}{hasSearch && matches.length ? <div aria-label="Matching plot owners" className="owner-picker-results" id="plot-owner-results" role="listbox">{matches.slice(0, 20).map((owner) => <button aria-selected={owner.lotOwnerId === selected?.lotOwnerId} className="text-button" key={owner.lotOwnerId} onClick={() => selectOwner(owner)} role="option" type="button">{ownerName(owner)}</button>)}</div> : null}{hasSearch && !matches.length ? <span className="input-hint">No owners found. <Link className="subtle-link" href="/admin/owner-data/new">Add a Plot Owner.</Link></span> : null}{!owners.length && !hasSearch ? <span className="input-hint">No owners found. <Link className="subtle-link" href="/admin/owner-data/new">Add a Plot Owner.</Link></span> : null}<span className="input-hint">Type at least 2 characters to search. One owner may have multiple plots.</span></div>;
 }
 
-function PlotPicker({ value, options, onChange, hint, disabled }: { value: string; options: Array<[string, string]>; onChange: (value: string) => void; hint?: ReactNode; disabled?: boolean }) {
-  return <label className="input-field" htmlFor="burial-plot"><span className="input-label">Available plot</span><select aria-label="Select available plot" className="input-control" id="burial-plot" disabled={disabled} onChange={(event) => onChange(event.target.value)} value={value}><option value="">{options.length ? "Select an available plot" : "No eligible plots available"}</option>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select>{hint ? <span className="input-hint">{hint}</span> : null}</label>;
-}
 function SelectField({ id, label, value, options, onChange, hint }: { id: string; label: string; value: string; options: Array<[string, string]>; onChange: (value: string) => void; hint?: ReactNode }) { return <label className="input-field" htmlFor={id}><span className="input-label">{label}</span><select className="input-control" id={id} onChange={(event) => onChange(event.target.value)} value={value}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select>{hint ? <span className="input-hint">{hint}</span> : null}</label>; }
 function DataError({ message }: { message: string }) { return <Alert icon="alert" title="Change could not be completed" variant="danger">{message}</Alert>; }
 function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : "The protected operation could not be completed."; }
 function optionalNumber(value: string) { return value.trim() ? Number(value) : null; }
-function recordInputFromRecord(record: AdminRecord, override: Partial<BurialRecordInput> = {}): BurialRecordInput { return { revision: record.revision, name: record.name, lotId: record.lotId, birthDate: record.birthDate || "", deathDate: record.deathDate || "", publicDisplay: record.publicDisplay, intermentDate: record.intermentDate || "", recordStatus: record.recordStatus, intermentStatus: record.intermentStatus as BurialRecordInput["intermentStatus"], remainsType: record.remainsType as BurialRecordInput["remainsType"], referenceNo: record.referenceNo || "", intermentOrderNumber: record.intermentOrderNumber ?? undefined, intermentConfirmed: record.intermentConfirmed ?? undefined, serviceProvider: record.serviceProvider || "", recordSource: record.recordSource || "", qualityNotes: record.qualityNotes || "", ...override }; }
 function lotInputFromLot(lot: PlotManagementItem): LotInput { return { revision: lot.revision, graveType: lot.graveType, gravePolicyReference: lot.gravePolicyReference ?? undefined, approvedMausoleumCapacity: lot.approvedMausoleumCapacity, areaId: lot.areaId, blockId: lot.blockId, lotOwnerId: lot.lotOwnerId, lotCode: lot.lotCode, legacyLocationCode: lot.legacyLocationCode || "", legacyPaNumber: lot.legacyPaNumber || "", status: lot.status, lengthM: lot.lengthM, widthM: lot.widthM, longitude: lot.location?.longitude ?? null, latitude: lot.location?.latitude ?? null, coordinateAccuracyM: lot.coordinateAccuracyM, coordinateStatus: lot.coordinateStatus, coordinateVerified: lot.coordinateVerified }; }
-function ownerInputFromOwner(owner: LotOwner): OwnerInput { return { revision: owner.revision, firstName: owner.firstName, middleName: owner.middleName || "", lastName: owner.lastName, suffix: owner.suffix || "", aliases: owner.aliases || "", address: owner.address, representativeName: owner.representativeName || "", representativeContact: owner.representativeContact || "", representativeRelation: owner.representativeRelation || "" }; }

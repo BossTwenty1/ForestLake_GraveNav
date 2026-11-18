@@ -1,0 +1,35 @@
+.panel {
+  background: #0a100d;
+}
+
+.media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.control {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #658675;
+  border-radius: 50%;
+  background: #10251e;
+  color: #f0fff5;
+  cursor: pointer;
+}
+
+.control:hover {
+  background: #214a37;
+}
+
+.control:focus-visible {
+  outline: 3px solid #ff9b4f;
+  outline-offset: 3px;
+}

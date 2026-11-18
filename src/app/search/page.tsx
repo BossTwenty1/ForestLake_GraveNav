@@ -19,7 +19,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
     <Link className="public-back-link" href="/"><Icon name="chevronRight" size={15} />Home</Link>
     <header className="public-search-heading"><span className="public-search-heading__icon"><Icon name="search" size={25} /></span><div><h1>Search memorial records</h1><p>Enter a name or plot code, then narrow the public registry by section or year.</p></div></header>
     <section aria-labelledby="search-form-title" className="public-search-panel"><div className="public-search-panel__intro"><p className="visitor-kicker">Find a resting place</p><h2 id="search-form-title">Who are you looking for?</h2><p>Partial names are welcome. Similar-name suggestions are clearly marked in the results.</p></div><PublicSearchForm gardens={gardens} query={query} section={section} year={year} /></section>
-    <aside className="public-search-guidance"><span><Icon name="shield" size={20} /></span><div><h2>Public information only</h2><p>Search results contain approved memorial fields. Administrator details and unverified destination coordinates remain protected.</p></div></aside>
+    <aside className="public-search-guidance"><span><Icon name="shield" size={20} /></span><div><h2>Your privacy matters</h2><p>Only memorial information approved for visitors appears in search results. Private family and account details stay protected.</p></div></aside>
   </div></VisitorShell>;
 }
 

@@ -7,19 +7,19 @@ import { routePhaseTwo, type PhaseTwoRouteState } from "@/lib/phase2-routing";
 import type { PhaseTwoGeography, PhaseTwoResult } from "@/lib/phase2-geographic";
 
 const GeographicCanvas = dynamic(() => import("./phase2-geographic-canvas"), {
-  ssr: false, loading: () => <p role="status">Loading verified geography…</p>,
+  ssr: false, loading: () => <p role="status">Loading gravesite map…</p>,
 });
 const messages: Record<PhaseTwoRouteState, string> = {
-  ready: "Follow the highlighted reviewed walking path to the gravesite access point.",
-  arrived: "You are near the reviewed gravesite access point. Confirm the physical grave marker.",
-  policy_unavailable: "Walking guidance awaits field-reviewed GPS accuracy, path and arrival settings.",
-  no_destination: "A verified gravesite and reviewed walking access point are required for directions.",
-  no_network: "The approved walking network is unavailable or incomplete.",
-  location_unavailable: "Waiting for your location. No route has been assumed.",
+  ready: "Follow the highlighted walking path to the gravesite approach.",
+  arrived: "You are near the gravesite approach. Check the name on the grave marker.",
+  policy_unavailable: "Walking directions are not available here yet. Please ask cemetery staff for assistance.",
+  no_destination: "Select a memorial with an available gravesite location to check directions.",
+  no_network: "Walking directions are currently unavailable. Please ask cemetery staff for assistance.",
+  location_unavailable: "Waiting for your location before showing directions.",
   stale: "Your location is stale or invalid. Guidance is paused until a fresh reading arrives.",
-  inaccurate: "GPS accuracy is insufficient for the reviewed navigation settings. Guidance is paused.",
-  outside: "Your location is outside the approved cemetery mapping coverage.",
-  off_route: "You are outside the reviewed walking corridor. Return to a permitted path; guidance is paused.",
+  inaccurate: "Your GPS signal is not accurate enough. Move to an open area; guidance is paused.",
+  outside: "Your location is outside this park map’s coverage.",
+  off_route: "You are away from the walking path. Return to a park pathway; guidance is paused.",
   unreachable: "No permitted walking route connects this path to the gravesite access point.",
 };
 
@@ -57,7 +57,7 @@ export function PhaseTwoGeographicMap({ data, burialId }: { data: PhaseTwoGeogra
             !Number.isFinite(next.data.checkedAt)) throw Error("changed");
         if (active) { setCheckedAt(Date.now()); setServiceError(""); }
       } catch {
-        if (active) setServiceError("The approved mapping service is unavailable or has changed. Guidance is paused; reload the map to check availability.");
+        if (active) setServiceError("The map could not be refreshed. Guidance is paused; reload the map to try again.");
       } finally {
         window.clearTimeout(timeout); controller.signal.removeEventListener("abort", cancel); pending = false;
       }
@@ -86,12 +86,15 @@ export function PhaseTwoGeographicMap({ data, burialId }: { data: PhaseTwoGeogra
 
   const checking = enabled && checkedAt === 0 && !serviceError;
   const staleSnapshot = enabled && (now - checkedAt > 30000 || checkedAt > now + 1000);
-  const paused = serviceError || (checking ? "Checking the published map before guidance starts." : staleSnapshot ? "Mapping availability could not be refreshed. Guidance is paused." : "");
+  const paused = serviceError || (checking ? "Checking the map before directions start." : staleSnapshot ? "The map could not be refreshed. Guidance is paused." : "");
   const route = enabled && !paused && !locationError ? routePhaseTwo(data, position, now) : null;
   const fresh = enabled && !paused && !locationError && position && usablePosition(position, now) &&
     now - position.timestamp <= (data.navigationPolicy?.maxFixAgeMs ?? 30000) ? position : null;
   const state = checking ? "checking" : paused ? "service_unavailable" : locationError ? "gps_unavailable" : !enabled ? "idle" : route!.state;
-  const message = paused || locationError || (!enabled ? data.destinationMessage : messages[route!.state]);
+  const destinationMessage = data.target ? data.accessPoint ? "Use your location to check walking directions to this gravesite." :
+    "The gravesite is shown on the map. Walking directions are not available; please ask cemetery staff for assistance." :
+    "Search for a memorial to view its gravesite location.";
+  const message = paused || locationError || (!enabled ? destinationMessage : messages[route!.state]);
   function toggle() {
     if (!enabled && !navigator.geolocation) {
       setLocationError("This device does not provide browser location.");
@@ -104,15 +107,16 @@ export function PhaseTwoGeographicMap({ data, burialId }: { data: PhaseTwoGeogra
   return <div className="phase-two-geographic-experience" data-navigation-state={state} data-target-lot={data.target?.properties.lotId ?? ""}
     data-remaining-distance={route?.distanceM ?? ""}>
     <GeographicCanvas data={data} position={fresh} route={route?.coordinates ?? []} focusRequest={focus} />
-    <section className="map-destination-card" aria-label="Walking guidance">
+    <section id="walking-guidance" className="map-destination-card" aria-label="Walking guidance">
+      <h2>Walking Route</h2>
       <p role="status" aria-live="polite">{message}</p>
-      {route?.distanceM !== null && route?.distanceM !== undefined ? <p><strong>{Math.round(route.distanceM)} m</strong> remaining along the reviewed path</p> : null}
+      {route?.distanceM !== null && route?.distanceM !== undefined ? <p><strong>{Math.round(route.distanceM)} m</strong> remaining along the walking path</p> : null}
       {position && Number.isFinite(position.accuracy) ? <p>Reported GPS accuracy: ±{Math.round(position.accuracy)} m</p> : null}
       <div className="phase-two-layer-options">
-        <button type="button" className="button button--primary" onClick={toggle}>{enabled ? "Stop location" : "Use my location"}</button>
-        <button type="button" className="button button--secondary" onClick={() => setFocus(value => value + 1)}>Show location and gravesite</button>
+        <button type="button" className="button button--primary" onClick={toggle}>{enabled ? "Stop location" : "My Location"}</button>
+        <button type="button" className="button button--secondary" onClick={() => setFocus(value => value + 1)}>View on Map</button>
       </div>
-      <p>GPS stays on this device. The route begins on the reviewed path and ends at its access point.</p>
+      <p>Your location stays on this device. Follow the park pathways and check the grave marker on arrival.</p>
     </section>
   </div>;
 }

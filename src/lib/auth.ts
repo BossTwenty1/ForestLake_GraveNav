@@ -72,8 +72,11 @@ async function readCurrentStaff(supabase: Awaited<ReturnType<typeof getServerSup
   return { accountId: user.id, username, role, accountStatus, isActive };
 }
 
-export async function requireStaff(requiredRole?: StaffRole) {
-  const supabase = await getServerSupabase();
+export async function requireStaff(
+  requiredRole?: StaffRole,
+  requestClient?: Awaited<ReturnType<typeof getServerSupabase>>,
+) {
+  const supabase = requestClient ?? await getServerSupabase();
   if (!supabase) redirect("/admin/login");
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/admin/login");

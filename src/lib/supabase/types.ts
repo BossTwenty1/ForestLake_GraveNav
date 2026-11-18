@@ -18,10 +18,12 @@ export type PublicBurialRecord = {
   dates: string;
   plot: string;
   plotLabel: string;
+  syntheticPlotReference?: string | null;
+  gravesiteReference?: string | null;
   section: string;
   row: string;
   burialDate: string;
-  status: "Active";
+  status: "Active" | "Pending" | "Archived";
   location: { latitude: number; longitude: number } | null;
   pixelLocation: { x: number; y: number } | null;
   coordinateStatus: "missing" | "pending" | "verified" | "rejected";
@@ -32,6 +34,8 @@ export type PublicBurialRecord = {
 export type GraveType = "regular" | "mausoleum";
 
 export type AdminRecord = {
+  lotRemoved?: boolean;
+  syntheticPlotReference?: string | null;
   revision: number;
   burialId: number;
   name: string;
@@ -68,7 +72,7 @@ export type AdminLot = {
   lotOwnerId: number | null;
   legacyLocationCode: string | null;
   legacyPaNumber: string | null;
-  status: "AVAILABLE" | "BOOKED" | "HOLD";
+  status: "UNKNOWN" | "AVAILABLE" | "BOOKED" | "HOLD";
   lengthM: number | null;
   widthM: number | null;
   pxLocX: number | null;
@@ -81,10 +85,11 @@ export type AdminLot = {
   updatedAt: string;
 };
 
-export type PlotOperationalState = "available" | "occupied" | "booked" | "hold";
+export type PlotOperationalState = "unknown" | "available" | "occupied" | "booked" | "hold";
 export type PlotCoordinateState = "missing" | "pending" | "verified" | "rejected";
 
 export type PlotManagementItem = AdminLot & {
+  syntheticPlotReference?: string | null;
   graveType?: GraveType | null;
   gravePolicyReference?: string | null;
   approvedMausoleumCapacity?: number | null;
@@ -101,11 +106,13 @@ export type PlotManagementItem = AdminLot & {
 };
 
 export type PlotManagementSummary = {
+  syntheticPlots?: number;
   total: number;
   occupied: number;
   available: number;
   booked: number;
   onHold: number;
+  unknown: number;
   needsVerification: number;
 };
 
@@ -194,6 +201,7 @@ export type AuditLogEntry = {
 
 export type DashboardData = {
   summary: {
+    syntheticPlots?: number;
     totalBurialRecords: number;
     occupiedPlots: number;
     availablePlots: number;
@@ -209,6 +217,7 @@ export type DashboardData = {
     available: number;
     booked: number;
     onHold: number;
+    unknown: number;
     total: number;
     occupancyPercent: number;
   };

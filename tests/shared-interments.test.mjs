@@ -28,6 +28,7 @@ test("shared graves reserve one physical lot and preserve identity, privacy and 
   await gisLogin(db, gisActors.admin, "postgres");
   const oldIdentity = await result("select deceased_id result from public.burial_record where burial_id=$1", [original.id]);
   await db.exec(await readFile(migration, "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/20261116010000_unknown_plot_availability.sql", import.meta.url), "utf8"));
   await gisLogin(db);
 
   let regular;

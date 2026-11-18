@@ -1,0 +1,162 @@
+:global(.visitor-main):has(> .experience) {
+  max-width: 1760px;
+  padding: 12px 16px 20px;
+}
+
+.experience {
+  gap: 12px;
+  --cemetery-map-height: max(440px, calc(100svh - 190px));
+}
+
+.experience :global(.public-map-heading) {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.experience :global(.public-map-heading h1) {
+  font-size: 1.6rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.experience :global(.public-map-heading > div > span) {
+  margin-top: 3px;
+  font-size: 0.78rem;
+}
+
+.experience :global(.public-map-workspace) {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  align-items: start;
+}
+
+.experience :global(.public-map-canvas-column) {
+  position: static;
+  gap: 8px;
+}
+
+.experience :global(.public-map-stage) {
+  height: var(--cemetery-map-height);
+  min-height: 0;
+  max-height: 1000px;
+  margin: 0;
+  border-radius: 12px;
+}
+
+.experience :global(.map-stage--geographic) {
+  height: auto;
+  overflow: visible;
+}
+
+.experience :global(.public-map-context) {
+  grid-template-columns: 1fr;
+}
+
+.experience .viewSwitch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+}
+
+.viewSwitch :global(.button) {
+  min-height: 40px;
+  padding: 7px 12px;
+  font-size: 0.76rem;
+}
+
+.optionsButton { margin-left: auto; }
+.mobileSearch { display: none; }
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 4px 12px;
+  border: 1px solid var(--visitor-border);
+  border-radius: 10px;
+  background: var(--visitor-surface);
+}
+
+.options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 0.8rem;
+}
+
+.options input { accent-color: var(--visitor-accent); }
+
+.searchPanel > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px;
+  color: var(--visitor-ink);
+  background: var(--visitor-surface);
+  border: 1px solid var(--visitor-border);
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.searchPanel > summary::after { content: "+"; margin-left: auto; }
+.searchPanel[open] > summary::after { content: "−"; }
+.searchPanel[open] > summary { margin-bottom: 8px; }
+.searchPanel > summary svg { color: var(--visitor-accent); }
+.panelContent { display: grid; gap: 10px; }
+
+.experience :global(.map-search-panel),
+.experience :global(.map-destination-card),
+.experience :global(.map-record-panel) {
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.experience :global(.map-search-form) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.experience :global(.map-search-form > label:first-of-type) { grid-column: 1 / -1; }
+.experience :global(.map-search-form .button) { grid-column: 2; min-height: 44px; padding-inline: 12px; }
+.experience :global(.map-search-control) { min-width: 0; }
+.experience :global(.map-search-control input),
+.experience :global(.map-search-control select) { min-width: 0; min-height: 44px; }
+.experience :global(.map-record-list) { grid-template-columns: 1fr; max-height: 240px; overflow-y: auto; }
+.experience :global(.map-record-option) { min-height: 48px; }
+.experience :global(.map-panel-heading h2) { font-size: 0.96rem; }
+.experience :global(.map-destination-card) { scroll-margin-top: 84px; }
+.experience :global(.phase-two-layer-options .button) { min-height: 44px; }
+.experience :global(.phase-two-layer-options) { padding-block: 6px; }
+.experience :global(#walking-guidance) { scroll-margin-top: 84px; }
+.experience :global(#walking-guidance h2) { margin: 0; font-size: 1rem; }
+
+@media (min-width: 960px) {
+  .experience .searchPanel > summary { display: none; }
+  .experience .searchPanel { max-height: calc(100svh - 135px); overflow-y: auto; scrollbar-width: thin; }
+}
+
+@media (max-width: 959px) {
+  :global(.visitor-main):has(> .experience) { padding: 8px 10px 16px; }
+  .experience { gap: 8px; --cemetery-map-height: max(340px, calc(100svh - 300px)); }
+  .experience :global(.public-map-workspace) { grid-template-columns: 1fr; gap: 8px; }
+  .experience :global(.public-map-heading h1) { font-size: 1.25rem; }
+  .experience :global(.public-map-heading > div > span),
+  .experience :global(.map-source-badge) { display: none; }
+  .mobileSearch { display: inline-flex; min-height: 44px; padding-inline: 10px; font-size: 0.76rem; }
+  .experience .viewSwitch { gap: 4px; }
+  .viewSwitch :global(.button) { min-height: 44px; font-size: 0.7rem; padding-inline: 8px; }
+  .experience :global(.map-legend) { font-size: 0.65rem; gap: 7px; }
+  .experience :global(.public-map-context) { margin: 0; }
+  .experience :global(.map-search-panel .map-panel-heading) { display: none; }
+  .experience :global(.map-search-form) { margin-top: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experience { scroll-behavior: auto; }
+}

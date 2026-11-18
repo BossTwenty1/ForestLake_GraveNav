@@ -22,6 +22,7 @@ import {
 } from "@/lib/phase1-map-data";
 import { findShortestPhaseOneRoute } from "@/lib/phase1-routing";
 import { canNavigateToPublicRecord } from "@/lib/public-navigation";
+import { visitorPlotDetails } from "@/lib/visitor-presentation";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 
 const CemeteryLeafletMap = dynamic(
@@ -46,6 +47,7 @@ export function NavigationRouteMap({
   record: PublicBurialRecord;
 }) {
   const canNavigate = canNavigateToPublicRecord(record);
+  const plot = visitorPlotDetails(record);
   const geolocationAvailable = useSyncExternalStore(
     subscribeToBrowserCapability,
     () => Boolean(navigator.geolocation),
@@ -171,9 +173,9 @@ export function NavigationRouteMap({
       <header className="gps-navigation-heading">
         <div>
           <p>Recorded-path guidance</p>
-          <h1>Navigate to {record.plotLabel}</h1>
+          <h1>Navigate to {plot.reference}</h1>
           <span>
-            {record.name} · {record.section} · {record.row}
+            {record.name} · {plot.garden} · Block {plot.block}
           </span>
         </div>
         <span
@@ -196,14 +198,14 @@ export function NavigationRouteMap({
             <div>
               <small>Destination</small>
               <strong>
-                {record.plotLabel} · {record.name}
+                {plot.reference} · {record.name}
               </strong>
             </div>
           </div>
 
           <div className="navigation-map navigation-map--interactive gps-map-stage">
             <CemeteryLeafletMap
-              accessibleLabel={`Recorded cemetery route to ${record.plotLabel}`}
+              accessibleLabel={`Recorded cemetery route to ${plot.reference}`}
               mapData={mapData}
               onSelectPlot={() => undefined}
               onSelectZone={() => undefined}
@@ -340,7 +342,7 @@ export function NavigationRouteMap({
                     <span>{route.instructions.length + 1}</span>
                     <p>
                       Stop at the end of the highlighted path near{" "}
-                      {record.plotLabel}. Check the physical marker and use
+                      {plot.reference}. Check the physical marker and use
                       only a visibly walkable final approach.
                     </p>
                   </li>
@@ -378,15 +380,15 @@ export function NavigationRouteMap({
             <dl>
               <div>
                 <dt>Garden</dt>
-                <dd>{record.section}</dd>
+                <dd>{plot.garden}</dd>
               </div>
               <div>
                 <dt>Block / row</dt>
-                <dd>{record.row}</dd>
+                <dd>{plot.block}</dd>
               </div>
               <div>
-                <dt>Plot</dt>
-                <dd>{record.plot}</dd>
+                <dt>Lot</dt>
+                <dd>{plot.lot}</dd>
               </div>
             </dl>
 

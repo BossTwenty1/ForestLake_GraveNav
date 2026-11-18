@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -14,7 +15,7 @@ type AdminNavItem = {
 
 const mainNavItems: AdminNavItem[] = [
   { label: "Dashboard", icon: "dashboard", href: "/admin" },
-  { label: "Burial Records", icon: "records", href: "/admin/burial-records" },
+  { label: "Deceased & Interments", icon: "records", href: "/admin/burial-records" },
   { label: "Cemetery Map", icon: "map", href: "/admin/cemetery-map" },
   {
     label: "Coordinate Verification",
@@ -23,7 +24,7 @@ const mainNavItems: AdminNavItem[] = [
     managerHidden: true,
   },
   { label: "Plot Management", icon: "grid", href: "/admin/plot-management" },
-  { label: "Owner data", icon: "userSearch", href: "/admin/owner-data" },
+  { label: "Plot Owners", icon: "userSearch", href: "/admin/owner-data" },
   { label: "Photos", icon: "photos", href: "/admin/photos" },
 ];
 
@@ -99,7 +100,7 @@ export function AdminSidebar({
     <aside className="admin-sidebar">
       <div className="admin-sidebar__top">
         <div className="admin-sidebar__brand">
-          <span className="admin-brand-mark"><Icon name="tree" size={21} /></span>
+          <span className="admin-brand-mark"><Image alt="Forest Lake" height={40} sizes="40px" src="/forest-lake-logo.png" width={40} /></span>
           <span className="admin-brand-copy">
             <strong>GraveNav <span className="brand-admin-badge">Admin</span></strong>
             <span>Cemetery Management</span>

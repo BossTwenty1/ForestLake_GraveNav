@@ -1,4 +1,5 @@
 import { AdminShell } from "@/components/admin/admin-shell";
+import { redirect } from "next/navigation";
 import { BurialRecordsCrud } from "@/components/admin/admin-crud-pages";
 import type { BurialRecordQuery } from "@/lib/supabase/admin-data";
 
@@ -11,12 +12,21 @@ export default async function AdminBurialRecordsRoute({
 }) {
   const params = await searchParams;
   const initialQueryState = getInitialQueryState(params);
+  const legacyRecord = getParam(params.record);
+  const returning = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== "record" && key !== "add") returning.set(key, getParam(value));
+  }
+  const returnTo = "/admin/burial-records" + (returning.size ? "?" + returning : "");
+  if (legacyRecord || getParam(params.add) === "1") {
+    const destination = legacyRecord ? encodeURIComponent(legacyRecord) : "new";
+    redirect("/admin/burial-records/" + destination + "?" + new URLSearchParams({ returnTo }));
+  }
   return (
-    <AdminShell active="Burial Records">
+    <AdminShell active="Deceased & Interments">
       <BurialRecordsCrud
         initialQueryState={initialQueryState}
         selectedRecordId={getParam(params?.record)}
-        showAdd={getParam(params?.add) === "1"}
       />
     </AdminShell>
   );

@@ -253,17 +253,17 @@ export function AdminShellClient({ children, active, staff }: AdminShellClientPr
           </Button>
           <form className="admin-search" onSubmit={submitSearch} role="search">
             <Input
-              aria-label="Search burial records"
+              aria-label="Search deceased and interment records"
               icon="search"
               onChange={(event) => setSearch(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Escape") setSearch("");
               }}
-              placeholder="Search burial records..."
+              placeholder="Search deceased and interment records…"
               type="search"
               value={search}
             />
-            <button className="sr-only" type="submit">Search burial records</button>
+            <button className="sr-only" type="submit">Search deceased and interment records</button>
           </form>
           <div className="admin-header__actions">
             <Link className="admin-public-link" href="/">

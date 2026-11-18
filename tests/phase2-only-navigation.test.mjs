@@ -20,6 +20,9 @@ function load(file, dependencies) {
 function redirect(location) { throw Object.assign(new Error("redirect"), { location }); }
 const redirected = (action, location) => assert.rejects(action, (error) => error.location === location);
 const request = (params = {}) => ({ searchParams: Promise.resolve(params) });
+const presentation = load("src/lib/visitor-presentation.ts", {
+  "./synthetic-plots": load("src/lib/synthetic-plots.ts", {}),
+});
 
 test("Map entry renders the integrated GraveNav section without redirecting to the static viewer", async () => {
   const { default: page } = load("src/app/map/page.tsx", {
@@ -87,6 +90,7 @@ test("Missing scope, foreign areas and read failures never authorize an old map"
 
 test("Profiles offer only the approved Phase 2 association", () => {
   const { GravesiteLocationCard } = load("src/components/visitor/gravesite-location-card.tsx", {
+    "@/lib/visitor-presentation": presentation,
     "react/jsx-runtime": jsx, "next/link": { __esModule: true, default: "a" },
     "@/components/ui/icons": { Icon: () => null },
   });
@@ -94,7 +98,7 @@ test("Profiles offer only the approved Phase 2 association", () => {
   const unassociated = renderToStaticMarkup(jsx.jsx(GravesiteLocationCard, { record, mapScope: "unavailable" }));
   assert.match(unassociated, /href="\/map\?id=17"/);
   assert.doesNotMatch(unassociated, /href="\/navigation/);
-  assert.match(unassociated, /no approved Phase 2 plot association/);
+  assert.match(unassociated, /ask cemetery staff for help locating this gravesite/);
   const mapped = renderToStaticMarkup(jsx.jsx(GravesiteLocationCard, { record, mapScope: "phase2" }));
   assert.match(mapped, /href="\/map\?id=17"/);
   assert.doesNotMatch(mapped, /href="\/navigation|href="\/phase2-map/);
@@ -105,10 +109,11 @@ test("Administrator map uses the same landscape and handles a missing local pack
     "react/jsx-runtime": jsx,
     "@/components/ui/alert": { Alert: ({ children }) => jsx.jsx("p", { children }) },
     "@/components/ui/empty-state": { EmptyState: ({ title }) => jsx.jsx("p", { children: title }) },
-    "@/components/visitor/map-explorer": { MapExplorer: () => jsx.jsx("section", { "data-native-map": true }) },
+    "@/components/visitor/map-explorer": { MapExplorer: ({ staffTools }) => jsx.jsx("section", { "data-native-map": true, "data-staff-tools": staffTools }) },
   });
   const installed = renderToStaticMarkup(jsx.jsx(AdminCemeteryMap, { hasPlanningMap: true }));
   assert.match(installed, /data-native-map="true"/);
+  assert.match(installed, /data-staff-tools="true"/);
   assert.doesNotMatch(installed, /Phase 1|Supabase map tables/);
   const missing = renderToStaticMarkup(jsx.jsx(AdminCemeteryMap, { hasPlanningMap: false }));
   assert.match(missing, /Phase 2 landscape unavailable/);

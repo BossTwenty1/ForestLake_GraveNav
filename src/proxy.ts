@@ -4,7 +4,7 @@ import { localSupabaseConfig } from "@/lib/supabase/config";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
-  if (!localSupabaseConfig.configured) return response;
+  if (!localSupabaseConfig.configured) return previewHeaders(response, request.nextUrl.pathname);
 
   const supabase = createServerClient(localSupabaseConfig.url, localSupabaseConfig.publishableKey, {
     cookies: {
@@ -24,6 +24,15 @@ export async function proxy(request: NextRequest) {
     hasSession: Boolean(user),
     authError: Boolean(error),
   });
+  return previewHeaders(response, request.nextUrl.pathname);
+}
+
+function previewHeaders(response: NextResponse, path: string) {
+  if (path === "/admin/burial-records/preview" ||
+    /^\/admin\/burial-records\/[^/]+\/preview$/.test(path)) {
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
   return response;
 }
 

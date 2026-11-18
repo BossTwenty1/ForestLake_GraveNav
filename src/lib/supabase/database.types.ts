@@ -1489,6 +1489,7 @@ export type Database = {
       }
       burial_record: {
         Row: {
+          interment_confirmed: boolean | null
           burial_id: number
           created_at: string
           created_by: string | null
@@ -1510,6 +1511,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          interment_confirmed?: boolean | null
           burial_id?: number
           created_at?: string
           created_by?: string | null
@@ -1531,6 +1533,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          interment_confirmed?: boolean | null
           burial_id?: number
           created_at?: string
           created_by?: string | null
@@ -2196,6 +2199,10 @@ export type Database = {
       }
     }
     Functions: {
+      staff_sample_plot_references: {
+        Args: { p_lot_ids: number[] }
+        Returns: Json
+      }
       staff_interment_plot_options: { Args: Record<PropertyKey, never>; Returns: Json }
       public_shared_plot_burials: { Args: { p_burial_id: number }; Returns: Json }
       staff_save_georeferencing_run: {

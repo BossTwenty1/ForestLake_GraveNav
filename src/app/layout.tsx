@@ -6,6 +6,11 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: "GraveNav | Cemetery navigation",
   description: "Find a gravesite and navigate memorial grounds with GraveNav.",
+  icons: {
+    icon: { url: "/forest-lake-logo.png", type: "image/png" },
+    shortcut: "/forest-lake-logo.png",
+    apple: "/forest-lake-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

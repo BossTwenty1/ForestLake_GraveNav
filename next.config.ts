@@ -22,7 +22,15 @@ const nextConfig: NextConfig = {
       headers.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
     }
 
-    return [{ source: "/:path*", headers }];
+    const previewHeaders = [
+      { key: "Cache-Control", value: "private, no-store, max-age=0" },
+      { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+    ];
+    return [
+      { source: "/:path*", headers },
+      { source: "/admin/burial-records/preview", headers: previewHeaders },
+      { source: "/admin/burial-records/:id/preview", headers: previewHeaders },
+    ];
   },
 };
 

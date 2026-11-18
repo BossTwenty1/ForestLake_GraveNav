@@ -8,8 +8,9 @@ type PublicRow = {
   death_date: string | null;
   interment_date?: string | null;
   match_type?: "exact" | "matched" | "similar";
-  record_status: "active";
+  record_status: "active" | "pending" | "archived";
   lot_code: string;
+  synthetic_plot_reference?: string | null;
   area_name?: string | null;
   sector_name?: string | null;
   block_number?: number | null;
@@ -20,7 +21,9 @@ type PublicRow = {
   coordinate_status?: "pending" | "verified" | "rejected" | null;
 };
 
-const PUBLIC_COLUMNS = "interment_date,burial_id,display_name,birth_date,death_date,record_status,lot_code,area_name,sector_name,block_number,location_geom,px_loc_x,px_loc_y,location_verified,coordinate_status";
+// The public view is the allowlisted read boundary. Its optional sample projection
+// is absent on older databases; never read private burial notes for visitors.
+const PUBLIC_COLUMNS = "*";
 
 export class PublicDataUnavailableError extends Error {
   constructor() { super("Search is temporarily unavailable—try again."); }
@@ -91,7 +94,7 @@ export async function getPublicBurialRecordByPlot(plot: string) {
   throw new PublicDataUnavailableError();
 }
 
-function toPublicRecord(row: PublicRow): PublicBurialRecord {
+export function toPublicRecord(row: PublicRow): PublicBurialRecord {
   const dates = [row.birth_date?.slice(0, 4), row.death_date?.slice(0, 4)].filter(Boolean).join(" – ") || "Dates not recorded";
   const section = row.area_name || row.sector_name || "Section not recorded";
   const rowLabel = row.block_number ? `Block ${row.block_number}` : "Location details not recorded";
@@ -105,11 +108,13 @@ function toPublicRecord(row: PublicRow): PublicBurialRecord {
     dates,
     plot: row.lot_code,
     plotLabel: `Plot ${row.lot_code}`,
+    syntheticPlotReference: typeof row.synthetic_plot_reference === "string" && row.synthetic_plot_reference.trim() && row.synthetic_plot_reference.length <= 200 ? row.synthetic_plot_reference : null,
     section,
     row: rowLabel,
     matchType: row.match_type,
     burialDate: row.interment_date ? formatDate(row.interment_date) : "Not recorded",
-    status: "Active",
+    status: row.record_status === "active" ? "Active" :
+      row.record_status === "pending" ? "Pending" : "Archived",
     location,
     pixelLocation: row.px_loc_x !== null && row.px_loc_y !== null ? { x: row.px_loc_x, y: row.px_loc_y } : null,
     coordinateStatus,

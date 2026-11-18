@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import { canNavigateToPublicRecord } from "@/lib/public-navigation";
+import { safePreviewReturnTo, visitorPlotDetails } from "@/lib/visitor-presentation";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 
 export function PublicSearchResultCard({
   record,
   returnTo,
+  preview = false,
 }: {
   record: PublicBurialRecord;
   returnTo?: string;
+  preview?: boolean;
 }) {
-  const destinationVerified = canNavigateToPublicRecord(record);
+  const plot = visitorPlotDetails(record);
+  const destinationVerified = !preview && canNavigateToPublicRecord(record);
   const matchLabel = getMatchLabel(record.matchType);
   const location = getLocationPresentation(record, destinationVerified);
   const locationIcon = destinationVerified
@@ -28,6 +32,10 @@ export function PublicSearchResultCard({
     id: record.id,
     ...(returnTo ? { returnTo } : {}),
   });
+  const profileHref = preview
+    ? `/admin/burial-records/${encodeURIComponent(record.id)}/preview?` +
+      new URLSearchParams({ returnTo: safePreviewReturnTo(returnTo) })
+    : `/gravesite?${profileParams}`;
 
   return (
     <article className="public-result-card">
@@ -54,8 +62,8 @@ export function PublicSearchResultCard({
           <h2>{record.name}</h2>
           <p className="public-result-card__years">{record.dates}</p>
           <div className="public-result-card__metadata">
-            <span>{record.section}</span>
-            <span>{record.plotLabel}</span>
+            <span>{plot.garden}</span>
+            <span>Gravesite Reference: {plot.reference}</span>
           </div>
         </div>
       </div>
@@ -67,22 +75,22 @@ export function PublicSearchResultCard({
 
       <dl className="public-result-card__facts">
         <div>
-          <dt>Burial date</dt>
+          <dt>Interment Date</dt>
           <dd>{record.burialDate}</dd>
         </div>
         <div>
-          <dt>Record status</dt>
-          <dd>{record.status}</dd>
+          <dt>Block</dt>
+          <dd>{plot.block}</dd>
         </div>
       </dl>
 
       <Link
         className="public-result-card__action"
-        href={`/gravesite?${profileParams}`}
+        href={profileHref}
       >
         <Icon name="records" size={17} />
         <span>
-          View {record.matchType === "similar" ? "suggested " : ""}gravesite
+          View {record.matchType === "similar" ? "suggested " : ""}Memorial Profile
         </span>
         <Icon name="chevronRight" size={16} />
       </Link>
@@ -124,7 +132,7 @@ function getLocationPresentation(
   }
 
   return {
-    label: "No GPS recorded",
-    detail: "No public coordinate is recorded for this memorial.",
+      label: "Location unavailable",
+      detail: "Walking directions are unavailable. Please contact cemetery staff for assistance.",
   };
 }

@@ -6,9 +6,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "./database.types";
 import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, GraveType, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
 
-const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at";
+const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
 const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_display";
-const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,legacy_location_code,legacy_pa_number,status,length_m,width_m,px_loc_x,px_loc_y,location_geom,coordinate_accuracy_m,coordinate_status,coordinate_verified,coordinate_rejection_reason,updated_at";
+const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,legacy_location_code,legacy_pa_number,status,length_m,width_m,px_loc_x,px_loc_y,location_geom,coordinate_accuracy_m,coordinate_status,coordinate_verified,coordinate_rejection_reason,updated_at,deleted_at";
 const OWNER_COLUMNS = "revision,lot_owner_id,first_name,middle_name,last_name,suffix,aliases,address,representative_name,representative_contact,representative_relation";
 const PHOTO_COLUMNS = "revision,photo_id,burial_id,file_name,caption,captured_at,approval_status,public_display,created_at";
 const DEFAULT_PAGE_SIZE = 50;
@@ -71,7 +71,7 @@ export type CoordinateVerificationPage = {
   summary: CoordinateVerificationSummary;
   areas: PlotAreaOption[];
 };
-export type LotRow = { revision: number; coordinate_rejection_reason: string | null; lot_id: number; lot_code: string; area_id: number; block_id: number | null; lot_owner_id: number | null; legacy_location_code: string | null; legacy_pa_number: string | null; status: "AVAILABLE" | "BOOKED" | "HOLD"; length_m: number | null; width_m: number | null; px_loc_x: number | null; px_loc_y: number | null; location_geom: unknown; coordinate_accuracy_m: number | null; coordinate_status: "pending" | "verified" | "rejected"; coordinate_verified: boolean; updated_at: string; location: { longitude: number; latitude: number } | null };
+export type LotRow = { revision: number; coordinate_rejection_reason: string | null; lot_id: number; lot_code: string; area_id: number; block_id: number | null; lot_owner_id: number | null; legacy_location_code: string | null; legacy_pa_number: string | null; status: "UNKNOWN" | "AVAILABLE" | "BOOKED" | "HOLD"; length_m: number | null; width_m: number | null; px_loc_x: number | null; px_loc_y: number | null; location_geom: unknown; coordinate_accuracy_m: number | null; coordinate_status: "pending" | "verified" | "rejected"; coordinate_verified: boolean; updated_at: string; location: { longitude: number; latitude: number } | null };
 type OwnerRow = { revision: number; lot_owner_id: number; first_name: string; middle_name: string | null; last_name: string; suffix: string | null; aliases: string | null; address: string; representative_name: string | null; representative_contact: string | null; representative_relation: string | null };
 
 export async function getAdminRecords(options: PageOptions = {}) {
@@ -90,10 +90,17 @@ export async function getAllAdminRecords() {
   return items;
 }
 
-export async function getAdminRecordsPage(options: PageOptions = {}): Promise<PageResult<AdminRecord>> {
+export async function getAdminRecordsPage(
+  options: PageOptions & { recordId?: number } = {},
+): Promise<PageResult<AdminRecord>> {
   const client = requireClient();
   const { from, to } = pageRange(options);
-  const { data: records, error, count } = await client.from("burial_record").select(RECORD_COLUMNS, { count: "exact" }).is("deleted_at", null).order("updated_at", { ascending: false }).order("burial_id", { ascending: false }).range(from, to);
+  let query = client.from("burial_record").select(RECORD_COLUMNS, { count: "exact" })
+    .is("deleted_at", null);
+  if (options.recordId !== undefined) query = query.eq("burial_id", options.recordId);
+  const { data: records, error, count } = await query
+    .order("updated_at", { ascending: false }).order("burial_id", { ascending: false })
+    .range(from, to);
   if (error) throw error;
   if (!records?.length) return { items: [], hasMore: false, total: count };
 
@@ -122,6 +129,7 @@ export async function getAdminRecordsPage(options: PageOptions = {}): Promise<Pa
       name: deceasedRecord?.display_name || "Unnamed record",
       deceasedId: record.deceased_id,
       lotId: record.lot_id,
+      lotRemoved: !lot || Boolean(lot.deleted_at),
       plot: lot?.lot_code || "Unassigned",
       section: area?.area_name || "Unassigned",
       recordStatus: enumValue(record.record_status, ["active", "pending", "archived"]),
@@ -132,6 +140,8 @@ export async function getAdminRecordsPage(options: PageOptions = {}): Promise<Pa
       intermentStatus: record.interment_status,
       remainsType: record.remains_type,
       referenceNo: record.reference_no,
+      intermentOrderNumber: record.interment_order_number,
+      intermentConfirmed: record.interment_confirmed,
       serviceProvider: record.service_provider || null,
       recordSource: record.record_source || null,
       qualityNotes: record.quality_notes || null,
@@ -155,9 +165,34 @@ export async function getAvailableBurialPlots() {
   return data as BurialPlotOption[];
 }
 
+export async function getAdminRecord(id: string): Promise<AdminRecord | null> {
+  if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return null;
+  const record = (await getAdminRecordsPage({ recordId: Number(id), pageSize: 1 })).items[0];
+  if (!record) return null;
+  const { data, error } = await requireClient().rpc("staff_sample_plot_references", {
+    p_lot_ids: [record.lotId],
+  });
+  if (error?.code === "PGRST202") return record;
+  if (error) throw error;
+  if (!Array.isArray(data) || !data.every((item) => isObject(item)
+    && typeof item.lotId === "string"
+    && (item.reference === null || typeof item.reference === "string"))) {
+    throw new Error("Plot references could not be read. Please retry.");
+  }
+  const references = data as { lotId: string; reference: string | null }[];
+  const reference = references.find((item) => item.lotId === String(record.lotId));
+  return { ...record, syntheticPlotReference: reference?.reference ?? null };
+}
+
 
 export async function createBurialRecord(input: BurialRecordInput) {
   return saveStaffRecord("burial_record", null, null, burialPayload(input));
+}
+export async function getRecordVisitorVisibility(burialId: number) {
+  const { data, error } = await requireClient().from("public_burial_records")
+    .select("burial_id").eq("burial_id", burialId).maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
 }
 export async function updateBurialRecord(burialId: number, input: BurialRecordInput) {
   return saveStaffRecord("burial_record", burialId, input.revision ?? null, burialPayload(input));
@@ -176,7 +211,7 @@ export async function getLotsForVerificationPage(options: PageOptions = {}): Pro
   const { from, to } = pageRange(options);
   const { data, error, count } = await client.from("lot").select(LOT_COLUMNS, { count: "exact" }).is("deleted_at", null).order("updated_at", { ascending: false }).order("lot_id", { ascending: false }).range(from, to);
   if (error) throw error;
-  const items = (data || []).map((lot) => ({ ...lot, status: enumValue(lot.status, ["AVAILABLE", "BOOKED", "HOLD"]), coordinate_status: enumValue(lot.coordinate_status, ["pending", "verified", "rejected"]), location: parsePoint(lot.location_geom) }));
+  const items = (data || []).map((lot) => ({ ...lot, status: enumValue(lot.status, ["UNKNOWN", "AVAILABLE", "BOOKED", "HOLD"]), coordinate_status: enumValue(lot.coordinate_status, ["pending", "verified", "rejected"]), location: parsePoint(lot.location_geom) }));
   return { items, hasMore: hasMore(from, items.length, count), total: count };
 }
 
@@ -242,7 +277,19 @@ export async function getPlotManagementPage(options: PlotManagementQuery): Promi
     || !data.areas.every(isPlotAreaOption)) {
     throw new Error("Plot Management returned an unexpected response. Reload to try again.");
   }
-  return data as PlotManagementPage;
+  const page = data as PlotManagementPage;
+  const lotIds = page.items.filter(item => item.assignedBurialId || item.interments?.length).map(item => item.lotId);
+  if (!lotIds.length) return page;
+  const { data: references, error: referenceError } = await requireClient().rpc("staff_sample_plot_references", { p_lot_ids: lotIds });
+  // Older databases retain their existing plot workflow until the local migration is approved.
+  if (referenceError?.code === "PGRST202") return page;
+  if (referenceError) throw new Error("Synthetic plot references could not be loaded. Reload to try again.");
+  if (!Array.isArray(references) || !references.every(item => isObject(item) && typeof item.lotId === "string"
+    && (item.reference === null || (typeof item.reference === "string" && item.reference.trim().length > 0 && item.reference.length <= 200)))) {
+    throw new Error("Synthetic plot references returned an unexpected response. Reload to try again.");
+  }
+  const byLot = new Map((references as { lotId: string; reference: string | null }[]).map(item => [item.lotId, item.reference]));
+  return { ...page, items: page.items.map(item => ({ ...item, syntheticPlotReference: byLot.get(String(item.lotId)) ?? null })) };
 }
 
 export async function getCoordinateVerificationPage(options: CoordinateVerificationQuery): Promise<CoordinateVerificationPage> {
@@ -325,7 +372,7 @@ export async function getLotOwnersPage(options: OwnerPageOptions = {}): Promise<
   let query = client.from("lot_owner").select(OWNER_COLUMNS, { count: "exact" }).is("deleted_at", null);
   const search = safeOwnerSearch(options.search);
   if (search) query = query.or(`first_name.ilike.*${search}*,last_name.ilike.*${search}*,aliases.ilike.*${search}*`);
-  const { data, error, count } = await query.order("last_name").range(from, to);
+  const { data, error, count } = await query.order("last_name").order("lot_owner_id").range(from, to);
   if (error) throw error;
   const items = data || [];
   return { items, hasMore: hasMore(from, items.length, count), total: count };
@@ -337,7 +384,11 @@ export async function getOwnerRecords(options: OwnerPageOptions = {}) {
 
 export async function getOwnerRecordsPage(options: OwnerPageOptions = {}): Promise<PageResult<LotOwner>> {
   const ownersPage = await getLotOwnersPage(options);
-  return { ...ownersPage, items: ownersPage.items.map((owner) => ({
+  return { ...ownersPage, items: ownersPage.items.map(toLotOwner) };
+}
+
+function toLotOwner(owner: OwnerRow): LotOwner {
+  return {
     revision: owner.revision,
     lotOwnerId: owner.lot_owner_id,
     firstName: owner.first_name,
@@ -349,7 +400,40 @@ export async function getOwnerRecordsPage(options: OwnerPageOptions = {}): Promi
     representativeName: owner.representative_name,
     representativeContact: owner.representative_contact,
     representativeRelation: owner.representative_relation,
-  } satisfies LotOwner)) };
+  };
+}
+
+export async function getOwnerRecord(id: string): Promise<LotOwner | null> {
+  if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return null;
+  const { data, error } = await requireClient().from("lot_owner")
+    .select(OWNER_COLUMNS).eq("lot_owner_id", Number(id)).is("deleted_at", null).maybeSingle();
+  if (error) throw error;
+  return data ? toLotOwner(data) : null;
+}
+
+export async function getOwnerPlots(ownerId: number, page = 0) {
+  const { from, to } = pageRange({ page, pageSize: 20 });
+  const { data, error, count } = await requireClient().from("lot")
+    .select("lot_id,lot_code,status,area(area_name)", { count: "exact" })
+    .eq("lot_owner_id", ownerId).is("deleted_at", null)
+    .order("lot_code").order("lot_id").range(from, to);
+  if (error) throw error;
+  const items = data || [];
+  return { items, hasMore: hasMore(from, items.length, count), total: count };
+}
+
+export async function getOwnerInterments(ownerId: number, page = 0) {
+  const { from, to } = pageRange({ page, pageSize: 20 });
+  const { data, error, count } = await requireClient().from("burial_record")
+    .select(
+      "burial_id,interment_date,record_status,deceased(display_name),lot!inner(lot_code,lot_owner_id,deleted_at)",
+      { count: "exact" },
+    )
+    .eq("lot.lot_owner_id", ownerId).is("lot.deleted_at", null).is("deleted_at", null)
+    .order("burial_id", { ascending: false }).range(from, to);
+  if (error) throw error;
+  const items = data || [];
+  return { items, hasMore: hasMore(from, items.length, count), total: count };
 }
 
 
@@ -444,7 +528,7 @@ export async function updatePhotoReview(photoId: number, approvalStatus: AdminPh
 }
 
 export type StaffBurialOption = { burial_id: number; display_name: string; lot_code: string; area_name: string | null };
-export type DashboardCounts = { active: number; pending: number; archived: number; plots: number; unverified: number; missingCoordinates: number; pendingCoordinates: number };
+export type DashboardCounts = { syntheticPlots?: number; active: number; pending: number; archived: number; plots: number; unverified: number; missingCoordinates: number; pendingCoordinates: number };
 export async function getDashboardCounts(): Promise<DashboardCounts> {
   const { data, error } = await requireClient().rpc("staff_dashboard_counts");
   if (error || !data || typeof data !== "object" || Array.isArray(data) || !["active", "pending", "archived", "plots", "unverified", "missingCoordinates", "pendingCoordinates"].every((key) => typeof data[key] === "number")) throw new Error("Dashboard totals could not be loaded. Reload to try again.");
@@ -568,7 +652,7 @@ export type LotInput = {
   graveType?: GraveType | null;
   gravePolicyReference?: string;
   approvedMausoleumCapacity?: number | null;
-  status: "AVAILABLE" | "BOOKED" | "HOLD";
+  status: "UNKNOWN" | "AVAILABLE" | "BOOKED" | "HOLD";
   lengthM: number | null;
   widthM: number | null;
   longitude?: number | null;
@@ -711,8 +795,9 @@ function isDashboardData(value: unknown): value is DashboardData {
   const occupancy = value.occupancy;
   if (!isObject(summary) || !isObject(occupancy)) return false;
   const summaryKeys = ["totalBurialRecords", "occupiedPlots", "availablePlots", "needsVerification"];
-  const occupancyKeys = ["occupied", "available", "booked", "onHold", "total", "occupancyPercent"];
+  const occupancyKeys = ["occupied", "available", "booked", "onHold", "unknown", "total", "occupancyPercent"];
   if (!summaryKeys.every((key) => isCount(summary[key]))) return false;
+  if (summary.syntheticPlots !== undefined && !isCount(summary.syntheticPlots)) return false;
   if (!occupancyKeys.every((key) => isCount(occupancy[key]))) return false;
   if (!Array.isArray(value.burialsBySection) || !value.burialsBySection.every((item) =>
     isObject(item) && isCount(item.areaId) && typeof item.areaName === "string" && isCount(item.burialCount))) return false;
@@ -761,8 +846,8 @@ function isPlotManagementItem(value: unknown): value is PlotManagementItem {
     && isCount(value.lotId)
     && typeof value.lotCode === "string"
     && isCount(value.areaId)
-    && ["AVAILABLE", "BOOKED", "HOLD"].includes(String(value.status))
-    && ["available", "occupied", "booked", "hold"].includes(String(value.operationalState))
+    && ["UNKNOWN", "AVAILABLE", "BOOKED", "HOLD"].includes(String(value.status))
+    && ["unknown", "available", "occupied", "booked", "hold"].includes(String(value.operationalState))
     && ["missing", "pending", "verified", "rejected"].includes(String(value.coordinateState))
     && ["pending", "verified", "rejected"].includes(String(value.coordinateStatus))
     && typeof value.coordinateVerified === "boolean"
@@ -772,7 +857,8 @@ function isPlotManagementItem(value: unknown): value is PlotManagementItem {
 
 function isPlotManagementSummary(value: unknown): value is PlotManagementSummary {
   return isObject(value)
-    && ["total", "occupied", "available", "booked", "onHold", "needsVerification"]
+    && (value.syntheticPlots === undefined || isCount(value.syntheticPlots))
+    && ["total", "occupied", "available", "booked", "onHold", "unknown", "needsVerification"]
       .every((key) => isCount(value[key]));
 }
 

@@ -24,7 +24,7 @@ function getInitialQueryState(params: Record<string, string | string[] | undefin
   return {
     query: getParam(params.query).slice(0, 160),
     area: /^\d{1,10}$/.test(area) ? area : "all",
-    state: ["available", "occupied", "booked", "hold"].includes(state) ? state as PlotManagementQuery["state"] : "all",
+    state: ["unknown", "available", "occupied", "booked", "hold"].includes(state) ? state as PlotManagementQuery["state"] : "all",
     verification: ["missing", "pending", "verified", "rejected"].includes(verification) ? verification as PlotManagementQuery["verification"] : "all",
     sort: ["plot", "area", "state", "coordinate"].includes(sort) ? sort as PlotManagementQuery["sort"] : "updated",
     direction: direction === "asc" ? "asc" : "desc",

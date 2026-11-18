@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polyline, Tooltip, useMap } from "react-leaflet";
 import type { PhaseTwoGeography } from "@/lib/phase2-geographic";
 import type { GpsPosition } from "@/lib/navigation-geo";
+import { isSyntheticPlot } from "@/lib/synthetic-plots";
 
 type Props = { data: PhaseTwoGeography; position?: GpsPosition | null; route?: [number, number][]; focusRequest?: number };
 function Viewport({ data, position, focusRequest }: Props) {
@@ -27,16 +28,17 @@ function Viewport({ data, position, focusRequest }: Props) {
 export default function PhaseTwoGeographicCanvas({ data, position = null, route = [], focusRequest = 0 }: Props) {
   const bounds = geoJSON({ type: "FeatureCollection", features: data.layers.boundaries } as GeoJsonObject).getBounds();
   const features = [...data.layers.boundaries, ...data.layers.walkways.filter(feature => feature.properties.walkingAllowed), ...data.layers.plots];
-  return <MapContainer bounds={bounds} className="cemetery-leaflet-canvas" style={{ height: "min(65vh, 620px)", minHeight: 320 }}
-    aria-label="Verified Phase 2 gravesite and GPS map" scrollWheelZoom>
+  return <MapContainer bounds={bounds} className="cemetery-leaflet-canvas" style={{ height: "var(--cemetery-map-height, min(65vh, 620px))", minHeight: 320 }}
+    aria-label="Gravesite and location map" scrollWheelZoom>
     <Viewport data={data} position={position} focusRequest={focusRequest} />
     <GeoJSON key={data.releaseId} data={{ type: "FeatureCollection", features } as GeoJsonObject}
       style={feature => ({ color: feature?.properties?.lotId ? "#45654c" : "#777971", weight: 2, fillOpacity: 0.08 })} />
     {data.target ? <GeoJSON key={data.target.id} data={data.target as GeoJsonObject} style={{ color: "#b35a12", weight: 4, fillOpacity: 0.3 }}>
-      <Tooltip permanent>{String(data.target.properties.lotCode)}</Tooltip>
+      <Tooltip permanent>{isSyntheticPlot(String(data.target.properties.lotCode))
+        ? "Gravesite" : String(data.target.properties.lotCode)}</Tooltip>
     </GeoJSON> : null}
     {data.accessPoint ? <GeoJSON data={data.accessPoint as GeoJsonObject} pointToLayer={(_, point) => circleMarker(point, { radius: 6, color: "#285777" })}>
-      <Tooltip>Reviewed walking access point</Tooltip>
+      <Tooltip>Gravesite approach</Tooltip>
     </GeoJSON> : null}
     {route.length > 1 ? <Polyline positions={route.map(([lon, lat]) => [lat, lon])} pathOptions={{ color: "#285777", weight: 5 }} /> : null}
     {position ? <>

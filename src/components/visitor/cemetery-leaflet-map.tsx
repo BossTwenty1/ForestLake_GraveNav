@@ -1,4 +1,5 @@
 "use client";
+import { visitorPlotDetails } from "@/lib/visitor-presentation";
 
 import { CRS, divIcon, type LeafletMouseEvent } from "leaflet";
 import { useEffect, useRef, useState } from "react";
@@ -322,7 +323,7 @@ function PhaseOneGeometryLayer({
                   radius={selected ? 9 : 6}
                 >
                   <Tooltip>
-                    {record.name} · {record.section} · {record.plot}
+                    {record.name} · {visitorPlotDetails(record).reference}
                   </Tooltip>
                 </CircleMarker>
               );
