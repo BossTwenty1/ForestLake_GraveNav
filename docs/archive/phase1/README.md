@@ -1,5 +1,8 @@
 # Retired Phase 1 map artifacts
 
+> Current product scope, 15 November 2026: [all Forest Lake Phase 2 gardens/sectors](../../phase2-full-coverage.md), including Butterfly Palm Garden. This file is historical evidence. Its earlier Section D/A-D/pilot rollout boundaries do not define current scope; its original counts, findings and dated readiness claims are not expanded by this notice.
+
+
 These files preserve the previous Phase 1 KML cleanup report and SQL data imports. The original SQL retains its original bytes and instructions as historical evidence. Its hard-coded site identity and map/boundary claims are not approval or evidence for Phase 2. Do not run it for current setup.
 
 - [KML cleanup report](forest-lake-phase1-kml-cleanup.md)

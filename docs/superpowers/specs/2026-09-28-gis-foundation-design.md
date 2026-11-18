@@ -1,9 +1,9 @@
 # GraveNav GIS schema foundation and pilot import contract
 
 Status: approved architecture reference, originally dated 28 September 2026.
-Updated context, 9 November 2026: the GIS foundation and Phase 2 geographic adapter are implemented locally. Inspect the actual migrations and source for current behavior; a hosted target's present state requires separate authorized inspection.
+Updated context, 15 November 2026: the GIS foundation and Phase 2 geographic adapter are implemented locally. Inspect the actual migrations and source for current behavior; a hosted target's present state requires separate authorized inspection.
 
-Use the [current operational handoff](../../phase2-local-defense.md) for full Phase 2 map / Section D data coverage and remaining field gates. The implementation plan is [archived](../../archive/2026-09-28/gis-foundation-implementation-plan.md) and must not restart completed work. Development-stage labels such as Phase 1/2 in this design do not define cemetery section coverage.
+Use [full Phase 2 coverage](../../phase2-full-coverage.md) and the [current operational handoff](../../phase2-local-defense.md) for the whole-site product scope, including Butterfly and all Majestic/estate sectors. Earlier A/D-only boundaries are superseded. The one-area/1–50-lot v1 contract and one-area adapter are current implementation limits to resolve, not evidence that full-site publication exists. The implementation plan is [archived](../../archive/2026-09-28/gis-foundation-implementation-plan.md) and must not restart completed work. Development-stage labels such as Phase 1/2 in this design do not define cemetery section coverage.
 
 The original design below preserves its architectural decisions and dated observations. Its rollout boundaries and historical statements describe that earlier task, not the current product's completion state.
 

@@ -1,16 +1,16 @@
 # GraveNav
 
-GraveNav is a cemetery-record and navigation system for Forest Lake. The current map covers the complete Phase 2 CAD layout. The first operational-data release targets Majestic Palm Garden, Section D, with later expansion to other sections.
+GraveNav is a cemetery-record and navigation system for Forest Lake. The accepted operational scope is the **whole of Phase 2**: Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. Visitor search and staff records must cover every included garden; geographic navigation requires accepted evidence for the exact destination. This replaces the earlier A/D-only rollout scope as of 15 November 2026. See the [full Phase 2 coverage requirements](docs/phase2-full-coverage.md).
 
 Start with the [current Phase 2 operational handoff](docs/phase2-local-defense.md). The [documentation index](docs/README.md) identifies current contracts and archived reports.
 
 ## Current application
 
 - The visitor Map tab opens the integrated landscape at /map within the GraveNav interface.
-- Memorial search uses approved public records. CAD-candidate search preserves the technical outline references.
+- Memorial search uses approved public records, with full Phase 2 coverage as the target, including Butterfly. Technical outline lookup and coordinate references remain in the staff map.
 - The layout contains 4,494 selectable candidates. Official plot-to-record associations require management verification.
 - Shared graves use individual deceased and burial records under one lot. Approved regular graves permit up to six interments, with individually reserved slots. Mausoleums require an approved arrangement and capacity.
-- The main map includes verified geographic gravesite selection, live location and reviewed-network guidance with updating distance. These require approved publication and field-reviewed settings. Section D identity matching, georeferencing and real-phone acceptance remain outstanding.
+- The main map includes geographic gravesite selection, live location and reviewed-network guidance with updating distance. These require approved publication and field-reviewed settings. Full-site official matching, ground validation and real-phone acceptance remain outstanding. The one-area geographic adapter and bounded v1 import contract also require a reviewed full-coverage solution; this scope update does not activate them for all gardens.
 
 ## Run locally
 

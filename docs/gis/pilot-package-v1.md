@@ -2,6 +2,8 @@
 
 Current scope and evidence gates are in the [Phase 2 operational handoff](../phase2-local-defense.md). This contract/runbook remains in use; it grants no authorization for hosted mutations or publication.
 
+Product scope updated 15 November 2026: [all Forest Lake Phase 2 gardens and sectors](../phase2-full-coverage.md), including Butterfly. The v1 one-area/1–50-lot package below is an implemented technical limit, not a permanent product boundary. Full-site import/publication scale and area selection need reviewed implementation; do not change `pilot_area_id`, `pilot_lot_ids`, declared limits or approval guards by documentation alone. Repeated small packages do not automatically preserve/add whole-site coverage.
+
 This document defines the offline structure accepted by
 `node scripts/validate-gis-package.mjs <directory>`. The command performs no
 network requests and does not create a Supabase client.

@@ -1,10 +1,20 @@
 # GraveNav Phase 2 operational readiness
 
-Updated 10 November 2026. This is the current main-application handoff. The filename is retained for existing links. Earlier audits and release results are preserved in the [history snapshot](archive/2026-11-09/phase2-readiness-history.md).
+Scope updated 15 November 2026. This is the current main-application handoff. Read [full Phase 2 coverage](phase2-full-coverage.md) for the accepted all-garden scope and acceptance criteria. The filename is retained for existing links. Earlier audits and release results are preserved in the [history snapshot](archive/2026-11-09/phase2-readiness-history.md).
 
 ## Accepted scope and visitor experience
 
-**Full Phase 2 map coverage, Section D operational-data coverage.** GraveNav is intended to become a real operational cemetery system. Its first verified records and on-site navigation serve Forest Lake Phase 2 -> Majestic Palm Garden -> Section D. Other sections remain visible and can receive approved operational data later.
+**Full Phase 2 map and operational-data scope.** GraveNav serves the whole Forest Lake Phase 2 cemetery: Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. Authorized memorial search must include every garden, including Butterfly; staff records, official lot matching, geographic placement and field acceptance have the same full-site target. Directions remain dependent on accepted geography and walking access for the selected lot. Other Phase 2 sections are not deferred outside product scope.
+
+### Full-site scope accepted 15 November 2026
+
+The user's full-site decision supersedes the earlier Section D-only interpretation and the 12 November Majestic A/D scope. Section labels repeat between gardens, so keep garden + section + block + literal lot identity explicit. The newly supplied sector sheets support the full coverage table in [the current scope](phase2-full-coverage.md#coverage); their numbering and CAD/physical correspondence still require reconciliation.
+
+The semantic audit identifies the A sector-label anchor at source handle `18E0`, the D label at `18BC` and Majestic Palm Garden at `18BE`. The other A label at `1865` is near Butterfly Palm Garden. These text positions support identifying the intended review area. Management still needs to confirm each official section boundary, numbering, physical plot membership and burial-to-plot association.
+
+The existing 109 MPG/D-prefixed orders and 98 composite keys remain Section D review leads from the earlier audit. They are not totals for the full site. Record counts, occupancy and official CAD matches for every other garden/sector must be established from authorized sources. No full-site operational inventory follows from this scope update or the displayed candidate count. Preserve the 4,470 revised sheet sum / 4,494 CAD candidate discrepancy as unresolved source evidence.
+
+### Full layout and visitor journey
 
 The entire CAD layout remains: **4,494 selectable candidates**, comprising 4,146 lawn and 348 estate outlines, all 20 overlap-review pairs and nine CAD-backed planned-place anchors. A selectable CAD candidate is planning geometry; it is not an officially identified or occupied grave. Landscape surfaces, trees and protection illustrations do not establish constructed site conditions.
 
@@ -16,17 +26,17 @@ The final defense target is tentatively 18 November 2026. Passing local software
 
 Work in `C:\Users\Nash\.codex\worktrees\gravenav-defense-rc\gravenav`. Check `git rev-parse HEAD` and `git status --short` before changing anything; the chat's default worktree can be different.
 
-The last committed baseline checked for this update is `345fcbf7dd453d1ecd9c857116a1881b9c9da2c2`. It includes shared gravesites and field preparation. M09 lock ordering is separately committed as `dd1723db3bdf1938e3da5d908cae6736956ebf89`. The native November 9 integration, November 10 navigation implementation and documentation remain uncommitted. Preserve that work. No commit, hosted mutation or deployment was performed for this navigation task.
+The HEAD checked for this documentation update is `2c55e0482ad2faba1cc71f11c3b21efc39213ab7`. Earlier recorded shared-gravesite/field-preparation and M09 provenance is retained in the history. The working tree also contains later local CAD-detail, coordinate-reference, visitor-map and unrelated changes. Preserve them. This scope task changes documentation only and performs no commit, hosted mutation or deployment.
 
 | Capability | Current state |
 | --- | --- |
-| Main map | `/map` renders the November 9 landscape inside GraveNav's existing header, navigation, memorial search and map controls. The administrator map uses the same component. |
+| Main map | `/map` preserves the full landscape, with November 15 visitor-first desktop/mobile search/details, wayfinding labels and walkway/light presentation. Technical references remain in the shared administrator map. |
 | Native CAD interaction | All candidate geometry, independent overlap selection, categories, highlighting, nine anchor focuses and technical reference search remain available. The map owns persistent canvas renderers. |
 | Reference viewer | `/phase2-viewer/index.html` is the installed standalone local reference. The main Map tab stays in `/map`. |
 | Geographic adapter | Integrated into /map as the verified geographic mode using existing public_mapping_layer and public_burial_gis. The old /phase2-map URL redirects to /map. Publication, burial, lot, polygon and access identities remain checked. |
-| Search and staff records | Individual public deceased search/profiles, protected staff workflows and shared-gravesite contracts exist. No Section D records have been imported by this work. |
-| Geographic readiness | No Section D boundary, official plot-to-CAD match or independently validated Section D ground transformation has been established by the available evidence. |
-| Phone navigation | Location/accuracy, directed reviewed-edge routing, remaining distance, off-route/arrival and failure handling are implemented and locally tested. Guidance needs a published release and its field-reviewed policy. Actual Section D activation and real-phone acceptance remain blocked. |
+| Search and staff records | Individual public deceased search/profiles, protected staff workflows and shared-gravesite contracts exist. Full Phase 2 record/plot coverage, including Butterfly, must be reconciled. The existing Section D queue remains a limited historical input. This scope update imports no real records. |
+| Geographic readiness | Whole-site official boundaries, plot-to-CAD matches and independently accepted ground alignment remain outstanding. Local drawing/grid references cover all candidates but are not approved GPS. |
+| Phone navigation | Location/accuracy, directed reviewed-edge routing, remaining distance, off-route/arrival and failure handling are implemented and locally tested. Full-site release/area selection, accepted graph/access data, reviewed policy and real-phone acceptance remain prerequisites. The current adapter selects one area. |
 
 Phase 1 is retired from the active map interface. Its historical data, source files and tests remain preserved. Legacy Phase 1 routing thresholds and graph counts are not Phase 2 acceptance evidence.
 
@@ -34,7 +44,7 @@ Set server-side `GRAVENAV_PHASE2_SITE_ID` and `GRAVENAV_PHASE2_AREA_ID` only to 
 
 ## November 10 navigation integration
 
-The existing /map workspace now has **Full Phase 2 layout** and **Verified gravesite & GPS** modes. Both retain the application shell, search and details. All planning geometry remains unchanged/selectable. GPS appears only in geographic space; there is no assumed CAD-to-GPS overlay or invented transformation.
+The existing `/map` workspace retains park-layout and geographic modes, now labelled **Park map** and **Gravesite & directions** in the visitor interface. Both retain the application shell, search and contextual details. All planning geometry remains unchanged/selectable. GPS appears only in geographic space; no unaccepted CAD-to-GPS transformation activates a visitor destination.
 
 Search -> eligible profile -> **View gravesite on map** resolves the public burial ID to its exact approved lot polygon/access point. Main-map record results open that individual in the same workspace. Shared deceased identities lead to the same destination. Missing/private/unmapped/unverified records never select an arbitrary CAD outline. Legacy /navigation and /phase2-map entries converge on /map.
 
@@ -64,7 +74,7 @@ Set this configuration only after accepting device/map/route evidence, then rest
 
 ### Exact field information required for activation
 
-1. Official Section D boundary/register, literal lot identifier, numbering convention and resolution of repeated orders/leading zeros.
+1. Official boundaries/registers, literal lot identifiers, numbering conventions and resolution of repeated orders/leading zeros for all Phase 2 gardens/sectors and estate lots. Keep each lot's garden and section membership explicit.
 2. Authorized individual burial/order -> physical marker -> exact CAD candidate/source revision/instance-path correspondence.
 3. Confirmed CAD units/ground dimensions; matched controls with method, datum, timestamps and accuracy; independent held-out checkpoints and reviewed transformation errors.
 4. Accepted geographic lot polygon; permitted entrances, paths, directions and barriers; exact reachable gravesite access endpoint.
@@ -74,6 +84,8 @@ Set this configuration only after accepting device/map/route evidence, then rest
 The 9 November 65-item checklist remains a historical audit snapshot. MAP08, SHARED08 and navigation implementation items have progressed under the local tests below; field and hosted activation gates remain outstanding.
 
 ## Existing Section D evidence
+
+This is a historical subset of the full-site reconciliation. Its unchanged counts, source paths and findings do not limit current scope or establish readiness for other gardens.
 
 Reuse the completed audit and restricted queue. Do not repeat the workbook extraction or infer membership from ordering.
 
@@ -95,6 +107,12 @@ Original sources remain unchanged:
 
 Use the existing [semantic audit](<C:/Users/Nash/Documents/GraveNav-Phase2-CAD/phase2-digital-map/qa/dxf-semantic-audit.json>) and accepted source-workspace reports for extraction provenance. Source audits document their audited revision and do not authorize operational mapping.
 
+## Section A evidence and review work
+
+The CAD A label at `18E0` is in the right-hand part of the Majestic Palm plot field, to the right and slightly above the Majestic Palm Garden text anchor. Its geometry association is recorded as unknown in the semantic audit. No Section A polygon boundary or official lot assignment is inferred from label position.
+
+Retain this Section A evidence as one part of full-site review. Reconcile authorized records, literal codes, markers and exact CAD instances for Butterfly A/B, Majestic A/C/D and Court C estate lots. The full-site geographic controls, reviewed paths/access endpoints and actual-phone acceptance must cover those areas before full Phase 2 readiness is claimed.
+
 ## Restricted management and field review
 
 Review artifacts stay outside Git and the web root, in:
@@ -108,9 +126,9 @@ The existing Windows ACL restricts this directory to the current user, SYSTEM an
 
 Forest Lake management must supply or confirm:
 
-1. The meaning of LEG2 and MPG/D, the current official Section D boundary/register, numbering direction, product classes and leading-zero distinctions.
+1. The meaning of source garden/sector codes, official whole-Phase-2 location-code conventions, separate boundaries/registers, numbering directions, product classes and leading-zero distinctions. Confirm the historical MPG/D leads while reconciling authorized sources for every garden/sector and the estate lots.
 2. One full official plot identity and its physical marker, the authoritative individual burial/order association, visibility permission and resolution of corrected or repeated orders.
-3. A dated approved plan or signed markup linking the boundary and lot numbering to the audited CAD revision. Record exact candidate ID, full instance path, layer and source handles; independently reopen the same candidate for second-reviewer approval. Proximity to the D label, row order and matching counts cannot establish a crosswalk.
+3. A dated approved plan or signed markup linking each garden/section boundary and its lot numbering to the audited CAD revision. Record exact candidate ID, full instance path, layer and source handles; independently reopen the same candidate for second-reviewer approval. Proximity to a section letter, row order and matching counts cannot establish a crosswalk.
 4. Approved access for survey and phone testing, permitted entrance/path/endpoints, barriers and restrictions, reviewer identity/date and restricted evidence provenance.
 5. Specific permission for any later public or authenticated release of records or derivative mapping. Review and survey permission do not grant publication authority.
 
@@ -133,18 +151,18 @@ This migration is locally committed; this document does not establish that it ha
 
 The intended survey derives lot positions from CAD using matched controls, avoiding a GPS capture at every lot. Section corners may be useful controls when unambiguously matched, but corners alone do not establish accuracy.
 
-1. **Confirm identity first.** Have management approve one Section D location, source order/person, physical marker, exact CAD outline and intended audience. Retain unresolved fields explicitly. Create no live records during review.
-2. **Establish the transformation.** Confirm units and ground dimensions. Identify well-distributed common CAD/ground controls. The existing protocol targets 12–15 fitting controls, 3–5 independent held-out checkpoints and five fresh observations per point/session. A surveyor must confirm the method and suitability for this section. Keep independent checks out of fitting.
+1. **Confirm identities across the full site.** Reconcile authorized source records, official codes, physical markers, exact CAD outlines and intended audiences in every Phase 2 garden/sector and estate area. Validate manageable batches without treating a single garden as the whole deliverable. Retain unresolved fields explicitly; create no live records during review.
+2. **Establish the transformation.** Confirm units, datum and ground dimensions. The recovered seven paired CAD controls establish drawing congruence, not independent ground accuracy. Review whether the existing 12–15 fitting-control / 3–5 held-out-checkpoint / five-observation protocol is sufficient and properly distributed across the whole site. A surveyor must accept the full-site design and measured performance. Keep independent checks out of fitting.
 3. **Retain evidence.** Record datum, device/method, timestamps, every raw observation including poor readings, reported accuracy, source point identity, reviewer and transformation residuals. Establish tolerances before accepting results. Work in EPSG:32651 and export accepted longitude/latitude geometry in EPSG:4326.
-4. **Verify lots and access.** Confirm representative markers/numbering, the selected geographic polygon, permitted walking approach and exact reachable access node. Record barriers, entrances, crossing permissions and edge direction. A plot location and walking endpoint can differ.
+4. **Verify lots and access.** Confirm markers/numbering in each garden/sector, selected geographic polygons, permitted walking approaches and exact reachable access nodes. Review paths connecting all included areas before using them in guidance. Record barriers, entrances, crossing permissions and edge direction. A plot location and walking endpoint can differ.
 5. **Review hosted prerequisites separately.** Obtain explicit authorization for the target and forward migrations, backups and compatibility checks. Operational lot/burial creation or import needs its own authorization and must use existing protected workflows. No hosted mutation is authorized by this runbook.
-6. **Use the existing GIS pipeline.** Link approved official identity -> operational lot -> authorized burial -> reviewed CAD reference -> accepted polygon -> reviewed access endpoint. Pin the approved site/area and explicit pilot lot IDs. The existing package supports 1–50 lots; start with one. If the administrative area is broader than Section D, resolve that scope before configuring the selector; the adapter has no independent subsection filter.
+6. **Resolve full-site GIS coverage.** Link approved official identity -> operational lot -> authorized burial -> reviewed CAD reference -> accepted polygon -> reviewed access endpoint. The existing v1 package accepts one area and 1–50 declared lot IDs, and the adapter selects one site/area. These limits do not satisfy a multi-area full-site rollout automatically. Design and test an approved coverage/release-selection strategy, including existing replacement/omission guards, before claiming full Phase 2 publication. Do not invent a single combined area or raise limits in documentation alone. See [full-site implementation requirements](phase2-full-coverage.md#full-site-implementation-requirements).
 7. **Validate, review, publish.** Follow the [15-file contract](gis/pilot-package-v1.md) and [protected import/publication runbook](gis/import-and-publication.md). Offline validation precedes database stage/resume/validate/finalize. Finalization produces an unapproved release. ADMIN review, approval and publication are separate authorized operations with revision checks and rollback.
-8. **Field acceptance of integrated navigation.** Validate the implemented routing against the real published graph, geographic containment, eligible origin and exact access node. Test real phones at Forest Lake over an approved secure origin: accuracy, stale/poor/denied fixes, route restrictions, off-route conditions, connectivity and physical arrival. Measure route/device errors before choosing thresholds. Enable directions only after these gates pass.
+8. **Field acceptance of integrated navigation.** Validate the implemented routing against the real published graph, geographic containment, eligible origin and exact access node. Test real phones across Butterfly A/B, Majestic A/C/D and Court C estate lots, including permitted inter-garden journeys, accuracy, stale/poor/denied fixes, route restrictions, off-route conditions, connectivity and physical arrival. Measure route/device errors before choosing thresholds. Enable directions only after the applicable release and field gates pass.
 
 For database import, export walkways as LineString and grave-access graph nodes using a supported database node type such as junction. The offline contract also accepts MultiLineString and an access node type, which are broader than current database storage constraints.
 
-The next field task is management review of the existing first-gravesite record and survey preparation. Integrated navigation can be tested further with approved contracts and test-only fixtures; real activation remains gated on the evidence above.
+The next implementation/data work is full-site official boundary/numbering and record reconciliation, including Butterfly, plus resolution of the one-area/v1-import coverage limits and full-site survey/access preparation. The existing Section D first-gravesite lead remains historical review input. Integrated navigation can be tested with approved contracts and isolated fixtures; real activation remains gated on the evidence above.
 
 ## Current map package, installation and rollback
 
@@ -207,6 +225,10 @@ Browser fixtures live only in automated tests, under an explicit transport that 
 
 Evidence: C:/Users/Nash/.codex/visualizations/2026/11/07/01a1b45b-514b-7232-85ed-3116e541ac04/navigation-2026-11-10/.
 
-Remaining blockers: official Section D identity/CAD crosswalk, accepted ground control/checkpoints, permitted route/access evidence, reviewed navigation settings, real-phone acceptance, target-specific migration/import/publication/hosting authorization and genuine PostgreSQL race gates. The local Auth callback-origin/preview-port mismatch and optional photo activation remain separate audit items, unchanged by this task.
+Current full-site blockers: official garden/sector/estate identities and CAD crosswalks, authorized complete record reconciliation, the 24-candidate source discrepancy, accepted datum/ground control/checkpoints, full-coverage area/release selection and import strategy, permitted route/access evidence, reviewed navigation settings, real-phone acceptance, target-specific migration/import/publication/hosting authorization and genuine PostgreSQL race gates. The local Auth callback-origin/preview-port mismatch and optional photo activation remain separate recorded audit items; this documentation update does not resolve them.
+
+## Later local implementation evidence — 13–15 November 2026
+
+The [CAD detail update](phase2-map-details-2026-11-13.md), [per-candidate coordinate/sector-plan assessment](phase2-plot-coordinates-2026-11-15.md) and [visitor-map refinement](visitor-map-presentation-2026-11-15.md) document the subsequent local changes. The last targeted visitor/map/GPS regression run recorded 56 passes, with lint, TypeScript/production build and desktop/mobile checks passing. These are dated local results, not full-suite, hosted or on-site acceptance. This scope task changes no runtime code and reruns no application tests.
 
 The historical Phase 1 Reset/zoom overlap was not claimed fixed. See the [documentation index](README.md) for current contracts.

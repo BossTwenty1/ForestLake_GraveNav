@@ -1,5 +1,8 @@
 # Archived reference — superseded instructions
 
+> Current product scope, 15 November 2026: [all Forest Lake Phase 2 gardens/sectors](../../phase2-full-coverage.md), including Butterfly Palm Garden. This file is historical evidence. Its earlier Section D/A-D/pilot rollout boundaries do not define current scope; its original counts, findings and dated readiness claims are not expanded by this notice.
+
+
 > Archived on 9 November 2026. This document preserves a dated assessment or execution plan. Its old scope, constraints, counts and agent instructions are historical; use the [current operational handoff](../../phase2-local-defense.md) for ongoing work.
 
 Original location: docs/GraveNav_Final_Defense_Readiness_2026-11-06.md  

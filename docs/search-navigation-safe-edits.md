@@ -1,6 +1,6 @@
 # Search, safe editing and navigation integration
 
-Updated 10 November 2026. Read the [operational handoff](phase2-local-defense.md) for the current Phase 2 scope and [database notes](GraveNav_Database_Implementation_Notes.md) for shared-gravesite capacity.
+Scope updated 15 November 2026. Read [full Phase 2 coverage](phase2-full-coverage.md), the [operational handoff](phase2-local-defense.md), and [database notes](GraveNav_Database_Implementation_Notes.md) for accepted coverage, actual readiness and shared-gravesite capacity.
 
 ## Public search
 
@@ -8,7 +8,9 @@ search_public_burials provides bounded, ranked name and lot-code search with gar
 
 Names on a shared plot retain individual burial IDs, dates and profile links. Eligible associated names can appear together through public_shared_plot_burials. A plot-code-only query that matches multiple records asks the visitor to choose a person. Identical display names are insufficient for identity resolution.
 
-The native map retains memorial search in its GraveNav interface. CAD-candidate lookup is a separate expandable control. A source outline reference becomes an operational gravesite link only through the management-reviewed crosswalk.
+The native map retains memorial search in its GraveNav interface. CAD-candidate lookup and coordinate references are separate staff tools. A source outline reference becomes an operational gravesite link only through the management-reviewed crosswalk.
+
+The required search scope is every authorized Phase 2 garden: Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. All-gardens search must include Butterfly and every other included garden; filtering must narrow that same authorized population. Do not use the old A/D plan, the historical Section D queue or the selected geographic area as a silent search limit. Identical section letters/plot numbers in different gardens need explicit garden/section/block identity. Unmapped but eligible records remain searchable with an unavailable-map/directions state. This documents acceptance requirements; it creates no records or claim of complete existing coverage.
 
 ## Staff editing and recovery
 
@@ -28,7 +30,7 @@ GPS is rendered in geographic space. Reviewed edges, direction and metric costs 
 
 Location is requested explicitly and stays on-device. Denial, stale/poor location, missing/unreachable paths and unavailable/changed publications pause guidance. A read-only no-store endpoint verifies availability before activation and periodically while moving; stalled requests time out.
 
-See the [current handoff](phase2-local-defense.md#field-reviewed-navigation-configuration) for policy fields and field gates. Actual Section D evidence and operational settings remain outstanding.
+See the [current handoff](phase2-local-defense.md#field-reviewed-navigation-configuration) for policy fields and field gates. Full Phase 2 evidence, reviewed settings and real-phone acceptance remain outstanding. The adapter currently pins one site/area; a reviewed full-site area/publication-selection design is required for multi-area geographic destinations and permitted inter-garden journeys. Search coverage and geographic readiness remain distinct.
 
 The shared-grave reader distinguishes an unavailable/malformed response from an empty roster and projects only public IDs/names. Profile retry preserves privacy. Unconfigured public readers report unavailability rather than fictional records.
 

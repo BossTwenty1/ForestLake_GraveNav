@@ -2,6 +2,8 @@
 
 Current scope and evidence gates are in the [Phase 2 operational handoff](../phase2-local-defense.md). This contract/runbook remains in use; it grants no authorization for hosted mutations or publication.
 
+Product scope updated 15 November 2026: [all of Forest Lake Phase 2](../phase2-full-coverage.md), including Butterfly Palm Garden. The pilot-only workflow below remains the implemented one-area/1–50-lot contract. A reviewed full-coverage import and publication-selection strategy is still required; do not bypass these gates, presume successive pilot releases accumulate coverage, or discard existing accepted lots when replacing a release. The scope change itself authorizes no import, approval or publication.
+
 This runbook covers the protected **pilot-only** import pipeline and the separate M09 approval, publication, and rollback operations. Import finalization still produces a validated, unapproved release. Nothing automatically approves or publishes it.
 
 ## Prerequisites
