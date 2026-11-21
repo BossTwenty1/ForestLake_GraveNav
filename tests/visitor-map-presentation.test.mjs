@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
+import * as parkDetails from "../src/lib/park-details.ts";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -26,6 +27,7 @@ const bundle = { data: { layers: { lawn: [candidate], estates: [] } }, coordinat
 function render(props = {}, selected = null) {
   let state = 0;
   const { MapExplorer } = load("src/components/visitor/map-explorer.tsx", {
+    "@/lib/park-details": parkDetails,
     "@/lib/visitor-presentation": presentation,
     "react/jsx-runtime": jsx,
     react: { useState: initial => [state++ === 0 ? bundle : state === 6 ? selected : initial, () => {}],
@@ -33,7 +35,7 @@ function render(props = {}, selected = null) {
     "next/dynamic": { __esModule: true, default: () => p => jsx.jsx("div", { "data-review-mode": p.reviewMode, "data-paths": p.visible.paths }) },
     "next/link": { __esModule: true, default: ({ prefetch, children, ...props }) => { void prefetch; return jsx.jsx("a", { ...props, children }); } }, "@/components/ui/icons": { Icon: () => null },
     "./map-explorer.module.css": { __esModule: true, default: { experience: "visitor-map", searchPanel: "search-panel" } },
-    "@/lib/phase2-planning": planning, "./phase2-geographic-map": { PhaseTwoGeographicMap: () => jsx.jsx("div", { "data-geographic": true }) },
+    "@/lib/phase2-planning": planning, "./phase2-geographic-map": { PhaseTwoGeographicMap: ({ burialId, memorial }) => jsx.jsx("div", { "data-geographic": true, "data-burial": burialId, "data-profile": memorial?.profileHref, "data-park": memorial?.parkHref }) },
     "./plot-coordinate-details": { PlotCoordinateDetails: () => jsx.jsx("div", { "data-coordinate-details": true, children: "CAD coordinate reference" }) },
   });
   return renderToStaticMarkup(jsx.jsx(MapExplorer, props));
@@ -61,23 +63,35 @@ test("Staff tools retain exact source references, coordinate disclosure and map-
 });
 
 test("Missing geographic publication has useful visitor copy and does not create a destination", () => {
-  const html = render({ view: "geographic", geography: { data: null, message: "Internal publication scope missing" } });
+  const geography = { data: null, message: "Internal publication scope missing" };
+  const html = render({ view: "geographic", requestedId: "17", geography });
+  assert.match(render({ view: "geographic", geography }), /Gravesite map unavailable/);
   assert.match(html, /Gravesite location unavailable/);
   assert.match(html, /ask cemetery staff/);
   assert.match(html, /Back to park map/);
   assert.doesNotMatch(html, /Internal publication|data-geographic|CAD|data-coordinate-details/);
 });
 
-test("Mobile search disclosure opens for results and directions require an available destination and policy", () => {
+test("Mobile search expands for results and selected memorials retain their identity in navigation and park fallback", () => {
   assert.match(render(), /class="search-panel"><summary/);
   assert.match(render({ query: "Test only" }), /class="search-panel" open=""/);
   const memorial = { id: "17", name: "Test memorial", plotLabel: "Test plot", section: "Test garden", plot: "T-1" };
   const geography = { data: { releaseId: "test-release", scopeRevision: 1, target: {}, accessPoint: {}, navigationPolicy: {} } };
-  const available = render({ view: "geographic", destination: memorial, geography });
-  assert.match(available, /href="#walking-guidance">Get Directions/);
-  const unavailable = render({ view: "geographic", destination: memorial, geography: { data: { ...geography.data, navigationPolicy: null } } });
-  assert.doesNotMatch(unavailable, />Get Directions</);
-  assert.match(unavailable, /Walking directions are not available for this gravesite yet/);
+  const available = render({ view: "geographic", destination: memorial, geography, requestedId: "17",
+    query: "Test", section: "Test garden", page: 2, total: 69, gardenListUnavailable: true,
+    returnTo: "/results?query=Test" });
+  assert.match(available, /data-geographic="true" data-burial="17"/);
+  assert.match(available, /data-profile="\/gravesite\?id=17&amp;returnTo=%2Fresults%3Fquery%3DTest"/);
+  assert.match(available, /view=planning&amp;id=17&amp;returnTo=%2Fresults%3Fquery%3DTest/);
+  const unavailable = render({ view: "geographic", destination: memorial, geography: { data: null }, requestedId: "17" });
+  assert.doesNotMatch(unavailable, /data-geographic|>Get Directions</);
+  assert.match(unavailable, /Gravesite location unavailable/);
+  assert.match(unavailable, /Test memorial/);
+  assert.match(unavailable, /data-review-mode="false" data-paths="true"/);
+  const results = "/results?query=Test&page=3";
+  const planning = render({ view: "planning", destination: memorial, geography, requestedId: "17", returnTo: results });
+  assert.doesNotMatch(planning, />Get Directions<|The highlighted plot/);
+  assert.match(planning, /returnTo=%2Fresults%3Fquery%3DTest%26page%3D3/);
 });
 
 const manifestUrl = new URL("../public/phase2-planning/cad-details/manifest.json", import.meta.url);
@@ -100,4 +114,20 @@ test("Wayfinding labels cover parking and six compact lights follow the existing
   }
   const site = readFileSync(new URL(manifest.layers.site.image, manifestUrl), "utf8");
   assert.equal((site.match(/data-kind="street-light"/g) || []).length, 6);
+});
+
+test("park directory groups exact source anchors and keeps unreviewed geographic paths out", () => {
+  const { planningPlaces, publishedPlaces } = load("src/lib/park-explorer-features.ts", { "./phase2-planning": planning });
+  const places = planningPlaces({
+    places: { landmarks: [{ kind: "garden", name: "Palm Garden", cadXY: [12, 34] }, { kind: "garden", name: "Palm Garden", cadXY: [56, 78] }] },
+    details: { labels: [{ kind: "section", name: "A", cadXY: [80, 90] }, { kind: "edge", name: "Creek", cadXY: [11, 22] }] },
+  });
+  assert.deepEqual(places.map(({ name, points }) => ({ name, points })), [
+    { name: "Palm Garden", points: [[12, 34], [56, 78]] }, { name: "Section A", points: [[80, 90]] },
+  ]);
+  const boundary = { id: "verified-area", properties: { kind: "area" } };
+  const path = { id: "accepted", properties: { walkingAllowed: true } };
+  const landmark = { id: "named", properties: { label: "Park office" } };
+  const published = publishedPlaces({ layers: { boundaries: [boundary], walkways: [path, { id: "restricted", properties: { walkingAllowed: false } }], landmarks: [landmark] }});
+  assert.deepEqual(published.map(({ geographic }) => geographic.id), ["verified-area", "named", "accepted"]);
 });

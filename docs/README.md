@@ -2,6 +2,12 @@
 
 Updated 15 November 2026. This index directs current development of the operational Phase 2 system.
 
+## Park name and address
+
+**Forest Lake Memorial Park - Legazpi**
+
+Tagongtong, Barangay 56 (Taysan), Legazpi City, Albay, Philippines
+
 ## Read first
 
 1. [Full Phase 2 scope](phase2-full-coverage.md) defines all-garden coverage, search acceptance, full-site geographic requirements and current implementation limits. The [operational handoff](phase2-local-defense.md) records the current implementation, evidence gaps, field workflow, installed assets and dated validation results.

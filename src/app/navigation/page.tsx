@@ -1,3 +1,4 @@
+import { safeResultsReturnTo } from "@/lib/visitor-presentation";
 import { redirect } from "next/navigation";
 import { getPublicBurialRecord, getPublicBurialRecordByPlot } from "@/lib/supabase/public-data";
 
@@ -7,14 +8,16 @@ export default async function NavigationPage({ searchParams }: { searchParams: S
   const params = await searchParams;
   const id = getParam(params.id);
   const plot = getParam(params.plot);
+  const originalReturn = getParam(params.returnTo);
+  const returnTo = safeResultsReturnTo(originalReturn);
   const record = id ? await getPublicBurialRecord(id) : await getPublicBurialRecordByPlot(plot);
 
   if (!record) {
     if (!id && plot) redirect("/results?" + new URLSearchParams({ query: plot }));
-    redirect("/record-not-found?" + new URLSearchParams({ query: id || "that gravesite" }));
+    redirect("/record-not-found?" + new URLSearchParams({ returnTo }));
   }
 
-  redirect("/map?id=" + encodeURIComponent(record.id));
+  redirect("/map?" + new URLSearchParams({ id: record.id, ...(originalReturn ? { returnTo } : {}) }));
 }
 
 function getParam(value: string | string[] | undefined) {

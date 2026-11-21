@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { test } from "node:test";
+import * as parkDetails from "../src/lib/park-details.ts";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
@@ -41,7 +42,7 @@ const record = publicData.toPublicRecord({
 
 test("visitor references hide internal identifiers and preserve missing details", () => {
   assert.deepEqual(presentation.visitorPlotDetails(record), {
-    garden: "BPG-A", block: "1", lot: "9", reference: "BPG-A · Block 1 · Lot 9",
+    garden: "Butterfly Palm Garden", block: "1", lot: "9", reference: "BPG-A · Block 1 · Lot 9",
   });
   const missing = presentation.visitorPlotDetails({ ...record, syntheticPlotReference: null });
   assert.equal(missing.lot, "Not recorded");
@@ -50,6 +51,15 @@ test("visitor references hide internal identifiers and preserve missing details"
   for (const unsafe of [internal, "source_row_key: " + "a".repeat(64)]) {
     assert.equal(presentation.visitorPlotDetails({ ...record, syntheticPlotReference: unsafe }).lot,
       "Not recorded");
+  }
+});
+
+test("public profile and map return links preserve local results only", () => {
+  const href = "/results?query=Tomas+%26+Family&section=Butterfly+Palm+Garden&year=2000-present&sort=newest&page=3";
+  assert.equal(presentation.safeResultsReturnTo(href), href);
+  for (const unsafe of ["/search", "//elsewhere.invalid/results", "https://elsewhere.invalid/results",
+    "/results/../admin", [href]]) {
+    assert.equal(presentation.safeResultsReturnTo(unsafe), "/results");
   }
 });
 
@@ -140,10 +150,12 @@ test("reused cards and memorials contain natural labels and only protected previ
   const Icon = load("src/components/ui/icons.tsx").Icon;
   const Link = ({ href, children, className }) => React.createElement("a", { href, className }, children);
   const location = load("src/components/visitor/gravesite-location-card.tsx", {
+    "@/lib/park-details": parkDetails,
     "next/link": Link, "@/components/ui/icons": { Icon },
     "@/lib/visitor-presentation": presentation,
   });
   const Card = load("src/components/visitor/public-search-result-card.tsx", {
+    "@/lib/park-details": parkDetails,
     "next/link": Link, "@/components/ui/icons": { Icon },
     "@/lib/public-navigation": navigation, "@/lib/visitor-presentation": presentation,
   }).PublicSearchResultCard;

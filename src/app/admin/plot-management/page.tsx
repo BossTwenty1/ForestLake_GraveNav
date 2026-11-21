@@ -1,12 +1,15 @@
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PlotManagementCrud } from "@/components/admin/admin-crud-pages";
 import type { PlotManagementQuery } from "@/lib/supabase/admin-data";
+import { getPhaseTwoScope } from "@/lib/supabase/phase2-data";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function AdminPlotManagementRoute({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  return <AdminShell active="Plot Management"><PlotManagementCrud initialQueryState={getInitialQueryState(params)} /></AdminShell>;
+  return <AdminShell active="Plot Management">
+    <PlotManagementCrud initialQueryState={getInitialQueryState(params)} mapAreaId={getPhaseTwoScope()?.areaId} />
+  </AdminShell>;
 }
 
 function getParam(value: string | string[] | undefined) {

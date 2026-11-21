@@ -1,35 +1,141 @@
 .panel {
-  background: #0a100d;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: #101713;
+  box-shadow: 0 6px 16px rgba(21, 33, 57, 0.18);
+  isolation: isolate;
 }
 
+.poster,
 .media {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.poster {
+  background: var(--home-tutorial, url("/videos/visitor-journey-poster.jpg")) center / cover no-repeat;
+}
+
+.poster::after {
+  position: absolute;
+  inset: 0;
+  background: #07131145;
+  content: "";
+}
+
+.media {
   object-fit: contain;
+  background: #101713;
 }
 
 .control {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 50%;
+  left: 50%;
   display: grid;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   place-items: center;
-  border: 1px solid #658675;
+  padding: 0;
+  border: 1px solid #fff;
   border-radius: 50%;
-  background: #10251e;
-  color: #f0fff5;
-  cursor: pointer;
+  background: #fff;
+  color: #004c22;
+  transform: translate(-50%, -50%);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .control:hover {
-  background: #214a37;
+  background: #9fed72;
+  border-color: #9fed72;
+  color: #0f2918;
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 0 0 8px rgba(159, 237, 114, 0.32), 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
-.control:focus-visible {
-  outline: 3px solid #ff9b4f;
-  outline-offset: 3px;
+.control:active {
+  transform: translate(-50%, -50%) scale(0.97);
+}
+
+.controlLabel {
+  position: absolute;
+  inset: calc(100% + 8px) auto auto;
+  display: block;
+  width: max-content;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  text-shadow: 0 1px 8px #000;
+}
+
+.control svg {
+  width: 26px;
+  height: 26px;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.control:hover svg {
+  transform: scale(1.08);
+}
+
+@media (min-width: 768px) {
+  .control {
+    width: 76px;
+    height: 76px;
+  }
+
+  .control svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .controlLabel {
+    inset: calc(100% + 10px) auto auto;
+    font-size: 17px;
+  }
+}
+
+:global(html[data-theme="dark"]) .panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+:global(html[data-theme="dark"]) .control {
+  background: #166534;
+  color: #fff;
+  border-color: #166534;
+}
+
+:global(html[data-theme="dark"]) .control:hover {
+  background: #9fed72;
+  border-color: #9fed72;
+  color: #0f2918;
+  box-shadow: 0 0 0 8px rgba(159, 237, 114, 0.28), 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .control,
+  .control svg {
+    transition: none;
+  }
+
+  .control:hover,
+  .control:active {
+    transform: translate(-50%, -50%);
+  }
+
+  .control:hover svg {
+    transform: none;
+  }
 }

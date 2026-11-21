@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/ui/icons";
 import type { IconName } from "@/components/ui/icons";
@@ -19,15 +19,16 @@ function activeDestination(pathname: string) {
   return null;
 }
 
-export function VisitorBottomNav() {
-  return <VisitorNavigation variant="mobile" />;
+export function VisitorBottomNav({ searchInputId }: { searchInputId?: string }) {
+  return <VisitorNavigation variant="mobile" searchInputId={searchInputId} />;
 }
 
-export function VisitorDesktopNav() {
-  return <VisitorNavigation variant="desktop" />;
+export function VisitorDesktopNav({ searchInputId }: { searchInputId?: string }) {
+  return <VisitorNavigation variant="desktop" searchInputId={searchInputId} />;
 }
 
-function VisitorNavigation({ variant }: { variant: "mobile" | "desktop" }) {
+function VisitorNavigation({ variant, searchInputId }: { variant: "mobile" | "desktop"; searchInputId?: string }) {
+  const router = useRouter();
   const pathname = usePathname() || "/";
   const active = activeDestination(pathname);
   const navClass = variant === "desktop" ? "visitor-desktop-nav" : "visitor-bottom-nav";
@@ -37,7 +38,15 @@ function VisitorNavigation({ variant }: { variant: "mobile" | "desktop" }) {
       <div className={`${navClass}__inner`}>
         {destinations.map((destination) => {
           const isActive = destination.id === active;
-          return <Link aria-current={isActive ? "page" : undefined} className={cn("visitor-nav-link", isActive && "visitor-nav-link--active")} href={destination.href} key={destination.id}><Icon name={destination.icon} size={19} /><span>{destination.label}</span></Link>;
+          return <Link aria-current={isActive ? "page" : undefined} className={cn("visitor-nav-link", isActive && "visitor-nav-link--active")} href={destination.href} key={destination.id}
+            onNavigate={destination.id === "search" && searchInputId ? event => {
+              const field = document.getElementById(searchInputId);
+              const query = field instanceof HTMLInputElement ? field.value.slice(0, 160).trim() : "";
+              if (query) {
+                event.preventDefault();
+                router.push("/search?" + new URLSearchParams({ query }));
+              }
+            } : undefined}><Icon name={destination.icon} size={19} /><span>{destination.label}</span></Link>;
         })}
       </div>
     </nav>

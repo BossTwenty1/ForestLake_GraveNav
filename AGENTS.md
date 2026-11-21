@@ -20,3 +20,7 @@ Read [docs/README.md](docs/README.md) and the [current operational handoff](docs
 - docs/archive contains historical evidence and superseded execution plans. Consult those only for provenance; use current handoff and implemented contracts for present behavior.
 - Current CAD hosting permission is local-only. Both public/phase2-viewer and public/phase2-planning are ignored local assets, not access-controlled HTTP storage. Preserve original sources and sealed releases.
 - Hosted Supabase changes, real-record imports, migrations, GIS publication, pushes and deployments require explicit authorization.
+
+## Current project-wide rules
+
+Read the [GraveNav project-wide development rules](<C:/Users/Nash/Documents/gravenav/AGENTS.md>) before working in this checkout. The 20 November 2026 project rules govern current capstone scope and override older product-direction notes in this worktree. Apply this checkout's technical and preservation instructions as well. Coordinate changes through reviewed Git work and keep existing hosted, CAD and deployment approval boundaries in force.

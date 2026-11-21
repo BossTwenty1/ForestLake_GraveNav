@@ -5,7 +5,14 @@
 
 .experience {
   gap: 12px;
+  --map-field-border: #748278;
+  --map-field-hover: #466c54;
   --cemetery-map-height: max(440px, calc(100svh - 190px));
+}
+
+:global(html[data-theme="dark"]) .experience {
+  --map-field-border: #6b7971;
+  --map-field-hover: #8eab9b;
 }
 
 .experience :global(.public-map-heading) {
@@ -124,7 +131,17 @@
 
 .experience :global(.map-search-form > label:first-of-type) { grid-column: 1 / -1; }
 .experience :global(.map-search-form .button) { grid-column: 2; min-height: 44px; padding-inline: 12px; }
-.experience :global(.map-search-control) { min-width: 0; }
+.experience :global(.map-search-control) {
+  min-width: 0;
+  border-color: var(--map-field-border);
+}
+.experience :global(.map-search-control):hover { border-color: var(--map-field-hover); }
+.experience :global(.map-search-control):focus-within {
+  border-color: var(--focus-ring);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
 .experience :global(.map-search-control input),
 .experience :global(.map-search-control select) { min-width: 0; min-height: 44px; }
 .experience :global(.map-record-list) { grid-template-columns: 1fr; max-height: 240px; overflow-y: auto; }
@@ -135,6 +152,35 @@
 .experience :global(.phase-two-layer-options) { padding-block: 6px; }
 .experience :global(#walking-guidance) { scroll-margin-top: 84px; }
 .experience :global(#walking-guidance h2) { margin: 0; font-size: 1rem; }
+
+.geographicCanvas {
+  scroll-margin-top: 86px;
+  scroll-margin-bottom: 80px;
+}
+
+.experience .geographicCanvas :global(.leaflet-control-zoom a) {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+}
+
+.guidanceStatus {
+  border: 1px solid var(--visitor-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--visitor-surface-deep);
+}
+.guidanceStatus h3 {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  color: var(--visitor-ink);
+}
+.experience .guidanceStatus p { margin: 0; font-size: 0.875rem; }
+.experience .distance strong {
+  color: var(--visitor-accent);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
 
 @media (min-width: 960px) {
   .experience .searchPanel > summary { display: none; }

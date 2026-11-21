@@ -165,3 +165,28 @@ export function routePhaseTwo(data: PhaseTwoGeography, fix: GpsPosition | null, 
     distanceMeters(fix, location(network.nodes.get(targetId)!)) + fix.accuracy <= policy.arrivalDistanceM;
   return { state: arrival ? "arrived" : "ready", coordinates: unique(coordinates), distanceM };
 }
+
+export type WalkingStep = { instruction: string; distanceM: number | null };
+
+export function walkingSteps(route: PhaseTwoRoute): WalkingStep[] {
+  const line = route.coordinates;
+  if (route.state !== "ready" || line.length < 2) return [];
+  const steps: WalkingStep[] = [];
+  let instruction = "Follow the highlighted path";
+  let distanceM = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [a, b, c] = [line[i - 1], line[i], line[i + 1]];
+    distanceM += distanceMeters(location(a), location(b));
+    if (!c) continue;
+    const scale = Math.cos(b[1] * Math.PI / 180);
+    const [dx, dy] = [(b[0] - a[0]) * scale, b[1] - a[1]];
+    const [nx, ny] = [(c[0] - b[0]) * scale, c[1] - b[1]];
+    const turn = Math.atan2(dx * ny - dy * nx, dx * nx + dy * ny) * 180 / Math.PI;
+    if (Math.abs(turn) < 45 || distanceM < 4 || distanceMeters(location(b), location(c)) < 4) continue;
+    steps.push({ instruction, distanceM });
+    instruction = Math.abs(turn) >= 150 ? "Follow the bend in the path" : turn > 0 ? "Turn left along the path" : "Turn right along the path";
+    distanceM = 0;
+  }
+  steps.push({ instruction, distanceM }, { instruction: "Approach the gravesite and check the marker", distanceM: null });
+  return steps;
+}

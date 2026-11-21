@@ -16,6 +16,7 @@ import {
 } from "react-leaflet";
 import { Icon } from "@/components/ui/icons";
 import type { GpsPosition } from "@/lib/navigation-geo";
+import { PARK_NAME } from "@/lib/park-details";
 import { schematicMapBounds } from "@/lib/map-layout";
 import {
   loadPhaseOneMapData,
@@ -65,7 +66,7 @@ type UserLocationLayerProps = {
 };
 
 export function CemeteryLeafletMap({
-  accessibleLabel = "Forest Lake Memorial Park plan map",
+  accessibleLabel = `${PARK_NAME} plan map`,
   records,
   selectedPlot,
   onSelectPlot,

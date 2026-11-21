@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { PARK_NAME } from "@/lib/park-details";
 import { visitorPlotDetails } from "@/lib/visitor-presentation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/icons";
@@ -29,16 +30,19 @@ interface MapExplorerProps {
   total?: number;
   pageSize?: number;
   recordsError?: string;
+  gardenListUnavailable?: boolean;
   view?: "planning" | "geographic";
   destination?: PublicBurialRecord | null;
+  planningPlot?: string | null;
   geography?: PhaseTwoResult | null;
   requestedId?: string;
+  returnTo?: string;
 }
 export function MapExplorer({
   staffTools = false,
   showHeading = true, gardens = [], records = [], query: memorialQuery = "", section = "all",
-  page = 1, total = 0, pageSize = 20, recordsError = "",
-  view = "planning", destination = null, geography = null, requestedId = "",
+  page = 1, total = 0, pageSize = 20, recordsError = "", gardenListUnavailable = false,
+  view: requestedView = "planning", destination = null, geography = null, planningPlot = null, requestedId = "", returnTo,
 }: MapExplorerProps) {
   const [bundle, setBundle] = useState<PlanningBundle | null>(null);
   const cachedBundle = useRef<PlanningBundle | null>(null);
@@ -46,13 +50,28 @@ export function MapExplorer({
   const [assetError, setAssetError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [visible, setVisible] = useState(initialVisibility);
-  const [selected, setSelected] = useState<CadFeature | null>(null);
+  const [chosen, setSelected] = useState<CadFeature | null | undefined>(undefined);
+  const [popupClosed, setPopupClosed] = useState(false);
   const [query, setQuery] = useState("");
-  const memorial = view === "geographic" || !selected ? destination : null;
-  const mapUrl = (mode: "planning" | "geographic", id = requestedId) => "/map?" + new URLSearchParams({
-    query: memorialQuery, section, page: String(page), view: mode, ...(id ? { id } : {}),
+  const planningFallback = !staffTools && requestedView === "geographic" && Boolean(destination) && !geography?.data;
+  const view = planningFallback ? "planning" : requestedView;
+  const assigned = view === "planning" && planningPlot && bundle
+    ? [...bundle.data.layers.lawn, ...bundle.data.layers.estates].find(feature => feature.id === planningPlot) ?? null : null;
+  const selected = chosen === undefined ? assigned : chosen;
+  const showLotPopup = !staffTools && selected && !popupClosed;
+  const memorial = (requestedView === "geographic" && !assigned) || !selected || selected.id === assigned?.id ? destination : null;
+  const mapUrl = (mode: "planning" | "geographic", id = requestedId, resultPage = page) => "/map?" + new URLSearchParams({
+    query: memorialQuery, section, page: String(resultPage), view: mode, ...(id ? { id } : {}),
+    ...(returnTo && id === requestedId ? { returnTo } : {}),
   });
-  const pageUrl = (next: number) => "/map?" + new URLSearchParams({ query: memorialQuery, section, page: String(next) });
+  const pageUrl = (next: number) => mapUrl(view, requestedId, next);
+  const geographicUnavailable = !staffTools && !requestedId ? {
+    title: "Gravesite map unavailable",
+    detail: "You can still search memorial records or explore the park map.",
+  } : {
+    title: "Gravesite location unavailable",
+    detail: "Please ask cemetery staff for help locating this gravesite. You can still explore the park map.",
+  };
   const [showPlaces, setShowPlaces] = useState(true);
   const [showTrees, setShowTrees] = useState(true);
   const [showProtection, setShowProtection] = useState(true);
@@ -94,11 +113,13 @@ export function MapExplorer({
     setBundle(null);
     setError("");
     setAssetError("");
-    setSelected(null);
+    setSelected(undefined);
+    setPopupClosed(false);
     setAttempt(current => current + 1);
   }
   function select(feature: CadFeature | null) {
     if (feature) {
+      setPopupClosed(false);
       setVisible(current => ({ ...current, [featureLayer(feature)]: true }));
       actions.current?.focus(feature);
     }
@@ -115,14 +136,27 @@ export function MapExplorer({
       feature.properties.instance_path?.toUpperCase() === term) ?? matches[0]);
   }
 
-  return <div className={"public-map-experience" + (staffTools ? "" : " " + layout.experience)} onKeyDown={event => { if (event.key === "Escape") setSelected(null); }}>
+  if (!staffTools && view === "geographic" && destination && geography?.data) {
+    return <PhaseTwoGeographicMap key={[geography.data.releaseId, geography.data.scopeRevision, destination.id].join(":")}
+      data={geography.data} burialId={destination.id} memorial={{
+        name: destination.name, dates: destination.dates, reference: visitorPlotDetails(destination).reference,
+        profileHref: "/gravesite?" + new URLSearchParams({ id: destination.id, ...(returnTo ? { returnTo } : {}) }),
+        parkHref: mapUrl("planning", destination.id),
+      }} />;
+  }
+
+  return <div className={"public-map-experience" + (staffTools ? "" : " " + layout.experience)} onKeyDown={event => {
+      if (event.key !== "Escape") return;
+      if (showLotPopup) setPopupClosed(true);
+      else setSelected(null);
+    }}>
     {showHeading ? <header className="public-map-heading">
       <div><h1>Cemetery Map</h1>
         <span>{view === "geographic" ? "View a gravesite location and check available walking directions." : "Explore the park, find gardens and amenities, or search for a memorial."}</span>
       </div>
-      <span className="map-source-badge"><Icon name="map" size={15} />Forest Lake · Phase 2</span>
+      <span className="map-source-badge"><Icon name="map" size={15} />{PARK_NAME} · Phase 2</span>
       {!staffTools ? <button className={"button button--secondary " + layout.mobileSearch} type="button" onClick={() => {
-        setPanelOpen(true); searchPanel.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        setPanelOpen(true); searchPanel.current?.scrollIntoView({ block: "nearest" });
       }}><Icon name="search" size={17} />Find a Loved One</button> : null}
     </header> : null}
 
@@ -142,10 +176,12 @@ export function MapExplorer({
           {view === "geographic" ? geography?.data ? <PhaseTwoGeographicMap
             key={[geography.data.releaseId, geography.data.scopeRevision, requestedId].join(":")}
             data={geography.data} burialId={requestedId || undefined} /> :
-            <div className="map-loading" role="status"><strong>Gravesite location unavailable</strong>
-              <span>{staffTools ? geography?.message || "Approved geographic information is required before GPS can be displayed." : "Please ask cemetery staff for help locating this gravesite. You can still explore the park map."}</span>
+            <div className="map-loading">
+              <div role="status"><strong>{geographicUnavailable.title}</strong>
+                <p>{staffTools ? geography?.message || "Approved geographic information is required before GPS can be displayed." : geographicUnavailable.detail}</p></div>
               <Link className="button button--secondary" href={mapUrl("planning")} prefetch={false}>Back to park map</Link>
-            </div> : bundle ? <PlanningCanvas key={attempt} bundle={bundle} visible={visible} selected={selected}
+            </div> : bundle ? <PlanningCanvas key={attempt} bundle={bundle} visible={visible} selected={selected} focusOnLoad={assigned}
+            lotPopup={showLotPopup ? { preferredId: selected?.id === assigned?.id ? destination?.id : undefined, returnTo, onClose: () => setPopupClosed(true) } : undefined}
             places={showPlaces} trees={showTrees} protection={showProtection} details={showDetails} attempt={attempt}
             reviewMode={staffTools} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={select} onReady={ready} onError={setAssetError} />
             : error ? null : <div className="map-loading" role="status"><span className="map-loading__spinner" />Loading cemetery layout…</div>}
@@ -153,7 +189,7 @@ export function MapExplorer({
             <strong>Map unavailable</strong><span>{staffTools ? error || assetError : "The park map could not be loaded. Please try again."}</span>
             <button className="button button--secondary" type="button" onClick={retry}>Retry map</button>
           </div> : null}
-          {view === "planning" ? <div className="map-stage-caption"><Icon name="map" size={16} /><span>Forest Lake Phase 2</span></div> : null}
+          {view === "planning" ? <div className="map-stage-caption"><Icon name="map" size={16} /><span>{PARK_NAME} · Phase 2</span></div> : null}
         </div>
         <div className="public-map-context">
           {staffTools ? <div className="map-disclaimer" role="note"><Icon name="info" size={18} /><div>
@@ -182,12 +218,14 @@ export function MapExplorer({
                 maxLength={160} name="query" placeholder="Name or plot number…" />
             </span></label>
             <label><span>Garden</span><span className="map-search-control"><Icon name="map" size={18} />
-              <select defaultValue={section} name="section"><option value="all">All gardens</option>
+              <select aria-describedby={gardenListUnavailable ? "map-garden-status" : undefined} defaultValue={section} name="section"><option value="all">All gardens</option>
+                {section !== "all" && !gardens.includes(section) ? <option value={section}>{section}</option> : null}
                 {gardens.map(garden => <option key={garden} value={garden}>{garden}</option>)}
               </select>
             </span></label>
             <button className="button button--primary" type="submit"><Icon name="search" size={17} />Find on map</button>
           </form>
+          {gardenListUnavailable ? <p id="map-garden-status" className="map-result-summary" role="status">The garden list is temporarily unavailable. You can still search by name or plot number.</p> : null}
           <p aria-live="polite" className="map-result-summary" role="status">
             {recordsError || (total ? total + " matching memorial records." : memorialQuery || section !== "all" ? "No matching memorial records. Try another name, plot number, or garden." : "Enter a name or plot number to find a memorial.")}
           </p>
@@ -209,6 +247,7 @@ export function MapExplorer({
           </nav> : null}
         </section>
 
+        {planningFallback && !assigned ? <p role="status"><strong>Gravesite location unavailable.</strong> Walking directions are unavailable. Please ask cemetery staff for help. You can still explore the park map.</p> : null}
         {staffTools || memorial || selected ? <section aria-live="polite" className="map-destination-card" data-selected-candidate={view === "planning" ? selected?.id ?? "" : ""}>
           <div className="map-panel-heading"><div><p>{memorial ? "Selected memorial" : "Selected plot"}</p><h2>{memorial ? visitorPlotDetails(memorial).reference : (view === "planning" && selected ? staffTools ? selected.id : featureLayer(selected) === "lawn" ? "Lawn plot" : "Estate lot" : "No plot selected")}</h2></div>
             <span className="map-destination-status map-destination-status--unavailable"><Icon name="info" size={14} />{memorial ? "Record details" : staffTools ? "CAD reference" : "Park map"}</span>
@@ -222,17 +261,23 @@ export function MapExplorer({
               <div><dt>Block</dt><dd>{visitorPlotDetails(memorial).block}</dd></div>
               <div><dt>Lot</dt><dd>{visitorPlotDetails(memorial).lot}</dd></div>
             </dl>
-            <p>{geography?.data?.target ? "The highlighted plot is the gravesite recorded for this memorial." : "This memorial’s map location is unavailable. Please ask cemetery staff for assistance."}</p>
-            {geography?.data?.target && geography.data.accessPoint && geography.data.navigationPolicy ? <a className="button button--primary button--lg" href="#walking-guidance">Get Directions</a> :
-              <p>Walking directions are not available for this gravesite yet.</p>}
-            <Link className="button button--secondary button--lg" href={"/gravesite?id=" + encodeURIComponent(memorial.id)}>View Memorial</Link>
+            {view === "geographic" ? <p>{geography?.data?.target
+              ? "The highlighted plot is the gravesite recorded for this memorial."
+              : "This memorial’s map location is unavailable. Please ask cemetery staff for assistance."}</p>
+              : assigned ? <div><p>Assigned plot on the park layout.</p>
+                <button type="button" className="button button--secondary" onClick={() => select(assigned)}>Focus on assigned plot</button></div>
+              : !planningFallback ? <p><Link href={mapUrl("geographic")}>Check the gravesite location</Link></p> : null}
+            {view === "geographic" && (geography?.data?.target && geography.data.accessPoint && geography.data.navigationPolicy
+              ? <a className="button button--primary button--lg" href="#walking-guidance">Get Directions</a>
+              : <p>Walking directions are unavailable for this gravesite.</p>)}
+            <Link className="button button--secondary button--lg" href={"/gravesite?" + new URLSearchParams({ id: memorial.id, ...(returnTo ? { returnTo } : {}) })}>View Memorial</Link>
           </> : selected && view === "planning" ? <>
             {staffTools ? <><dl><div><dt>Category</dt><dd>{featureLayer(selected) === "lawn" ? "Lawn plot" : "Estate lot"}</dd></div>
               <div><dt>Source reference</dt><dd>{selected.properties.instance_path}</dd></div></dl>
             {selected.review?.overlapReviewFids.length ? <p>This outline has an overlap review. Each source candidate remains separately selectable.</p> : null}
             <p>Official gravesite and burial correspondence awaits verification.</p>
             {bundle?.coordinates.entries[selected.id] ? <PlotCoordinateDetails reference={bundle.coordinates.entries[selected.id]} /> : null}</> :
-              <p>This map selection has no confirmed memorial record. Search for a loved one to view their recorded gravesite.</p>}
+              <button type="button" className="button button--secondary" onClick={() => setPopupClosed(false)}>Show memorial details</button>}
             <button type="button" className="button button--secondary" onClick={() => select(null)}>Clear selection</button>
           </> : <p>Select a plot to explore the park, or search for a memorial.</p>}
           <p><Link href="/search">Search memorial records</Link></p>

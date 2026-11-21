@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { plotFilterParams, staffPlotMapHref } from "@/lib/plot-map";
 import { isSyntheticPlot, plotAvailabilityLabel, syntheticPlotDescription } from "@/lib/synthetic-plots";
 import { createPortal } from "react-dom";
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -13,6 +14,7 @@ import type { PlotManagementQuery, PlotManagementSort } from "@/lib/supabase/adm
 import type { PlotManagementItem, PlotManagementSummary, PlotAreaOption } from "@/lib/supabase/types";
 
 type QueryUpdate = Partial<PlotManagementQuery>;
+type PlotMapLink = (plot: PlotManagementItem) => { href: string; label: string };
 type Props = {
   plots: PlotManagementItem[];
   total: number;
@@ -22,6 +24,7 @@ type Props = {
   error: string;
   busy: boolean;
   canAdmin: boolean;
+  mapAreaId?: string;
   queryState: PlotManagementQuery;
   onAdd: () => void;
   onEdit: (plot: PlotManagementItem) => void;
@@ -30,22 +33,21 @@ type Props = {
   onRetry: () => void;
 };
 
-export function PlotManagementList({ plots, total, summary, areas, loading, error, busy, canAdmin, queryState, onAdd, onEdit, onDelete, onQueryStateChange, onRetry }: Props) {
+export function PlotManagementList({ plots, total, summary, areas, loading, error, busy, canAdmin, mapAreaId, queryState, onAdd, onEdit, onDelete, onQueryStateChange, onRetry }: Props) {
   const filterCount = getFilterCount(queryState);
   const pageCount = Math.max(1, Math.ceil(total / queryState.pageSize));
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setOrDelete(params, "query", queryState.query);
-    setOrDelete(params, "area", queryState.area === "all" ? "" : queryState.area);
-    setOrDelete(params, "state", queryState.state === "all" ? "" : queryState.state);
-    setOrDelete(params, "verification", queryState.verification === "all" ? "" : queryState.verification);
-    setOrDelete(params, "sort", queryState.sort === "updated" ? "" : queryState.sort);
-    setOrDelete(params, "direction", queryState.direction === "desc" ? "" : queryState.direction);
-    setOrDelete(params, "page", queryState.page ? String(queryState.page + 1) : "");
-    setOrDelete(params, "pageSize", queryState.pageSize === 20 ? "" : String(queryState.pageSize));
+    const params = plotFilterParams(queryState, new URLSearchParams(window.location.search));
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${params.size ? `?${params}` : ""}`);
   }, [queryState]);
+
+  const mapLink: PlotMapLink = (plot) => {
+    const canCheckOutline = mapAreaId === String(plot.areaId)
+      && plot.coordinateState === "verified"
+      && !isSyntheticPlot(plot.lotCode);
+    return { href: staffPlotMapHref(plot.lotId, queryState), label: canCheckOutline ? "View on Map" : "Map availability" };
+  };
 
   function update(value: QueryUpdate, resetPage = true) {
     onQueryStateChange({ ...queryState, ...value, page: resetPage ? 0 : (value.page ?? queryState.page) });
@@ -64,8 +66,8 @@ export function PlotManagementList({ plots, total, summary, areas, loading, erro
       {error ? <EmptyState action={<Button onClick={onRetry} variant="secondary">Try again</Button>} className="admin-burial-empty" description={error} icon="alert" title="Plots unavailable" />
         : loading ? <Loading filtered={Boolean(plots.length || filterCount)} />
         : plots.length ? <>
-          <PlotTable busy={busy} canAdmin={canAdmin} plots={plots} queryState={queryState} onChangeSort={sortBy} onDelete={onDelete} onEdit={onEdit} />
-          <MobileCards busy={busy} canAdmin={canAdmin} plots={plots} onDelete={onDelete} onEdit={onEdit} />
+          <PlotTable busy={busy} canAdmin={canAdmin} mapLink={mapLink} plots={plots} queryState={queryState} onChangeSort={sortBy} onDelete={onDelete} onEdit={onEdit} />
+          <MobileCards busy={busy} canAdmin={canAdmin} mapLink={mapLink} plots={plots} onDelete={onDelete} onEdit={onEdit} />
           <Pagination pageCount={pageCount} queryState={queryState} total={total} visibleCount={plots.length} onUpdate={update} />
         </> : <EmptyState action={filterCount ? <Button onClick={resetFilters} variant="secondary">Clear filters</Button> : <Button icon="plus" onClick={onAdd}>Add plot</Button>} className="admin-burial-empty" description={filterCount ? "No plots match the current search and filters. Adjust or clear them to see more plots." : "No current plots have been added. Add the first plot after its cemetery area exists."} icon={filterCount ? "filter" : "grid"} title={filterCount ? "No matching plots" : "No plots yet"} />}
     </div>
@@ -92,9 +94,9 @@ function FilterMenu({ queryState, areas, filterCount, onUpdate, onReset }: { que
 function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: Array<[string, string]>; onChange: (value: string) => void }) { return <label className="admin-burial-filter-select"><span>{label}</span><select onChange={(event) => onChange(event.target.value)} value={value}>{options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select><Icon name="chevronDown" size={15} /></label>; }
 function ActiveFilters({ queryState, areas, onUpdate, onReset }: { queryState: PlotManagementQuery; areas: PlotAreaOption[]; onUpdate: (update: QueryUpdate) => void; onReset: () => void }) { const area = areas.find((item) => String(item.areaId) === queryState.area); const chips = [queryState.query ? { label: `Search: ${queryState.query}`, clear: () => onUpdate({ query: "" }) } : null, queryState.area !== "all" ? { label: `Area: ${area?.label || queryState.area}`, clear: () => onUpdate({ area: "all" }) } : null, queryState.state !== "all" ? { label: `State: ${stateLabel(queryState.state)}`, clear: () => onUpdate({ state: "all" }) } : null, queryState.verification !== "all" ? { label: `Coordinates: ${coordinateLabel(queryState.verification)}`, clear: () => onUpdate({ verification: "all" }) } : null].filter((chip): chip is { label: string; clear: () => void } => Boolean(chip)); return <div aria-label="Active plot filters" className="admin-burial-filter-chips"><span>{chips.length} active</span>{chips.map((chip) => <button aria-label={`Remove ${chip.label} filter`} key={chip.label} onClick={chip.clear} type="button">{chip.label}<Icon name="x" size={14} /></button>)}<button className="admin-burial-filter-chips__clear" onClick={onReset} type="button">Clear all</button></div>; }
 
-function PlotTable({ plots, queryState, busy, canAdmin, onEdit, onDelete, onChangeSort }: { plots: PlotManagementItem[]; queryState: PlotManagementQuery; busy: boolean; canAdmin: boolean; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void; onChangeSort: (sort: PlotManagementSort) => void }) { return <div className="admin-burial-table-wrap"><table className="admin-burial-table admin-plot-table"><caption className="sr-only">Current GraveNav plots matching the search and filters</caption><thead><tr><SortHeader label="Plot" sort="plot" state={queryState} onSort={onChangeSort} /><SortHeader label="Area" sort="area" state={queryState} onSort={onChangeSort} /><th scope="col">Assignment</th><SortHeader label="Operational state" sort="state" state={queryState} onSort={onChangeSort} /><SortHeader label="Coordinates" sort="coordinate" state={queryState} onSort={onChangeSort} /><th scope="col">Updated</th><th className="admin-burial-table__actions-heading" scope="col">Actions</th></tr></thead><tbody>{plots.map((plot) => <tr key={plot.lotId}><td><PlotIdentity plot={plot} /></td><td><Area plot={plot} /></td><td><Assignment plot={plot} /></td><td><OperationalState plot={plot} /></td><td><CoordinateState plot={plot} /></td><td><span className="admin-record-muted">{formatDate(plot.updatedAt)}</span></td><td><Actions busy={busy} canAdmin={canAdmin} plot={plot} onDelete={onDelete} onEdit={onEdit} /></td></tr>)}</tbody></table></div>; }
+function PlotTable({ plots, queryState, busy, canAdmin, mapLink, onEdit, onDelete, onChangeSort }: { plots: PlotManagementItem[]; queryState: PlotManagementQuery; busy: boolean; canAdmin: boolean; mapLink: PlotMapLink; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void; onChangeSort: (sort: PlotManagementSort) => void }) { return <div className="admin-burial-table-wrap"><table className="admin-burial-table admin-plot-table"><caption className="sr-only">Current GraveNav plots matching the search and filters</caption><thead><tr><SortHeader label="Plot" sort="plot" state={queryState} onSort={onChangeSort} /><SortHeader label="Area" sort="area" state={queryState} onSort={onChangeSort} /><th scope="col">Assignment</th><SortHeader label="Operational state" sort="state" state={queryState} onSort={onChangeSort} /><SortHeader label="Coordinates" sort="coordinate" state={queryState} onSort={onChangeSort} /><th scope="col">Updated</th><th className="admin-burial-table__actions-heading" scope="col">Actions</th></tr></thead><tbody>{plots.map((plot) => <tr key={plot.lotId}><td><PlotIdentity plot={plot} /></td><td><Area plot={plot} /></td><td><Assignment plot={plot} /></td><td><OperationalState plot={plot} /></td><td><CoordinateState plot={plot} /></td><td><span className="admin-record-muted">{formatDate(plot.updatedAt)}</span></td><td><Actions busy={busy} canAdmin={canAdmin} mapLink={mapLink} plot={plot} onDelete={onDelete} onEdit={onEdit} /></td></tr>)}</tbody></table></div>; }
 function SortHeader({ label, sort, state, onSort }: { label: string; sort: PlotManagementSort; state: PlotManagementQuery; onSort: (sort: PlotManagementSort) => void }) { const active = state.sort === sort; return <th aria-sort={active ? state.direction === "asc" ? "ascending" : "descending" : "none"} scope="col"><button className="admin-burial-sort-button" onClick={() => onSort(sort)} type="button">{label}<Icon className={active ? `is-${state.direction}` : undefined} name="chevronDown" size={14} /></button></th>; }
-function MobileCards({ plots, busy, canAdmin, onEdit, onDelete }: { plots: PlotManagementItem[]; busy: boolean; canAdmin: boolean; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void }) { return <div className="admin-burial-mobile-list">{plots.map((plot) => <article aria-label={`Plot ${plot.lotCode}, ${plot.areaName || "unassigned area"}`} className="admin-burial-mobile-card admin-plot-mobile-card" key={plot.lotId}><div className="admin-burial-mobile-card__top"><PlotIdentity plot={plot} /><OperationalState plot={plot} /></div><dl className="admin-burial-mobile-card__details"><div><dt>Area</dt><dd><Area plot={plot} /></dd></div><div><dt>Assignment</dt><dd><Assignment plot={plot} /></dd></div><div><dt>Coordinates</dt><dd><CoordinateState plot={plot} /></dd></div><div><dt>Updated</dt><dd>{formatDate(plot.updatedAt)}</dd></div></dl><Actions busy={busy} canAdmin={canAdmin} plot={plot} onDelete={onDelete} onEdit={onEdit} /></article>)}</div>; }
+function MobileCards({ plots, busy, canAdmin, mapLink, onEdit, onDelete }: { plots: PlotManagementItem[]; busy: boolean; canAdmin: boolean; mapLink: PlotMapLink; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void }) { return <div className="admin-burial-mobile-list">{plots.map((plot) => <article aria-label={`Plot ${plot.lotCode}, ${plot.areaName || "unassigned area"}`} className="admin-burial-mobile-card admin-plot-mobile-card" key={plot.lotId}><div className="admin-burial-mobile-card__top"><PlotIdentity plot={plot} /><OperationalState plot={plot} /></div><dl className="admin-burial-mobile-card__details"><div><dt>Area</dt><dd><Area plot={plot} /></dd></div><div><dt>Assignment</dt><dd><Assignment plot={plot} /></dd></div><div><dt>Coordinates</dt><dd><CoordinateState plot={plot} /></dd></div><div><dt>Updated</dt><dd>{formatDate(plot.updatedAt)}</dd></div></dl><Actions busy={busy} canAdmin={canAdmin} mapLink={mapLink} plot={plot} onDelete={onDelete} onEdit={onEdit} /></article>)}</div>; }
 
 function PlotIdentity({ plot }: { plot: PlotManagementItem }) {
   const synthetic = isSyntheticPlot(plot.lotCode);
@@ -129,7 +131,7 @@ function OperationalState({ plot }: { plot: PlotManagementItem }) {
 function CoordinateState({ plot }: { plot: PlotManagementItem }) {
   if (isSyntheticPlot(plot.lotCode)) return <span className="admin-record-muted">No verified physical location</span>; return <span className={`admin-record-verification admin-record-verification--${plot.coordinateState}`}><Icon name={plot.coordinateState === "verified" ? "check" : "verification"} size={14} />{coordinateLabel(plot.coordinateState)}</span>; }
 
-function Actions({ plot, busy, canAdmin, onEdit, onDelete }: { plot: PlotManagementItem; busy: boolean; canAdmin: boolean; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void }) {
+function Actions({ plot, busy, canAdmin, mapLink, onEdit, onDelete }: { plot: PlotManagementItem; busy: boolean; canAdmin: boolean; mapLink: PlotMapLink; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void }) {
   const id = useId(); const [open, setOpen] = useState(false); const [position, setPosition] = useState({ top: 0, left: 0 }); const trigger = useRef<HTMLButtonElement>(null); const panel = useRef<HTMLDivElement>(null); useDismiss(open, setOpen, trigger, panel);
   useEffect(() => { if (!open) return; const close = () => setOpen(false); window.addEventListener("resize", close); window.addEventListener("scroll", close, true); return () => { window.removeEventListener("resize", close); window.removeEventListener("scroll", close, true); }; }, [open]);
   useEffect(() => { if (!open) return; const frame = window.requestAnimationFrame(() => panel.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()); return () => window.cancelAnimationFrame(frame); }, [open]);
@@ -139,16 +141,19 @@ function Actions({ plot, busy, canAdmin, onEdit, onDelete }: { plot: PlotManagem
   const canRemove = canAdmin && !plot.assignedBurialId;
   const canViewBurial = Boolean(plot.assignedBurialId && !plot.assignedBurialDeleted);
   const canReviewCoordinates = canAdmin && plot.coordinateState !== "verified";
-  const hasMenuActions = canViewBurial || canReviewCoordinates || canRemove;
-  const menu = open ? <div className="admin-record-menu__popover admin-record-menu__popover--portal" id={id} onKeyDown={navigateMenu} ref={panel} role="menu" style={position}>{canViewBurial ? <Link href={`/admin/burial-records?record=${plot.assignedBurialId}`} onClick={() => setOpen(false)} role="menuitem"><Icon name="eye" size={16} />View burial record</Link> : null}{canReviewCoordinates ? <Link href="/admin/coordinate-verification" onClick={() => setOpen(false)} role="menuitem"><Icon name="verification" size={16} />Review coordinates</Link> : null}{canRemove ? <><span className="admin-record-menu__separator" /><button className="admin-record-menu__danger" onClick={() => choose(() => onDelete(plot))} role="menuitem" type="button"><Icon name="trash" size={16} />Remove plot</button></> : null}</div> : null;
-  return <div className="admin-record-actions"><button className="admin-record-actions__edit" disabled={busy} onClick={() => onEdit(plot)} type="button"><Icon name="edit" size={16} /><span>Edit</span></button>{hasMenuActions ? <div className="admin-record-menu"><button aria-controls={id} aria-expanded={open} aria-haspopup="menu" aria-label={`More actions for plot ${plot.lotCode}`} disabled={busy} onClick={toggle} ref={trigger} type="button"><Icon name="more" size={18} /></button>{menu ? createPortal(menu, document.body) : null}</div> : null}</div>;
+  const map = mapLink(plot);
+  const menu = open ? <div className="admin-record-menu__popover admin-record-menu__popover--portal" id={id} onKeyDown={navigateMenu} ref={panel} role="menu" style={position}>
+    <Link href={map.href} onClick={() => setOpen(false)} prefetch={false} role="menuitem">
+      <Icon name="map" size={16} />{map.label}
+    </Link>
+    {canViewBurial ? <Link href={`/admin/burial-records?record=${plot.assignedBurialId}`} onClick={() => setOpen(false)} role="menuitem"><Icon name="eye" size={16} />View burial record</Link> : null}{canReviewCoordinates ? <Link href="/admin/coordinate-verification" onClick={() => setOpen(false)} role="menuitem"><Icon name="verification" size={16} />Review coordinates</Link> : null}{canRemove ? <><span className="admin-record-menu__separator" /><button className="admin-record-menu__danger" onClick={() => choose(() => onDelete(plot))} role="menuitem" type="button"><Icon name="trash" size={16} />Remove plot</button></> : null}</div> : null;
+  return <div className="admin-record-actions"><button className="admin-record-actions__edit" disabled={busy} onClick={() => onEdit(plot)} type="button"><Icon name="edit" size={16} /><span>Edit</span></button><div className="admin-record-menu"><button aria-controls={id} aria-expanded={open} aria-haspopup="menu" aria-label={`More actions for plot ${plot.lotCode}`} disabled={busy} onClick={toggle} ref={trigger} type="button"><Icon name="more" size={18} /></button>{menu ? createPortal(menu, document.body) : null}</div></div>;
 }
 
 function Pagination({ total, visibleCount, pageCount, queryState, onUpdate }: { total: number; visibleCount: number; pageCount: number; queryState: PlotManagementQuery; onUpdate: (update: QueryUpdate, resetPage?: boolean) => void }) { const first = total ? queryState.page * queryState.pageSize + 1 : 0; const last = total ? first + visibleCount - 1 : 0; return <footer className="admin-burial-pagination"><div aria-live="polite" className="admin-burial-pagination__summary"><span>Showing <strong>{first.toLocaleString()}–{last.toLocaleString()}</strong> of <strong>{total.toLocaleString()}</strong> plots</span><label><span>Rows per page</span><select onChange={(event) => onUpdate({ pageSize: Number(event.target.value) })} value={queryState.pageSize}><option value="10">10</option><option value="20">20</option><option value="25">25</option><option value="50">50</option></select></label></div><nav aria-label="Plot pages" className="admin-burial-pagination__controls"><button disabled={!queryState.page} onClick={() => onUpdate({ page: queryState.page - 1 }, false)} type="button">Previous</button>{pageWindow(queryState.page, pageCount).map((page) => <button aria-current={page === queryState.page ? "page" : undefined} className={page === queryState.page ? "is-current" : undefined} key={page} onClick={() => onUpdate({ page }, false)} type="button"><span className="sr-only">Page </span>{page + 1}</button>)}<button disabled={queryState.page >= pageCount - 1} onClick={() => onUpdate({ page: queryState.page + 1 }, false)} type="button">Next</button></nav></footer>; }
 function Loading({ filtered }: { filtered: boolean }) { return <div aria-label={filtered ? "Updating plot results" : "Loading plots"} className="admin-burial-loading" role="status"><div className="admin-burial-loading__label"><Icon name="search" size={16} /><span>{filtered ? "Updating results…" : "Loading protected plot records…"}</span></div>{Array.from({ length: 6 }, (_, index) => <Skeleton className="admin-burial-loading__row" key={index} />)}</div>; }
 function useDismiss(open: boolean, setOpen: (open: boolean) => void, trigger: React.RefObject<HTMLButtonElement | null>, panel: React.RefObject<HTMLDivElement | null>) { useEffect(() => { if (!open) return; const pointer = (event: PointerEvent) => { if (event.target instanceof Node && !panel.current?.contains(event.target) && !trigger.current?.contains(event.target)) setOpen(false); }; const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); setOpen(false); trigger.current?.focus(); } }; document.addEventListener("pointerdown", pointer); document.addEventListener("keydown", key); return () => { document.removeEventListener("pointerdown", pointer); document.removeEventListener("keydown", key); }; }, [open, panel, setOpen, trigger]); }
 function getFilterCount(state: PlotManagementQuery) { return [state.query.trim(), state.area !== "all", state.state !== "all", state.verification !== "all"].filter(Boolean).length; }
-function setOrDelete(params: URLSearchParams, key: string, value: string) { if (value) params.set(key, value); else params.delete(key); }
 function stateLabel(value: PlotManagementItem["operationalState"] | "all") { return value === "unknown" ? "Unknown — not assessed" : value === "hold" ? "On hold" : title(value); }
 function coordinateLabel(value: PlotManagementItem["coordinateState"] | "all") { return value === "missing" ? "Coordinates missing" : value === "pending" ? "Pending review" : title(value); }
 function title(value: string) { return value.replace(/(^|\s)\S/g, (letter) => letter.toLocaleUpperCase()); }

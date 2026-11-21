@@ -14,12 +14,29 @@ export function visitorPlotDetails(record: PublicBurialRecord) {
   const reference = readable(record.gravesiteReference || record.syntheticPlotReference);
   // These are recorded display references, not a match to physical geometry.
   const parts = reference?.match(/^(.+?)\s*(?:·|\/)\s*Block\s+(\d+)\s*(?:·|\/)\s*Lot\s+([\w-]+)$/i);
-  const garden = parts?.[1].trim() || readable(record.section) || missing;
+  const garden = readable(record.section) || parts?.[1].trim() || missing;
   const block = parts?.[2] || (record.row?.startsWith("Block ")
     ? readable(record.row.slice(6)) : null) || missing;
   const lot = parts?.[3] || (!isSyntheticPlot(record.plot) ? readable(record.plot) : null) || missing;
-  const fallback = lot === missing ? missing : `${garden} · Lot ${lot}`;
+  const fallback = lot === missing ? missing : [
+    garden === missing ? null : garden,
+    block === missing ? null : `Block ${block}`,
+    `Lot ${lot}`,
+  ].filter(Boolean).join(" · ");
   return { garden, block, lot, reference: reference || fallback };
+}
+
+export type GravesiteMapScope = "phase2" | "planning" | "unavailable";
+
+export function memorialMapHref(id: string, mapScope: GravesiteMapScope, returnTo?: string) {
+  return "/map?" + new URLSearchParams({
+    id, ...(mapScope === "planning" ? { view: "planning" } : {}), ...(returnTo ? { returnTo } : {}),
+  });
+}
+
+export function safeResultsReturnTo(value: unknown) {
+  return typeof value === "string" && value.length <= 2400 &&
+    (value === "/results" || value.startsWith("/results?")) ? value : "/results";
 }
 
 export const visitorPreviewPath = "/admin/burial-records/preview";

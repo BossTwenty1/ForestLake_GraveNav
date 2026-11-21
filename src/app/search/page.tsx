@@ -1,26 +1,46 @@
 import Link from "next/link";
-import { Icon } from "@/components/ui/icons";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { PublicSearchForm } from "@/components/visitor/public-search-form";
-import { VisitorShell } from "@/components/visitor/visitor-shell";
+import { PARK_NAME } from "@/lib/park-details";
 import { getPublicGardenNames } from "@/lib/supabase/public-data";
+import { MemorialSearchHelp, MemorialSearchShell } from "./memorial-search-shell";
+import styles from "./memorial-search.module.css";
+import { readSearchParams, resultsHref } from "./search-params";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+const tips: { icon: IconName; title: string; text: string }[] = [
+  { icon: "userSearch", title: "By full name", text: "Enter a first or last name. Partial names can help if you are unsure of the spelling." },
+  { icon: "location", title: "By plot identifier", text: "Enter the plot reference as it appears in your cemetery records." },
+  { icon: "sliders", title: "By garden or year", text: "Narrow matches by garden section or by the year of passing." },
+];
 
-export default async function SearchPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
-  const gardens = await getPublicGardenNames();
-  const query = getParam(params.query).slice(0, 160);
-  const section = getParam(params.section) || "all";
-  const year = getParam(params.year) || "any";
+export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const state = readSearchParams(await searchParams);
+  const gardens = await getPublicGardenNames().catch(() => null);
 
-  return <VisitorShell wide><div className="public-search-page">
-    <Link className="public-back-link" href="/"><Icon name="chevronRight" size={15} />Home</Link>
-    <header className="public-search-heading"><span className="public-search-heading__icon"><Icon name="search" size={25} /></span><div><h1>Search memorial records</h1><p>Enter a name or plot code, then narrow the public registry by section or year.</p></div></header>
-    <section aria-labelledby="search-form-title" className="public-search-panel"><div className="public-search-panel__intro"><p className="visitor-kicker">Find a resting place</p><h2 id="search-form-title">Who are you looking for?</h2><p>Partial names are welcome. Similar-name suggestions are clearly marked in the results.</p></div><PublicSearchForm gardens={gardens} query={query} section={section} year={year} /></section>
-    <aside className="public-search-guidance"><span><Icon name="shield" size={20} /></span><div><h2>Your privacy matters</h2><p>Only memorial information approved for visitors appears in search results. Private family and account details stay protected.</p></div></aside>
-  </div></VisitorShell>;
+  return (
+    <MemorialSearchShell initial>
+      <header className={styles.heading}>
+        <p className={styles.directory}><span>Public Directory</span> · {PARK_NAME}</p>
+        <h1>Search Memorials</h1>
+        <p>Find a loved one’s memorial record by name or plot reference.</p>
+      </header>
+      <PublicSearchForm state={state} gardens={gardens ?? []} gardenListUnavailable={gardens === null} />
+      <section className={styles.welcome} aria-labelledby="search-welcome">
+        <div className={styles.welcomeIcon}><Icon name="tree" size={34} /></div>
+        <h2 id="search-welcome">Find a Loved One</h2>
+        <p>Enter a name or plot reference above to begin searching memorial records at {PARK_NAME}.</p>
+        <ul className={styles.tips}>{tips.map(tip => <li key={tip.title}>
+          <Icon name={tip.icon} size={19} /><div><strong>{tip.title}</strong><p>{tip.text}</p></div>
+        </li>)}</ul>
+        {gardens?.length ? <nav className={styles.quickSections} aria-label="Quick garden searches">
+          <span>Quick section searches</span>
+          {gardens.slice(0, 3).map(garden => <Link key={garden} href={resultsHref(state, { section: garden, page: 1 })}>{garden}</Link>)}
+        </nav> : null}
+        <p className={styles.privacy}><Icon name="shield" size={17} />Only public memorial records appear in search.</p>
+      </section>
+      <MemorialSearchHelp />
+    </MemorialSearchShell>
+  );
 }
-
-function getParam(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] || "" : value || ""; }

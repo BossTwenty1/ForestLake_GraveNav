@@ -122,8 +122,9 @@ export interface PlanningBundle {
   coordinates: PlotCoordinateReferences;
 }
 export const planningAssetRoot = "/phase2-viewer/";
+export const planningDataSha256 = "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77";
 const frozenDigests = {
-  data: "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77",
+  data: planningDataSha256,
   landscape: "7231314fc2aa5ad72df98a050bea717a069591a08dca82700d7e62e96b1c9ebc",
   places: "ccb2ef4624573ff918e789ec9035efccf847880c5908ea91c9e9111ce03c381b",
   details: "00fd5a81075418e916a11ae28d442d57534ee0fb6dbf57b3ad43eaa584ab1de5",

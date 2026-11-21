@@ -13,23 +13,15 @@ import { PageHeading, type PageBreadcrumb } from "@/components/ui/page-heading";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import { AdminCemeteryMap } from "@/components/admin/admin-cemetery-map";
 import { AdminPhotoUploader } from "@/components/admin/admin-photo-uploader";
-import { accountAction, getAdminAccounts, getAllAdminRecords, getAuditLog, getAuditLogPage } from "@/lib/supabase/admin-data";
-import type { AdminAccount, AdminRecord, AuditLogEntry } from "@/lib/supabase/types";
+import { csvCell } from "@/lib/csv";
+import { accountAction, getAdminAccounts, getAuditLog, getAuditLogPage } from "@/lib/supabase/admin-data";
+import type { AdminAccount, AuditLogEntry } from "@/lib/supabase/types";
 
 export function AdminCemeteryMapPage({ hasPlanningMap = false }: { hasPlanningMap?: boolean }) {
   return <AdminPageFrame title="Cemetery Map" description="Explore the Phase 2 landscape and review CAD planning candidates."><AdminCemeteryMap hasPlanningMap={hasPlanningMap} /></AdminPageFrame>;
 }
 
 export function AdminPhotosPage() { return <AdminPageFrame title="Photos" description="Upload optional cemetery photos into private Supabase Storage for administrator review."><AdminPhotoUploader /></AdminPageFrame>; }
-
-export function AdminReportsPage() {
-  const [records, setRecords] = useState<AdminRecord[]>([]);
-  const [generated, setGenerated] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => { getAllAdminRecords().then(setRecords).catch((reason) => setError(errorMessage(reason))); }, []);
-  function downloadReport() { const csv = ["burial_id,name,plot,section,status", ...records.map((record) => [csvCell(record.burialId), csvCell(record.name), csvCell(record.plot), csvCell(record.section), csvCell(record.recordStatus)].join(","))].join("\n"); const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "gravenav-local-record-summary.csv"; anchor.click(); URL.revokeObjectURL(url); setGenerated(true); }
-  return <AdminPageFrame title="Reports" description="Generate safe local summaries with explicit non-sensitive columns." actions={<Button icon="download" onClick={downloadReport}>Export local summary</Button>}>{error ? <DataError message={error} /> : null}{generated ? <Alert icon="check" title="Local report downloaded" variant="success">The export contains record identifiers, public display names, plot labels, section labels, and record status only.</Alert> : null}<div className="admin-summary-grid"><SummaryCard icon="records" label="Records" value={records.length} /><SummaryCard icon="check" label="Active" value={records.filter((record) => record.recordStatus === "active").length} /><SummaryCard icon="verification" label="Needs review" value={records.filter((record) => !record.coordinateVerified).length} /></div></AdminPageFrame>;
-}
 
 export function AdminAuditLogPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
@@ -64,15 +56,6 @@ export function AdminSettingsPage() { return <AdminPageFrame title="Settings" de
 export function AdminSupportPage() { return <AdminPageFrame title="Support" description="Local help for the administrator workspace."><div className="admin-settings-grid"><SettingCard icon="help" title="Protected access" description="The server checks the current Auth session and database role on every administrator route." /><SettingCard icon="support" title="Need access?" description="An active ADMIN must approve and activate pending staff accounts." /></div></AdminPageFrame>; }
 
 export function AdminPageFrame({ title, description, actions, breadcrumbs, children }: { title: string; description?: string; actions?: ReactNode; breadcrumbs?: PageBreadcrumb[]; children: ReactNode }) { return <div className="admin-page-frame"><PageHeading actions={actions} breadcrumbs={breadcrumbs ?? [{ label: "Dashboard", href: "/admin" }, { label: title }]} description={description} title={title} />{children}</div>; }
-function SummaryCard({ icon, label, value }: { icon: "grid" | "check" | "records" | "verification"; label: string; value: number }) { return <Card className="summary-card"><div className="metric-card__top"><span className="metric-icon"><Icon name={icon} size={20} /></span><span>{label}</span></div><p className="metric-value">{value.toLocaleString()}</p></Card>; }
 function SettingCard({ icon, title, description }: { icon: "shield" | "map" | "photos" | "help" | "support"; title: string; description: string }) { return <Card><CardContent><span className="metric-icon"><Icon name={icon} size={21} /></span><h2 className="admin-card-title">{title}</h2><p className="admin-card-muted">{description}</p></CardContent></Card>; }
 function DataError({ message }: { message: string }) { return <Alert icon="alert" title="Supabase data connection unavailable" variant="danger">{message}</Alert>; }
 function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : "The local operation could not be completed."; }
-function csvCell(value: unknown) {
-  const text = String(value ?? "");
-  // Spreadsheet applications may evaluate cells beginning with these
-  // characters as formulas. Prefixing with an apostrophe preserves the text
-  // while preventing formula execution when an administrator opens the CSV.
-  const safeText = /^[\t\r\n ]*[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${safeText.replaceAll('"', '""')}"`;
-}

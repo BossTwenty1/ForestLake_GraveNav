@@ -1,10 +1,10 @@
-# Forest Lake full Phase 2 operational scope
+# Forest Lake Memorial Park - Legazpi Phase 2 operational scope
 
 Accepted scope: **15 November 2026**. This is the current product scope for development, data reconciliation, visitor search, staff management, geographic coverage and field acceptance. It supersedes the earlier Majestic Palm Section D-only and Sections A-and-D rollout boundaries.
 
 ## Coverage
 
-GraveNav targets the **whole Forest Lake Phase 2 cemetery**, including Butterfly Palm Garden. A visitor searching for an authorized memorial in any Phase 2 garden must be able to find that individual, open their record and view the recorded gravesite. Walking directions depend on accepted geographic placement and reviewed access for that exact lot.
+GraveNav targets **all of Phase 2** at [Forest Lake Memorial Park - Legazpi](README.md#park-name-and-address), including Butterfly Palm Garden. A visitor searching for an authorized memorial in any Phase 2 garden must be able to find that individual, open their record and view the recorded gravesite. Walking directions depend on accepted geographic placement and reviewed access for that exact lot.
 
 | Garden / area | Included sectors in the supplied plan | Operational target |
 | --- | --- | --- |

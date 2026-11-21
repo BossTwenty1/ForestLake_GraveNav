@@ -1,6 +1,6 @@
 # GraveNav
 
-GraveNav is a cemetery-record and navigation system for Forest Lake. The accepted operational scope is the **whole of Phase 2**: Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. Visitor search and staff records must cover every included garden; geographic navigation requires accepted evidence for the exact destination. This replaces the earlier A/D-only rollout scope as of 15 November 2026. See the [full Phase 2 coverage requirements](docs/phase2-full-coverage.md).
+GraveNav is a cemetery-record and navigation system for **Forest Lake Memorial Park - Legazpi**, located at **Tagongtong, Barangay 56 (Taysan), Legazpi City, Albay, Philippines**. The accepted operational scope is the **whole of Phase 2**: Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. Visitor search and staff records must cover every included garden; geographic navigation requires accepted evidence for the exact destination. This replaces the earlier A/D-only rollout scope as of 15 November 2026. See the [full Phase 2 coverage requirements](docs/phase2-full-coverage.md).
 
 Start with the [current Phase 2 operational handoff](docs/phase2-local-defense.md). The [documentation index](docs/README.md) identifies current contracts and archived reports.
 

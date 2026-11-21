@@ -24,9 +24,9 @@ export function getBrowserSupabase() {
   return browserClient;
 }
 
-export function getPublicSupabase() {
+export function getPublicSupabase<Schema = Database>() {
   if (!localSupabaseConfig.configured) return null;
-  return createClient<Database>(supabaseUrl, supabasePublishableKey, {
+  return createClient<Schema>(supabaseUrl, supabasePublishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }

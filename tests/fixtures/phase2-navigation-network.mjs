@@ -29,7 +29,13 @@ globalThis.fetch=async(input,init)=>{
   const items=rows.filter(row=>!term||row.display_name.toLowerCase().includes(term)||row.lot_code.toLowerCase().includes(term));
   return Response.json({items,total:items.length});
  }
- if(endpoint==="public_burial_records")return Response.json(id?rows.filter(row=>String(row.burial_id)===id):rows);
+ if(endpoint==="public_burial_records"){
+  if(url.searchParams.get("select")==="area_name"){
+   const after=url.searchParams.getAll("area_name").find(value=>value.startsWith("gt."))?.slice(3);
+   return Response.json(rows.filter(row=>after===undefined||row.area_name>after).map(({area_name})=>({area_name})));
+  }
+  return Response.json(id?rows.filter(row=>String(row.burial_id)===id):rows);
+ }
  if(endpoint==="public_shared_plot_burials"){
   if(current.rosterFailure)return Response.json({message:"synthetic unavailable RPC"},{status:503});
   return Response.json(rows.filter(row=>String(row.burial_id)!==id).map(row=>({id:String(row.burial_id),name:row.display_name})));

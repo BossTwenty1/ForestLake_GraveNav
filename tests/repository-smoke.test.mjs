@@ -96,10 +96,14 @@ test("public queries and exports apply security boundaries", async () => {
   assert.match(publicData, /\.limit\(1000\)/);
   assert.match(publicData, /throw new PublicDataUnavailableError/);
 
-  const report = await read("src/components/admin/admin-page-content.tsx");
-  assert.match(report, /\[\\t\\r\\n \]\*\[=\+\\-@\]/);
-  assert.match(report, /csvCell\(record\.burialId\)/);
-  assert.match(report, /csvCell\(record\.recordStatus\)/);
+  const report = await read("src/app/admin/reports/export/route.ts");
+  const reportAuth = await read("src/lib/supabase/staff-reports.ts");
+  assert.match(report, /await requireReportClient\(\)/);
+  assert.match(reportAuth, /await requireStaff\(undefined, client\)/);
+  assert.match(report, /row\.map\(csvCell\)/);
+  assert.match(report, /"Cache-Control": "private, no-store"/);
+  const audit = await read("src/components/admin/admin-page-content.tsx");
+  assert.match(audit, /\[row\.audit_id,[^\n]+\]\.map\(csvCell\)/);
 });
 
 test("auth callback data is scrubbed before session exchange", async () => {

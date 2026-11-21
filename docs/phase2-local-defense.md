@@ -4,7 +4,7 @@ Scope updated 15 November 2026. This is the current main-application handoff. Re
 
 ## Accepted scope and visitor experience
 
-**Full Phase 2 map and operational-data scope.** GraveNav serves the whole Forest Lake Phase 2 cemetery: Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. Authorized memorial search must include every garden, including Butterfly; staff records, official lot matching, geographic placement and field acceptance have the same full-site target. Directions remain dependent on accepted geography and walking access for the selected lot. Other Phase 2 sections are not deferred outside product scope.
+**Full Phase 2 map and operational-data scope.** GraveNav serves all of Phase 2 at [Forest Lake Memorial Park - Legazpi](README.md#park-name-and-address): Butterfly Palm Garden A/B, Majestic Palm Garden A/C/D and Majestic Palm Court C estate lots. Authorized memorial search must include every garden, including Butterfly; staff records, official lot matching, geographic placement and field acceptance have the same full-site target. Directions remain dependent on accepted geography and walking access for the selected lot. Other Phase 2 sections are not deferred outside product scope.
 
 ### Full-site scope accepted 15 November 2026
 

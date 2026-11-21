@@ -317,6 +317,48 @@ test("database errors are distinct from a successful empty search", async () => 
   );
 });
 
+test("garden choices skip repeated burial rows and keep later public names", async () => {
+  const rows = ["", "   ", ...Array(160).fill("Butterfly Palm Garden"),
+    ...Array(120).fill("Majestic Palm Court C"), "Majestic Palm Garden", null];
+  const requestedCursors = [];
+  let failureAt;
+  const reader = load("src/lib/supabase/public-data.ts", {
+    "./config": { getPublicSupabase: () => ({
+      from(view) {
+        assert.equal(view, "public_burial_records");
+        let after;
+        let limit;
+        return {
+          select(column) { assert.equal(column, "area_name"); return this; },
+          not(column, operator, value) {
+            assert.deepEqual([column, operator, value], ["area_name", "is", null]);
+            return this;
+          },
+          order(column) { assert.equal(column, "area_name"); return this; },
+          limit(size) { limit = size; return this; },
+          gt(column, value) { assert.equal(column, "area_name"); after = value; return this; },
+          then(resolve) {
+            requestedCursors.push(after);
+            const data = rows.filter(name => name !== null && (after === undefined || name > after))
+              .slice(0, Math.min(limit, 50)).map(area_name => ({ area_name }));
+            resolve(after !== undefined && after === failureAt
+              ? { data: null, error: { message: "test-only connection failure" } }
+              : { data, error: null });
+          },
+        };
+      },
+    }) },
+  });
+  assert.deepEqual(await reader.getPublicGardenNames(), [
+    "Butterfly Palm Garden", "Majestic Palm Court C", "Majestic Palm Garden",
+  ]);
+  assert.deepEqual(requestedCursors, [
+    undefined, "Butterfly Palm Garden", "Majestic Palm Court C", "Majestic Palm Garden",
+  ]);
+  failureAt = "Butterfly Palm Garden";
+  await assert.rejects(reader.getPublicGardenNames(), /temporarily unavailable/);
+});
+
 test("public burial dates use interment dates, never death dates", async () => {
   const row = {
     burial_id: 1,
@@ -417,4 +459,16 @@ test("Shared-grave roster distinguishes unavailable, malformed, empty and author
   response={data:[{id:"bad",name:"Synthetic malformed person"}],error:null};
   assert.equal((await reader.getPublicSharedPlotBurials("5")).state,"unavailable");
   assert.equal((await reader.getPublicSharedPlotBurials("unsafe")).state,"unavailable");
+});
+
+test("walking steps follow the approved route geometry and disappear when guidance pauses", () => {
+  const { walkingSteps } = load("src/lib/phase2-routing.ts", { "./navigation-geo.ts": geo });
+  const coordinates = [[123, 13], [123.0005, 13], [123.0005, 12.9995]];
+  const steps = walkingSteps({ state: "ready", coordinates, distanceM: 110 });
+  assert.deepEqual(steps.map(step => step.instruction), [
+    "Follow the highlighted path", "Turn right along the path", "Approach the gravesite and check the marker",
+  ]);
+  assert(steps[0].distanceM > 50 && steps[1].distanceM > 50);
+  assert.deepEqual(walkingSteps({ state: "off_route", coordinates, distanceM: null }), []);
+  assert.deepEqual(walkingSteps({ state: "arrived", coordinates, distanceM: 0 }), []);
 });

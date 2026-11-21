@@ -3,9 +3,12 @@
 import L from "leaflet";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { MapContainer, ZoomControl, useMap } from "react-leaflet";
+import { PARK_NAME } from "@/lib/park-details";
+import type { ParkCategory, ParkPlace } from "@/lib/park-explorer-features";
 import { Icon } from "@/components/ui/icons";
 import { cadDetailRoles, cadDetailsAssetRoot, type CadDetailRole } from "@/lib/phase2-cad-details";
 import detailStyles from "./phase2-planning-canvas.module.css";
+import { PlanningLotPopup, type PlanningLotPopupOptions } from "./planning-lot-popup";
 import {
   cadToMap, landmarkName, mapBounds, planningAssetRoot,
   type CadFeature, type LandscapeRole, type LayerKey, type PlanningBundle, type Shape, type Visibility,
@@ -15,11 +18,14 @@ export interface PlanningMapActions {
   reset: () => void;
   focus: (feature: CadFeature) => void;
   place: (position: [number, number]) => void;
+  focusPlaces: (positions: [number, number][]) => void;
 }
 export interface PlanningMapProps {
   bundle: PlanningBundle;
   visible: Visibility;
   selected: CadFeature | null;
+  focusOnLoad?: CadFeature | null;
+  lotPopup?: PlanningLotPopupOptions;
   places: boolean;
   trees: boolean;
   protection: boolean;
@@ -29,6 +35,7 @@ export interface PlanningMapProps {
   onSelect: (feature: CadFeature | null) => void;
   onReady: (actions: PlanningMapActions) => void;
   onError: (message: string) => void;
+  explorer?: { places: ParkPlace[]; showLabels: boolean; showPaths: boolean; category: ParkCategory | "all"; selectedId?: string; onSelect: (place: ParkPlace) => void };
 }
 const styles: Record<LayerKey, L.PathOptions> = {
   lawn: { color: "#25492c", weight: 0.6, opacity: 0.7, fillOpacity: 0 },
@@ -47,7 +54,7 @@ function shapeLayer(shape: Shape, options: L.PathOptions): L.Layer {
   return L.layerGroup(shape.parts.map(part => shapeLayer(part, options)));
 }
 function PlanningLayers(props: PlanningMapProps) {
-  const { bundle, visible, selected, places, trees, protection, onReady, attempt } = props;
+  const { bundle, visible, selected, focusOnLoad, places, trees, protection, onReady, attempt } = props;
   const map = useMap();
   const latest = useRef(props);
   const groups = useRef<Partial<Record<LayerKey, L.LayerGroup>>>({});
@@ -138,8 +145,10 @@ function PlanningLayers(props: PlanningMapProps) {
       reset,
       focus: feature => map.fitBounds(mapBounds(feature.bounds), { padding: [70, 70], maxZoom: 5.5, animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches }),
       place: position => map.setView(cadToMap(position), 3.3, { animate: false }),
+      focusPlaces: positions => map.fitBounds(L.latLngBounds(positions.map(cadToMap)), { padding: [62, 62], maxZoom: 3.3, animate: false }),
     });
-    reset();
+    if (focusOnLoad) map.fitBounds(mapBounds(focusOnLoad.bounds), { padding: [70, 70], maxZoom: 5.5, animate: false });
+    else reset();
     const clear = () => latest.current.onSelect(null);
     map.on("click", clear);
     const updateView = () => {
@@ -165,7 +174,7 @@ function PlanningLayers(props: PlanningMapProps) {
       images.current = {};
       detailImages.current = {};
     };
-  }, [map, bundle, onReady, attempt, props.reviewMode]);
+  }, [map, bundle, onReady, attempt, props.reviewMode, focusOnLoad]);
 
   useEffect(() => {
     for (const key of Object.keys(visible) as LayerKey[]) {
@@ -273,6 +282,48 @@ function PlanningLayers(props: PlanningMapProps) {
   }, [map, bundle, visible.roads, visible.paths, props.reviewMode]);
   return null;
 }
+function ExplorerMarkers({ explorer }: { explorer: NonNullable<PlanningMapProps["explorer"]> }) {
+  const map = useMap();
+  const markers = useRef<{ place: ParkPlace; node: HTMLSpanElement }[]>([]);
+  const select = useRef(explorer.onSelect);
+  useEffect(() => { select.current = explorer.onSelect; }, [explorer.onSelect]);
+  useEffect(() => {
+    const layer = L.layerGroup().addTo(map);
+    for (const place of explorer.places) {
+      if (place.category === "pathways" ? !explorer.showPaths : !explorer.showLabels) continue;
+      for (const point of place.points) {
+        const node = document.createElement("span");
+        node.textContent = place.name;
+        node.dataset.category = place.category;
+        node.dataset.kind = place.kind;
+        markers.current.push({ place, node });
+        const marker = L.marker(cadToMap(point), {
+          icon: L.divIcon({ className: "park-place-marker", html: node, iconSize: [26, 26], iconAnchor: [13, 13] }),
+          title: place.name, alt: place.name, keyboard: true, zIndexOffset: place.kind === "Garden" ? 100 : 0,
+        }).on("click", () => select.current(place)).addTo(layer);
+        const element = marker.getElement();
+        element?.setAttribute("aria-label", place.name);
+        element?.setAttribute("aria-pressed", "false");
+        element?.addEventListener("keydown", event => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          select.current(place);
+        });
+      }
+    }
+    return () => { markers.current = []; layer.remove(); };
+  }, [map, explorer.places, explorer.showLabels, explorer.showPaths]);
+  useEffect(() => {
+    for (const { place, node } of markers.current) {
+      const selected = place.id === explorer.selectedId;
+      node.setAttribute("data-selected", String(selected));
+      node.setAttribute("data-label", String(selected || place.kind === "Garden" || place.category === explorer.category));
+      node.parentElement?.setAttribute("aria-pressed", String(selected));
+    }
+  }, [explorer.selectedId, explorer.category, explorer.places, explorer.showLabels, explorer.showPaths]);
+  return null;
+}
 function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: MutableRefObject<PlanningMapActions | null>; paths: boolean; onToggle: () => void; showPathsControl: boolean }) {
   const element = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -287,11 +338,12 @@ function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: 
   </div>;
 }
 export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: MutableRefObject<PlanningMapActions | null>; onTogglePaths: () => void }) {
-  return <MapContainer className="cemetery-leaflet-canvas phase-two-planning-canvas" aria-label="Forest Lake Phase 2 park map"
+  return <MapContainer className="cemetery-leaflet-canvas phase-two-planning-canvas" aria-label={`${PARK_NAME} Phase 2 park map`}
     crs={L.CRS.Simple} center={[110, 145]} zoom={1} minZoom={-2} maxZoom={7} zoomSnap={0.1} zoomDelta={0.5}
     zoomControl={false} preferCanvas scrollWheelZoom>
-    <ZoomControl position="bottomright" />
+    <ZoomControl position={props.explorer ? "topright" : "bottomright"} />
     <PlanningLayers {...props} />
-    <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />
+    {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id} feature={props.selected} {...props.lotPopup} /> : null}
+    {props.explorer ? <ExplorerMarkers explorer={props.explorer} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}
   </MapContainer>;
 }

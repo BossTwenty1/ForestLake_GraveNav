@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { createTestDatabase } from "./database-helper.mjs";
 
 test("database migrations and operational contracts", async (t) => {
@@ -307,6 +308,42 @@ test("database migrations and operational contracts", async (t) => {
       await login(null, "anon");
       await assert.rejects(db.exec("select public.staff_dashboard_data()"), /permission denied/);
       await login(admin);
+    });
+    await t.test("private storage only exposes approved photos of public memorials from the dedicated bucket", async () => {
+      await db.exec("reset role");
+      const { burial_id: privateId } = (await db.query("select burial_id from public.burial_record join public.deceased using (deceased_id) where display_name = 'Maria Private'")).rows[0];
+      const publicPath = "burial/" + firstBurial.id + "/public.jpg";
+      const pendingPath = "burial/" + firstBurial.id + "/pending.jpg";
+      const hiddenPath = "burial/" + privateId + "/hidden.jpg";
+      const wrongFolder = "burial/" + privateId + "/unrelated.jpg";
+      await db.exec(`
+        create schema storage;
+        create table storage.buckets (id text primary key, public boolean not null);
+        create table storage.objects (bucket_id text, name text);
+        alter table storage.objects enable row level security;
+        grant usage on schema storage to anon;
+        grant select on storage.objects to anon;
+        insert into storage.buckets values ('gravenav-memorial-photos', false), ('other-photos', false);
+      `);
+      await db.query(`
+        insert into public.photo(burial_id, uploaded_by, storage_path, file_name, approval_status, public_display)
+        values ($1,$2,$3,'public.jpg','approved',true), ($1,$2,$4,'pending.jpg','pending',false),
+               ($5,$2,$6,'hidden.jpg','approved',true), ($1,$2,$7,'unrelated.jpg','approved',true)
+      `, [firstBurial.id, manager, publicPath, pendingPath, privateId, hiddenPath, wrongFolder]);
+      await db.query(`
+        insert into storage.objects values ('gravenav-memorial-photos',$1), ('gravenav-memorial-photos',$2),
+          ('gravenav-memorial-photos',$3), ('gravenav-memorial-photos',$4), ('other-photos',$1),
+          ('gravenav-memorial-photos','burial/999/untracked.jpg')
+      `, [publicPath, pendingPath, hiddenPath, wrongFolder]);
+      await db.exec(await readFile(new URL("../scripts/visitor-memorial-photo-storage.sql", import.meta.url), "utf8"));
+      await login(null, "anon");
+      const visible = async () => (await db.query("select name from storage.objects")).rows.map(row => row.name);
+      assert.deepEqual(await visible(), [publicPath]);
+      await assert.rejects(db.exec("insert into storage.objects values ('gravenav-memorial-photos','burial/999/file.jpg')"), /permission denied/);
+      await login(admin);
+      await save("burial_record", firstBurial.id, firstBurial.revision, {}, "delete");
+      await login(null, "anon");
+      assert.deepEqual(await visible(), []);
     });
   } finally { await db.close(); }
 });

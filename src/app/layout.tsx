@@ -2,10 +2,11 @@ import "./globals.css";
 
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
 
 export const metadata: Metadata = {
-  title: "GraveNav | Cemetery navigation",
-  description: "Find a gravesite and navigate memorial grounds with GraveNav.",
+  title: `GraveNav | ${PARK_NAME}`,
+  description: `Find a gravesite at ${PARK_NAME}, ${PARK_ADDRESS}.`,
   icons: {
     icon: { url: "/forest-lake-logo.png", type: "image/png" },
     shortcut: "/forest-lake-logo.png",

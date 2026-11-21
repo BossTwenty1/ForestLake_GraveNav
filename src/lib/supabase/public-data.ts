@@ -56,9 +56,24 @@ export async function getPublicBurialRecords() {
 export async function getPublicGardenNames() {
   const client = getPublicSupabase();
   if (!client) return [];
-  const { data, error } = await client.from("public_burial_records").select("area_name").not("area_name", "is", null).order("area_name").limit(100);
-  if (error) throw new PublicDataUnavailableError();
-  return [...new Set((data || []).map(row => row.area_name).filter((name): name is string => typeof name === "string" && Boolean(name.trim())))];
+  const names = new Set<string>();
+  let after: string | undefined;
+  while (true) {
+    const query = client.from("public_burial_records").select("area_name")
+      .not("area_name", "is", null).order("area_name").limit(100);
+    const { data, error } = await (after === undefined ? query : query.gt("area_name", after));
+    if (error) throw new PublicDataUnavailableError();
+    if (!data?.length) return [...names];
+
+    for (const { area_name } of data) {
+      if (typeof area_name === "string" && area_name.trim()) names.add(area_name);
+    }
+
+    // Skip further burials in the last garden so it cannot crowd out later names.
+    const last = data[data.length - 1].area_name;
+    if (typeof last !== "string" || last === after) throw new PublicDataUnavailableError();
+    after = last;
+  }
 }
 
 export async function getPublicBurialRecord(id: string) {

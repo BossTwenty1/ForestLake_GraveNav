@@ -1,0 +1,109 @@
+.report { min-width: 0; }
+
+.filters, .exports {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.filters > label { min-width: min(100%, 10rem); max-width: 100%; }
+.filters select { max-width: 100%; }
+.scope, .note, .empty { margin: 0; color: var(--admin-muted); }
+.scope strong { color: var(--admin-ink); }
+.note { margin-bottom: 12px; }
+.summary + .note { margin: 12px 0 0; }
+.empty { padding: 12px 0; }
+
+.summary, .distribution { margin: 0; }
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 16px 24px;
+}
+.summary dt { color: var(--admin-muted); font-size: 0.875rem; }
+.summary dd {
+  margin: 4px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 16px;
+}
+.distribution > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--admin-line);
+}
+.distribution dd { margin: 0; }
+.barValue {
+  display: grid;
+  grid-template-columns: minmax(2ch, max-content) minmax(2rem, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.barTrack {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--admin-panel-deep);
+}
+.bar, .pendingBar { display: block; height: 100%; background: var(--admin-accent); }
+.pendingBar { background: var(--admin-warning); }
+
+.scroll { overflow-x: auto; }
+.scroll:focus-visible { outline: 2px solid var(--admin-accent); outline-offset: 2px; }
+.scroll :global(.table-scroll) { width: max-content; min-width: 100%; }
+.table :global(th), .table :global(td) { font-variant-numeric: tabular-nums; }
+.table :global(th) { white-space: normal; }
+.monthTable { min-width: 0; }
+
+@media (max-width: 540px) {
+  .filters > label { flex: 1 1 100%; }
+}
+
+@media print {
+  :global(.admin-shell):has(.report) {
+    display: block;
+    min-height: auto;
+    background: white;
+    color: black;
+  }
+  :global(.admin-shell):has(.report) :global(:is(.admin-drawer, .admin-header, .admin-dimmer, .skip-link)) {
+    display: none !important;
+  }
+  :global(.admin-shell):has(.report) :global(:is(.admin-main, .admin-content)) {
+    display: block;
+    width: auto;
+    min-height: auto;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+  .report { --admin-muted: #222; --admin-ink: #111; color: #111; }
+  .report :global(:is(.page-breadcrumbs, .page-actions)), .filters, .controls, .barTrack {
+    display: none !important;
+  }
+  .report :global(:is(.admin-page-frame, .card-content, .card-header)) { gap: 8px; }
+  .report :global(.card) {
+    background: white;
+    border: 1px solid #aaa;
+    box-shadow: none;
+    color: #111;
+  }
+  .report :global(.card-title) { color: #111; break-after: avoid; }
+  .report :global(:is(th, td)) { background: white; color: #111; white-space: normal; }
+  .report :global(tr) { break-inside: avoid; }
+  .report :global(thead) { display: table-header-group; }
+  .scroll, .report :global(.table-scroll) { overflow: visible; width: 100%; }
+  .table { min-width: 0; }
+  .barValue { display: block; }
+}

@@ -1,59 +1,182 @@
-import { HeroVisitorVideo } from "@/components/visitor/hero-visitor-video";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import Form from "next/form";
+import Image from "next/image";
 import Link from "next/link";
-import { VisitorShell } from "@/components/visitor/visitor-shell";
-import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icons";
+import { connection } from "next/server";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
+import { HeroBackgroundVideo } from "@/components/visitor/hero-background-video";
+import { HeroVisitorVideo } from "@/components/visitor/hero-visitor-video";
+import { SearchSubmitButton } from "@/components/visitor/search-submit-button";
+import { VisitorShell } from "@/components/visitor/visitor-shell";
+import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
 import { getPublicGardenNames } from "@/lib/supabase/public-data";
+import styles from "./homepage.module.css";
+
+const landscape = "/phase2-viewer/landscape/";
+const gardens = [
+  { name: "Butterfly Palm Garden", description: "Lawns A and B", area: "Garden lawns" },
+  { name: "Majestic Palm Garden", description: "Lawns A, C and D", area: "Garden lawns" },
+  { name: "Majestic Palm Court C", description: "Estate lots", area: "Estate section" },
+  { name: "Park pathways", description: "Roads, paths and landmarks", area: "Park layout" },
+];
+const information: { icon: IconName; label: string; title: string; body: string; note: string }[] = [
+  { icon: "location", label: "Directions & access", title: "Park Location",
+    body: "Explore the park layout before your visit.",
+    note: PARK_ADDRESS },
+  { icon: "support", label: "Staff guidance", title: "On-Site Staff Assistance",
+    body: "Ask cemetery staff for help finding a gravesite or checking a memorial record in person.",
+    note: "Memorial records and gravesite assistance" },
+  { icon: "tree", label: "Grounds courtesy", title: "Dignified Environment",
+    body: "Keep pathways clear and respect families taking time for quiet remembrance.",
+    note: "Courtesy on park grounds" },
+];
 
 export default async function HomePage() {
-  const gardenNames = (await getPublicGardenNames()).slice(0, 3);
+  await connection();
+  const gardenNames = (await getPublicGardenNames().catch(() => [])).slice(0, 3);
+  const hasParkPreview = ["base.png", "roads.png", "paths.png", "trees.png"].every((file) =>
+    existsSync(path.join(process.cwd(), "public", landscape, file)));
 
-  return <VisitorShell wide><div className="visitor-home">
-    <section className="stitch-hero">
-      <div className="stitch-hero__copy">
-        <h1>Find resting places <span>with dignity &amp; grace</span></h1>
-        <p>Find a loved one’s memorial, view their recorded plot details, and explore Forest Lake Memorial Park.</p>
-      </div>
-      <HeroVisitorVideo />
-    </section>
+  return (
+    <VisitorShell batchOne wide className={styles.shell} helpHref="#visitor-information" searchInputId="homepage-query">
+      <section className={styles.hero} aria-label={`${PARK_NAME} memorial search`}>
+        <HeroBackgroundVideo
+          className={styles.heroVideo}
+          poster="/homepage/park-hero-poster.jpg"
+          src="/homepage/park-hero-showcase.mp4"
+        />
+        <div className={styles.context}>
+          <div className={styles.container}>
+            <span className={styles.contextPark}><i aria-hidden="true" /> {PARK_NAME}</span>
+            <span className={styles.contextAddress}><Icon name="location" size={15} />{PARK_ADDRESS}</span>
+          </div>
+        </div>
+        <div className={styles.container}>
+          <div className={styles.heroCopy}>
+            <p className={styles.parkLabel}><Icon name="location" size={15} />{PARK_NAME}</p>
+            <h1>Find a Loved One’s <span className={styles.heroTitleAccent}>Resting Place</span></h1>
+            <p className={styles.intro}>Search memorial records, discover gravesite information, and explore {PARK_NAME} with care.</p>
+            <Form action="/results" className={styles.searchCard} role="search" aria-label="Memorial search">
+              <label className={styles.searchLabel} htmlFor="homepage-query"><span className={styles.mobileSearchLabel}>Name or plot identifier</span><span className={styles.desktopSearchLabel}>Search by deceased name or plot reference</span></label>
+              <div className={styles.searchRow}>
+                <Input id="homepage-query" autoComplete="off" enterKeyHint="search" maxLength={160} name="query"
+                  placeholder="Enter a name or plot reference" type="search" icon="search" aria-describedby="homepage-search-hint" />
+                <SearchSubmitButton label="Search Memorials" />
+              </div>
+              <p id="homepage-search-hint" className={styles.searchHint}><Icon name="info" size={17} />Search by first name, last name, or known plot code.</p>
+            </Form>
+          </div>
+          <ul className={styles.quickFacts}>
+            <li>
+              <span className={styles.quickFactIcon} aria-hidden="true"><Icon name="memorial" size={22} /></span>
+              <span className={styles.quickFactText}><strong>Memorials</strong><span>Search by name or plot</span></span>
+            </li>
+            <li>
+              <span className={styles.quickFactIcon} aria-hidden="true"><Icon name="location" size={22} /></span>
+              <span className={styles.quickFactText}><strong>Park location</strong><span>{PARK_ADDRESS}</span></span>
+            </li>
+            <li>
+              <span className={styles.quickFactIcon} aria-hidden="true"><Icon name="map" size={22} /></span>
+              <span className={styles.quickFactText}><strong>Park map</strong><span>Gardens and pathways</span></span>
+            </li>
+          </ul>
+          <figure className={styles.parkPhoto}>
+            <div className={styles.landscape} role="img" aria-label={`Entrance of ${PARK_NAME}`}>
+              <div className={styles.landscapeTitle} aria-hidden="true">
+                <span>Memorial grounds</span><strong>A Place for Remembrance</strong>
+              </div>
+            </div>
+            <figcaption className={styles.parkCaption}>
+              <span className={styles.captionIcon}><Icon name="tree" size={21} /></span>
+              <span><strong>{PARK_NAME}</strong><small>{PARK_ADDRESS}</small></span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
 
-    <section className="stitch-search-card" id="visitor-search">
-      <form action="/results" className="visitor-search-form" method="get">
-        <Input autoComplete="off" enterKeyHint="search" label="Locate a loved one's resting plot" name="query" placeholder="Enter deceased's first or last name…" icon="search" />
-        <Button className="button--full" icon="search" size="lg" type="submit">Find a memorial</Button>
-      </form>
-      {gardenNames.length ? <div className="quick-filters"><span>Quick:</span>{gardenNames.map((garden) => <Link href={`/results?section=${encodeURIComponent(garden)}`} key={garden}>{garden}</Link>)}</div> : null}
-    </section>
+      <section className={styles.explore} aria-labelledby="explore-title">
+        <div className={styles.container}>
+          <div className={styles.exploreHeading}>
+            <div>
+              <p className={styles.sectionLabel}><Icon name="map" size={16} />Grounds &amp; Facilities Orientation</p>
+              <h2 id="explore-title"><span className={styles.mobileIcon}><Icon name="location" size={19} /></span>Explore the Memorial Park</h2>
+              <p>Discover the park layout, garden sections, pathways, and available landmarks before visiting in person.</p>
+            </div>
+            <Link href="/map" className={styles.desktopMapAction}>Explore Park Map <Icon name="navigation" size={18} /></Link>
+          </div>
+          <div className={styles.mapCard}>
+            <div className={styles.gardenLegend}>
+              <p className={styles.legendLabel}>Park Layout</p>
+              <h3>Designated Garden Sections</h3>
+              <p>Explore the garden sections and main pathways shown on the park layout.</p>
+              <ul>
+                {gardens.map(({ name, description, area }, index) => <li key={name}>
+                  <span className={styles.legendIndex} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                  <span><strong>{name}</strong><small>{description}</small></span>
+                  <span className={styles.legendArea}>{area}</span>
+                </li>)}
+              </ul>
+              {gardenNames.length > 0 ? <nav className={styles.gardenLinks} aria-label="Quick garden searches">
+                {gardenNames.map(garden => <Link href={"/results?section=" + encodeURIComponent(garden)} key={garden}>{garden}</Link>)}
+              </nav> : null}
+            </div>
+            <figure className={styles.mapPreview}>
+              <figcaption>{PARK_NAME} · Park Layout</figcaption>
+              {hasParkPreview ? <div className={styles.mapLayers} role="img" aria-label="Preview of the local Phase 2 park layout">
+                {["base.png", "roads.png", "paths.png", "trees.png"].map((file) => (
+                  <Image src={landscape + file} alt="" fill key={file} sizes="(max-width: 899px) 100vw, 65vw" unoptimized />
+                ))}
+              </div> : <div className={styles.mapPlaceholder}><Icon name="map" size={42} /><p>Open the park map to check available map information.</p></div>}
+            </figure>
+          </div>
+          <Link href="/map" className={styles.mobileMapAction}><Icon name="navigation" size={18} />Explore Park Map</Link>
+        </div>
+      </section>
 
-    <section className="stitch-explore">
-      <div className="stitch-section-heading">
-        <h2>Explore Memorial Park</h2>
-        <Link href="/map">View park map</Link>
-      </div>
-      <div className="stitch-feature-track">
-        <Link className="stitch-feature-card stitch-feature-card--map" href="/map">
-          <span className="stitch-feature-visual"><Icon name="map" size={34} /><b>Forest Lake · Phase 2</b></span>
-          <span><strong>Explore the park</strong><small>Find gardens, parking areas, pathways, and park amenities.</small></span>
-          <span className="stitch-feature-footer"><b>Park map</b><span>Open map <Icon name="chevronRight" size={13} /></span></span>
-        </Link>
-        <article className="stitch-feature-card stitch-feature-card--verification">
-          <span className="stitch-feature-icon"><Icon name="verification" size={18} /></span>
-          <span><small>Plan your visit</small><strong>Find a loved one</strong><p>Search by name, check the memorial details, and view available gravesite information.</p></span>
-          <Link href="/search">Search records</Link>
-        </article>
-      </div>
-    </section>
+      <section className={styles.tutorial} aria-labelledby="tutorial-title">
+        <div className={styles.container}>
+          <p className={styles.sectionLabel}><Icon name="eye" size={15} />Video Tutorial</p>
+          <h2 id="tutorial-title"><span className={styles.mobileIcon}><Icon name="eye" size={19} /></span>A Simple Guide to GraveNav</h2>
+          <p>Learn how to find memorial records and explore gravesite information.</p>
+          <div className={styles.tutorialPlayer}>
+            <HeroVisitorVideo />
+            <p className={styles.lightVideoCaption}>Find memorial records and check available gravesite information.</p>
+            <div className={styles.darkVideoCaption}>
+              <Icon name="eye" size={18} />
+              <span><strong>How to locate a plot with GraveNav</strong><small>Search by name or plot reference</small></span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section className="stitch-how-it-works">
-      <h2>How GraveNav works</h2>
-      <ol>
-        <li><span>1</span><div><strong>Search by name or plot number</strong><p>Enter the details you know to find matching memorial records.</p></div></li>
-        <li><span>2</span><div><strong>Confirm the memorial record</strong><p>Review the matching name, dates, section, and plot before continuing.</p></div></li>
-        <li><span>3</span><div><strong>Open the park map</strong><p>Find nearby landmarks and check whether walking directions are available for the gravesite.</p></div></li>
-      </ol>
-    </section>
+      <section id="visitor-information" className={styles.information} aria-label="Visitor information">
+        <div className={styles.container}>
+          <div className={styles.informationHeading}>
+            <p className={styles.sectionLabel}>Visitor Guidance</p>
+            <h2><span className={styles.lightInfoTitle}>Visitor Orientation &amp; Support</span><span className={styles.darkInfoTitle}>Essential Visitor Information</span></h2>
+          </div>
+          <div className={styles.infoCards}>
+            {information.map(({ icon, label, title, body, note }) => <article key={title}>
+              <span className={styles.infoIcon}><Icon name={icon} size={20} /></span>
+              <p className={styles.legendLabel}>{label}</p>
+              <h3>{title}</h3><p>{body}</p>
+              <p className={styles.infoNote}>{note}</p>
+            </article>)}
+          </div>
+          <div className={styles.mobileHelp}>
+            <span className={styles.infoIcon}><Icon name="help" size={20} /></span>
+            <div><h3>Visiting {PARK_NAME}?</h3>
+              <p>Ask cemetery staff on site for help checking a memorial record or locating a gravesite.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <footer className="visitor-footer"><strong>GraveNav Albay</strong><p>Forest Lake Memorial Park, Bogtong, Legazpi City, Albay</p></footer>
-  </div></VisitorShell>;
+      <footer className={styles.footer}><div className={styles.container}>
+        <p><strong>GraveNav Albay</strong> · {PARK_NAME}, {PARK_ADDRESS}</p>
+      </div></footer>
+    </VisitorShell>
+  );
 }
