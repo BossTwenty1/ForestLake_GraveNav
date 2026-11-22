@@ -1,14 +1,46 @@
 import Link from "next/link";
-import { VisitorShell } from "@/components/visitor/visitor-shell";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icons";
-import { Input } from "@/components/ui/input";
+import { Icon, type IconName } from "@/components/ui/icons";
+import { PublicSearchForm } from "@/components/visitor/public-search-form";
+import { PARK_NAME } from "@/lib/park-details";
 import { getPublicGardenNames } from "@/lib/supabase/public-data";
+import { MemorialSearchHelp, MemorialSearchShell } from "./memorial-search-shell";
+import styles from "./memorial-search.module.css";
+import { readSearchParams, resultsHref } from "./search-params";
 
 export const dynamic = "force-dynamic";
 
-export default async function SearchPage() {
-  const gardens = await getPublicGardenNames();
-  return <VisitorShell><div className="visitor-stack"><div className="visitor-page-heading"><p className="visitor-kicker">Find a record</p><h1>Search the cemetery</h1><p>Search by name or plot code, then use the map to find the right plot.</p></div><Card><CardHeader><CardTitle className="card-title-with-icon"><Icon className="text-green" name="search" size={22} />Find a gravesite</CardTitle></CardHeader><CardContent><form action="/results" className="visitor-search-form" method="get"><Input label="Name or plot code" name="query" placeholder="Enter a name or plot code" icon="userSearch" /><div className="filter-grid"><label className="input-field"><span className="input-label">Garden</span><select className="input-control" defaultValue="all" name="section"><option value="all">All gardens</option>{gardens.map((garden) => <option key={garden} value={garden}>{garden}</option>)}</select></label><label className="input-field"><span className="input-label">Year of passing</span><select className="input-control" defaultValue="any" name="year"><option value="any">Any year</option><option value="1800-1899">1800–1899</option><option value="1900-1999">1900–1999</option><option value="2000-present">2000–present</option></select></label></div><Button className="button--full" icon="search" size="lg" type="submit">Search gravesite</Button></form></CardContent></Card><Link className="subtle-link" href="/">← Back to home</Link></div></VisitorShell>;
+const tips: { icon: IconName; title: string; text: string }[] = [
+  { icon: "userSearch", title: "By full name", text: "Enter a first or last name. Partial names can help if you are unsure of the spelling." },
+  { icon: "location", title: "By plot identifier", text: "Enter the plot reference as it appears in your cemetery records." },
+  { icon: "sliders", title: "By garden or year", text: "Narrow matches by garden section or by the year of passing." },
+];
+
+export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const state = readSearchParams(await searchParams);
+  const gardens = await getPublicGardenNames().catch(() => null);
+
+  return (
+    <MemorialSearchShell initial>
+      <header className={styles.heading}>
+        <p className={styles.directory}><span>Public Directory</span> · {PARK_NAME}</p>
+        <h1>Search Memorials</h1>
+        <p>Find a loved one’s memorial record by name or plot reference.</p>
+      </header>
+      <PublicSearchForm state={state} gardens={gardens ?? []} gardenListUnavailable={gardens === null} />
+      <section className={styles.welcome} aria-labelledby="search-welcome">
+        <div className={styles.welcomeIcon}><Icon name="tree" size={34} /></div>
+        <h2 id="search-welcome">Find a Loved One</h2>
+        <p>Enter a name or plot reference above to begin searching memorial records at {PARK_NAME}.</p>
+        <ul className={styles.tips}>{tips.map(tip => <li key={tip.title}>
+          <Icon name={tip.icon} size={19} /><div><strong>{tip.title}</strong><p>{tip.text}</p></div>
+        </li>)}</ul>
+        {gardens?.length ? <nav className={styles.quickSections} aria-label="Quick garden searches">
+          <span>Quick section searches</span>
+          {gardens.slice(0, 3).map(garden => <Link key={garden} href={resultsHref(state, { section: garden, page: 1 })}>{garden}</Link>)}
+        </nav> : null}
+        <p className={styles.privacy}><Icon name="shield" size={17} />Only public memorial records appear in search.</p>
+      </section>
+      <MemorialSearchHelp />
+    </MemorialSearchShell>
+  );
 }

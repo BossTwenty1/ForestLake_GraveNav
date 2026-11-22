@@ -14,6 +14,1301 @@ export type Database = {
   }
   public: {
     Tables: {
+      georeferencing_run: {
+        Row: {
+          run_id: string
+          release_id: string
+          site_id: number
+          run_code: string
+          source_reference: string
+          source_hash: string
+          source_width: number | null
+          source_height: number | null
+          source_coordinate_space: string
+          working_srid: number
+          output_srid: number
+          method: string
+          processing_parameters: Json
+          processed_at: string
+          qgis_version: string
+          operator_reference: string | null
+          reviewer_reference: string | null
+          output_artifact_reference: string
+          output_artifact_hash: string
+          review_state: string
+          revision: number
+          notes: string | null
+          review_notes: string | null
+          created_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          run_id?: string
+          release_id: string
+          site_id: number
+          run_code: string
+          source_reference: string
+          source_hash: string
+          source_width?: number | null
+          source_height?: number | null
+          source_coordinate_space: string
+          working_srid: number
+          output_srid: number
+          method: string
+          processing_parameters?: Json
+          processed_at: string
+          qgis_version: string
+          operator_reference?: string | null
+          reviewer_reference?: string | null
+          output_artifact_reference: string
+          output_artifact_hash: string
+          review_state?: string
+          revision?: number
+          notes?: string | null
+          review_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          run_id?: string
+          release_id?: string
+          site_id?: number
+          run_code?: string
+          source_reference?: string
+          source_hash?: string
+          source_width?: number | null
+          source_height?: number | null
+          source_coordinate_space?: string
+          working_srid?: number
+          output_srid?: number
+          method?: string
+          processing_parameters?: Json
+          processed_at?: string
+          qgis_version?: string
+          operator_reference?: string | null
+          reviewer_reference?: string | null
+          output_artifact_reference?: string
+          output_artifact_hash?: string
+          review_state?: string
+          revision?: number
+          notes?: string | null
+          review_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "georeferencing_run_release_site_fkey"; columns: ["release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "georeferencing_run_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "georeferencing_run_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      georeferencing_run_point: {
+        Row: {
+          run_point_id: string
+          run_id: string
+          release_id: string
+          site_id: number
+          point_id: string
+          capture_id: string
+          role: string
+          source_x: number
+          source_y: number
+          fitting_residual_m: number | null
+          created_at: string
+        }
+        Insert: {
+          run_point_id?: string
+          run_id: string
+          release_id: string
+          site_id: number
+          point_id: string
+          capture_id: string
+          role: string
+          source_x: number
+          source_y: number
+          fitting_residual_m?: number | null
+          created_at?: string
+        }
+        Update: {
+          run_point_id?: string
+          run_id?: string
+          release_id?: string
+          site_id?: number
+          point_id?: string
+          capture_id?: string
+          role?: string
+          source_x?: number
+          source_y?: number
+          fitting_residual_m?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "georeferencing_run_point_run_scope_fkey"; columns: ["run_id", "release_id", "site_id"]; isOneToOne: false; referencedRelation: "georeferencing_run"; referencedColumns: ["run_id", "release_id", "site_id"] },
+          { foreignKeyName: "georeferencing_run_point_point_site_fkey"; columns: ["point_id", "site_id"]; isOneToOne: false; referencedRelation: "survey_point"; referencedColumns: ["point_id", "site_id"] },
+          { foreignKeyName: "georeferencing_run_point_capture_fkey"; columns: ["capture_id", "point_id", "site_id"]; isOneToOne: false; referencedRelation: "survey_capture"; referencedColumns: ["capture_id", "point_id", "site_id"] },
+        ]
+      }
+      georeferencing_validation: {
+        Row: {
+          run_point_id: string
+          transformed_plan_point: unknown
+          review_state: string
+          revision: number
+          notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          run_point_id: string
+          transformed_plan_point: unknown
+          review_state?: string
+          revision?: number
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          run_point_id?: string
+          transformed_plan_point?: unknown
+          review_state?: string
+          revision?: number
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "georeferencing_validation_run_point_id_fkey"; columns: ["run_point_id"]; isOneToOne: true; referencedRelation: "georeferencing_run_point"; referencedColumns: ["run_point_id"] },
+          { foreignKeyName: "georeferencing_validation_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      grave_access_point: {
+        Row: {
+          access_point_id: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          lot_id: number
+          area_id: number
+          node_id: number
+          access_point_geom: unknown
+          review_state: string
+          revision: number
+          private_notes: string | null
+          created_at: string
+          imported_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          access_point_id?: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          lot_id: number
+          area_id: number
+          node_id: number
+          access_point_geom: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          access_point_id?: string
+          mapping_release_id?: string
+          site_id?: number
+          georeferencing_run_id?: string
+          source_feature_id?: string
+          artifact_hash?: string
+          layer_name?: string
+          layer_version?: string
+          lot_id?: number
+          area_id?: number
+          node_id?: number
+          access_point_geom?: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "grave_access_point_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "grave_access_point_run_scope_fkey"; columns: ["georeferencing_run_id", "mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "georeferencing_run"; referencedColumns: ["run_id", "release_id", "site_id"] },
+          { foreignKeyName: "grave_access_point_plot_fkey"; columns: ["mapping_release_id", "lot_id"]; isOneToOne: true; referencedRelation: "plot_geometry"; referencedColumns: ["mapping_release_id", "lot_id"] },
+          { foreignKeyName: "grave_access_point_area_fkey"; columns: ["mapping_release_id", "site_id", "area_id"]; isOneToOne: false; referencedRelation: "mapping_release_area"; referencedColumns: ["release_id", "site_id", "area_id"] },
+          { foreignKeyName: "grave_access_point_node_fkey"; columns: ["node_id", "site_id", "mapping_release_id"]; isOneToOne: false; referencedRelation: "map_node"; referencedColumns: ["node_id", "site_id", "mapping_release_id"] },
+          { foreignKeyName: "grave_access_point_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "grave_access_point_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      mapping_display_feature: {
+        Row: {
+          display_feature_id: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          kind: string
+          label: string
+          route_node_id: number | null
+          display_geom: unknown
+          review_state: string
+          revision: number
+          private_notes: string | null
+          created_at: string
+          imported_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          display_feature_id?: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          kind: string
+          label: string
+          route_node_id?: number | null
+          display_geom: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          display_feature_id?: string
+          mapping_release_id?: string
+          site_id?: number
+          georeferencing_run_id?: string
+          source_feature_id?: string
+          artifact_hash?: string
+          layer_name?: string
+          layer_version?: string
+          kind?: string
+          label?: string
+          route_node_id?: number | null
+          display_geom?: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "mapping_display_feature_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "mapping_display_feature_run_scope_fkey"; columns: ["georeferencing_run_id", "mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "georeferencing_run"; referencedColumns: ["run_id", "release_id", "site_id"] },
+          { foreignKeyName: "mapping_display_feature_node_fkey"; columns: ["route_node_id", "site_id", "mapping_release_id"]; isOneToOne: false; referencedRelation: "map_node"; referencedColumns: ["node_id", "site_id", "mapping_release_id"] },
+          { foreignKeyName: "mapping_display_feature_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "mapping_display_feature_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      mapping_boundary: {
+        Row: {
+          boundary_id: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          kind: string
+          area_id: number | null
+          boundary_geom: unknown
+          review_state: string
+          revision: number
+          private_notes: string | null
+          created_at: string
+          imported_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          boundary_id?: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          kind: string
+          area_id?: number | null
+          boundary_geom: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          boundary_id?: string
+          mapping_release_id?: string
+          site_id?: number
+          georeferencing_run_id?: string
+          source_feature_id?: string
+          artifact_hash?: string
+          layer_name?: string
+          layer_version?: string
+          kind?: string
+          area_id?: number | null
+          boundary_geom?: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "mapping_boundary_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "mapping_boundary_run_scope_fkey"; columns: ["georeferencing_run_id", "mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "georeferencing_run"; referencedColumns: ["run_id", "release_id", "site_id"] },
+          { foreignKeyName: "mapping_boundary_area_id_fkey"; columns: ["area_id"]; isOneToOne: false; referencedRelation: "area"; referencedColumns: ["area_id"] },
+          { foreignKeyName: "mapping_boundary_area_scope_fkey"; columns: ["mapping_release_id", "site_id", "area_id"]; isOneToOne: false; referencedRelation: "mapping_release_area"; referencedColumns: ["release_id", "site_id", "area_id"] },
+          { foreignKeyName: "mapping_boundary_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "mapping_boundary_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      plot_geometry: {
+        Row: {
+          plot_geometry_id: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          lot_id: number
+          area_id: number
+          plot_geom: unknown
+          review_state: string
+          revision: number
+          private_notes: string | null
+          created_at: string
+          imported_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          plot_geometry_id?: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          lot_id: number
+          area_id: number
+          plot_geom: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          plot_geometry_id?: string
+          mapping_release_id?: string
+          site_id?: number
+          georeferencing_run_id?: string
+          source_feature_id?: string
+          artifact_hash?: string
+          layer_name?: string
+          layer_version?: string
+          lot_id?: number
+          area_id?: number
+          plot_geom?: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "plot_geometry_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "plot_geometry_run_scope_fkey"; columns: ["georeferencing_run_id", "mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "georeferencing_run"; referencedColumns: ["run_id", "release_id", "site_id"] },
+          { foreignKeyName: "plot_geometry_lot_id_fkey"; columns: ["lot_id"]; isOneToOne: false; referencedRelation: "lot"; referencedColumns: ["lot_id"] },
+          { foreignKeyName: "plot_geometry_area_id_fkey"; columns: ["area_id"]; isOneToOne: false; referencedRelation: "area"; referencedColumns: ["area_id"] },
+          { foreignKeyName: "plot_geometry_area_scope_fkey"; columns: ["mapping_release_id", "site_id", "area_id"]; isOneToOne: false; referencedRelation: "mapping_release_area"; referencedColumns: ["release_id", "site_id", "area_id"] },
+          { foreignKeyName: "plot_geometry_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "plot_geometry_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      mapping_walkway_source: {
+        Row: {
+          walkway_source_id: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          area_id: number
+          walkway_type: string
+          walking_allowed: boolean
+          restriction_context: string | null
+          centerline_geom: unknown
+          review_state: string
+          revision: number
+          private_notes: string | null
+          created_at: string
+          imported_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          walkway_source_id?: string
+          mapping_release_id: string
+          site_id: number
+          georeferencing_run_id: string
+          source_feature_id: string
+          artifact_hash: string
+          layer_name: string
+          layer_version: string
+          area_id: number
+          walkway_type: string
+          walking_allowed?: boolean
+          restriction_context?: string | null
+          centerline_geom: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          walkway_source_id?: string
+          mapping_release_id?: string
+          site_id?: number
+          georeferencing_run_id?: string
+          source_feature_id?: string
+          artifact_hash?: string
+          layer_name?: string
+          layer_version?: string
+          area_id?: number
+          walkway_type?: string
+          walking_allowed?: boolean
+          restriction_context?: string | null
+          centerline_geom?: unknown
+          review_state?: string
+          revision?: number
+          private_notes?: string | null
+          created_at?: string
+          imported_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "mapping_walkway_source_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "mapping_walkway_source_run_scope_fkey"; columns: ["georeferencing_run_id", "mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "georeferencing_run"; referencedColumns: ["run_id", "release_id", "site_id"] },
+          { foreignKeyName: "mapping_walkway_source_area_id_fkey"; columns: ["area_id"]; isOneToOne: false; referencedRelation: "area"; referencedColumns: ["area_id"] },
+          { foreignKeyName: "mapping_walkway_source_area_scope_fkey"; columns: ["mapping_release_id", "site_id", "area_id"]; isOneToOne: false; referencedRelation: "mapping_release_area"; referencedColumns: ["release_id", "site_id", "area_id"] },
+          { foreignKeyName: "mapping_walkway_source_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "mapping_walkway_source_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      survey_point: {
+        Row: {
+          point_id: string
+          site_id: number
+          point_code: string
+          role: string
+          description: string | null
+          source_plan_reference: string | null
+          notes: string | null
+          active: boolean
+          review_state: string
+          revision: number
+          predecessor_point_id: string | null
+          created_at: string
+          created_by: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          point_id?: string
+          site_id: number
+          point_code: string
+          role: string
+          description?: string | null
+          source_plan_reference?: string | null
+          notes?: string | null
+          active?: boolean
+          review_state?: string
+          revision?: number
+          predecessor_point_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          point_id?: string
+          site_id?: number
+          point_code?: string
+          role?: string
+          description?: string | null
+          source_plan_reference?: string | null
+          notes?: string | null
+          active?: boolean
+          review_state?: string
+          revision?: number
+          predecessor_point_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "survey_point_site_id_fkey"; columns: ["site_id"]; isOneToOne: false; referencedRelation: "site"; referencedColumns: ["site_id"] },
+          { foreignKeyName: "survey_point_predecessor_fkey"; columns: ["predecessor_point_id"]; isOneToOne: false; referencedRelation: "survey_point"; referencedColumns: ["point_id"] },
+          { foreignKeyName: "survey_point_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "survey_point_updated_by_fkey"; columns: ["updated_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      survey_capture: {
+        Row: {
+          capture_id: string
+          point_id: string
+          site_id: number
+          capture_code: string
+          started_at: string
+          ended_at: string | null
+          device_reference: string | null
+          operator_reference: string | null
+          notes: string | null
+          remeasures_capture_id: string | null
+          remeasure_required: boolean
+          review_state: string
+          review_reason: string | null
+          revision: number
+          created_at: string
+          created_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          capture_id?: string
+          point_id: string
+          site_id: number
+          capture_code: string
+          started_at: string
+          ended_at?: string | null
+          device_reference?: string | null
+          operator_reference?: string | null
+          notes?: string | null
+          remeasures_capture_id?: string | null
+          remeasure_required?: boolean
+          review_state?: string
+          review_reason?: string | null
+          revision?: number
+          created_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          capture_id?: string
+          point_id?: string
+          site_id?: number
+          capture_code?: string
+          started_at?: string
+          ended_at?: string | null
+          device_reference?: string | null
+          operator_reference?: string | null
+          notes?: string | null
+          remeasures_capture_id?: string | null
+          remeasure_required?: boolean
+          review_state?: string
+          review_reason?: string | null
+          revision?: number
+          created_at?: string
+          created_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          { foreignKeyName: "survey_capture_point_site_fkey"; columns: ["point_id", "site_id"]; isOneToOne: false; referencedRelation: "survey_point"; referencedColumns: ["point_id", "site_id"] },
+          { foreignKeyName: "survey_capture_parent_fkey"; columns: ["remeasures_capture_id", "point_id", "site_id"]; isOneToOne: false; referencedRelation: "survey_capture"; referencedColumns: ["capture_id", "point_id", "site_id"] },
+          { foreignKeyName: "survey_capture_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+          { foreignKeyName: "survey_capture_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
+        ]
+      }
+      survey_observation: {
+        Row: {
+          observation_id: string
+          capture_id: string
+          observation_order: number
+          latitude: number
+          longitude: number
+          reported_accuracy_m: number
+          captured_at: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          observation_id?: string
+          capture_id: string
+          observation_order: number
+          latitude: number
+          longitude: number
+          reported_accuracy_m: number
+          captured_at: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          observation_id?: string
+          capture_id?: string
+          observation_order?: number
+          latitude?: number
+          longitude?: number
+          reported_accuracy_m?: number
+          captured_at?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "survey_observation_capture_id_fkey"; columns: ["capture_id"]; isOneToOne: false; referencedRelation: "survey_capture"; referencedColumns: ["capture_id"] },
+        ]
+      }
+      mapping_import: {
+        Row: {
+          abandon_reason: string | null
+          abandoned_at: string | null
+          actor_account_id: string
+          area_id: number
+          base_revision: number
+          created_at: string
+          current_report_id: string | null
+          failure_classification: string | null
+          import_id: string
+          manifest_sha256: string
+          package_digest: string
+          release_id: string
+          request_id: string
+          revision: number
+          sealed_at: string | null
+          site_id: number
+          state: string
+          target_revision: number
+          updated_at: string
+          validator_version: string
+        }
+        Insert: {
+          abandon_reason?: string | null
+          abandoned_at?: string | null
+          actor_account_id: string
+          area_id: number
+          base_revision: number
+          created_at?: string
+          current_report_id?: string | null
+          failure_classification?: string | null
+          import_id?: string
+          manifest_sha256: string
+          package_digest: string
+          release_id: string
+          request_id: string
+          revision?: number
+          sealed_at?: string | null
+          site_id: number
+          state?: string
+          target_revision: number
+          updated_at?: string
+          validator_version?: string
+        }
+        Update: {
+          abandon_reason?: string | null
+          abandoned_at?: string | null
+          actor_account_id?: string
+          area_id?: number
+          base_revision?: number
+          created_at?: string
+          current_report_id?: string | null
+          failure_classification?: string | null
+          import_id?: string
+          manifest_sha256?: string
+          package_digest?: string
+          release_id?: string
+          request_id?: string
+          revision?: number
+          sealed_at?: string | null
+          site_id?: number
+          state?: string
+          target_revision?: number
+          updated_at?: string
+          validator_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_import_actor_account_id_fkey"
+            columns: ["actor_account_id"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_import_release_scope_fkey"
+            columns: ["release_id", "site_id", "area_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_release_area"
+            referencedColumns: ["release_id", "site_id", "area_id"]
+          },
+          {
+            foreignKeyName: "mapping_import_current_report_fkey"
+            columns: ["import_id", "current_report_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_import_report"
+            referencedColumns: ["import_id", "report_id"]
+          },
+        ]
+      }
+      mapping_import_chunk: {
+        Row: {
+          byte_count: number
+          chunk_bytes: string
+          chunk_index: number
+          chunk_sha256: string
+          file_name: string
+          import_id: string
+          received_at: string
+          received_by: string
+        }
+        Insert: {
+          byte_count: number
+          chunk_bytes: string
+          chunk_index: number
+          chunk_sha256: string
+          file_name: string
+          import_id: string
+          received_at?: string
+          received_by: string
+        }
+        Update: {
+          byte_count?: number
+          chunk_bytes?: string
+          chunk_index?: number
+          chunk_sha256?: string
+          file_name?: string
+          import_id?: string
+          received_at?: string
+          received_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_import_chunk_file_fkey"
+            columns: ["import_id", "file_name"]
+            isOneToOne: false
+            referencedRelation: "mapping_import_file"
+            referencedColumns: ["import_id", "file_name"]
+          },
+          {
+            foreignKeyName: "mapping_import_chunk_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
+      mapping_import_file: {
+        Row: {
+          created_at: string
+          declared_bytes: number
+          declared_chunk_count: number
+          declared_feature_count: number
+          declared_sha256: string
+          file_name: string
+          import_id: string
+          layer_version: string | null
+        }
+        Insert: {
+          created_at?: string
+          declared_bytes: number
+          declared_chunk_count: number
+          declared_feature_count: number
+          declared_sha256: string
+          file_name: string
+          import_id: string
+          layer_version?: string | null
+        }
+        Update: {
+          created_at?: string
+          declared_bytes?: number
+          declared_chunk_count?: number
+          declared_feature_count?: number
+          declared_sha256?: string
+          file_name?: string
+          import_id?: string
+          layer_version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_import_file_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_import"
+            referencedColumns: ["import_id"]
+          },
+        ]
+      }
+      mapping_import_report: {
+        Row: {
+          baseline_publication_revision: number
+          created_at: string
+          created_by: string
+          entries: Json
+          failure_classification: string | null
+          import_id: string
+          live_dependency_digest: string | null
+          package_digest: string
+          release_revision: number
+          report_hash: string
+          report_id: string
+          summary: Json
+          validator_version: string
+        }
+        Insert: {
+          baseline_publication_revision?: number
+          created_at?: string
+          created_by: string
+          entries: Json
+          failure_classification?: string | null
+          import_id: string
+          live_dependency_digest?: string | null
+          package_digest: string
+          release_revision: number
+          report_hash: string
+          report_id?: string
+          summary: Json
+          validator_version: string
+        }
+        Update: {
+          baseline_publication_revision?: number
+          created_at?: string
+          created_by?: string
+          entries?: Json
+          failure_classification?: string | null
+          import_id?: string
+          live_dependency_digest?: string | null
+          package_digest?: string
+          release_revision?: number
+          report_hash?: string
+          report_id?: string
+          summary?: Json
+          validator_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_import_report_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_import_report_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_import"
+            referencedColumns: ["import_id"]
+          },
+        ]
+      }
+      mapping_release: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          field_srid: number
+          notes: string | null
+          package_hash: string | null
+          package_reference: string | null
+          pilot_area_id: number | null
+          published_at: string | null
+          published_by: string | null
+          published_srid: number
+          qgis_version: string | null
+          rejection_reason: string | null
+          release_code: string
+          release_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision: number
+          scope_kind: string
+          selected_run_id: string | null
+          site_id: number
+          source_coordinate_space: string | null
+          source_plan_hash: string | null
+          source_plan_reference: string | null
+          source_plan_version: string | null
+          staged_at: string | null
+          staged_by: string | null
+          status: string
+          title: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_report_hash: string | null
+          validation_summary: Json | null
+          working_srid: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          field_srid?: number
+          notes?: string | null
+          package_hash?: string | null
+          package_reference?: string | null
+          pilot_area_id?: number | null
+          published_at?: string | null
+          published_by?: string | null
+          published_srid?: number
+          qgis_version?: string | null
+          rejection_reason?: string | null
+          release_code: string
+          release_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number
+          scope_kind: string
+          selected_run_id?: string | null
+          site_id: number
+          source_coordinate_space?: string | null
+          source_plan_hash?: string | null
+          source_plan_reference?: string | null
+          source_plan_version?: string | null
+          staged_at?: string | null
+          staged_by?: string | null
+          status?: string
+          title: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_report_hash?: string | null
+          validation_summary?: Json | null
+          working_srid?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          field_srid?: number
+          notes?: string | null
+          package_hash?: string | null
+          package_reference?: string | null
+          pilot_area_id?: number | null
+          published_at?: string | null
+          published_by?: string | null
+          published_srid?: number
+          qgis_version?: string | null
+          rejection_reason?: string | null
+          release_code?: string
+          release_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number
+          scope_kind?: string
+          selected_run_id?: string | null
+          site_id?: number
+          source_coordinate_space?: string | null
+          source_plan_hash?: string | null
+          source_plan_reference?: string | null
+          source_plan_version?: string | null
+          staged_at?: string | null
+          staged_by?: string | null
+          status?: string
+          title?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_report_hash?: string | null
+          validation_summary?: Json | null
+          working_srid?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_release_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "site"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_pilot_area_id_fkey"
+            columns: ["pilot_area_id"]
+            isOneToOne: false
+            referencedRelation: "area"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_staged_by_fkey"
+            columns: ["staged_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_selected_run_fkey"
+            columns: ["selected_run_id", "release_id", "site_id"]
+            isOneToOne: false
+            referencedRelation: "georeferencing_run"
+            referencedColumns: ["run_id", "release_id", "site_id"]
+          },
+        ]
+      }
+      mapping_release_area: {
+        Row: {
+          release_id: string
+          site_id: number
+          area_id: number
+        }
+        Insert: {
+          release_id: string
+          site_id: number
+          area_id: number
+        }
+        Update: {
+          release_id?: string
+          site_id?: number
+          area_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_release_area_release_site_fkey"
+            columns: ["release_id", "site_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_release"
+            referencedColumns: ["release_id", "site_id"]
+          },
+          {
+            foreignKeyName: "mapping_release_area_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "area"
+            referencedColumns: ["area_id"]
+          },
+        ]
+      }
+      mapping_publication: {
+        Row: {
+          site_id: number
+          area_id: number
+          release_id: string
+          published_at: string
+          published_by: string | null
+        }
+        Insert: {
+          site_id: number
+          area_id: number
+          release_id: string
+          published_at?: string
+          published_by?: string | null
+        }
+        Update: {
+          site_id?: number
+          area_id?: number
+          release_id?: string
+          published_at?: string
+          published_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_publication_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "site"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "area"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_membership_fkey"
+            columns: ["release_id", "site_id", "area_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_release_area"
+            referencedColumns: ["release_id", "site_id", "area_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
+      mapping_publication_event: {
+        Row: {
+          event_id: string
+          site_id: number
+          area_id: number
+          previous_release_id: string | null
+          new_release_id: string
+          request_id: string
+          kind: string
+          actor_account_id: string | null
+          created_at: string
+        }
+        Insert: {
+          event_id?: string
+          site_id: number
+          area_id: number
+          previous_release_id?: string | null
+          new_release_id: string
+          request_id: string
+          kind: string
+          actor_account_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          event_id?: string
+          site_id?: number
+          area_id?: number
+          previous_release_id?: string | null
+          new_release_id?: string
+          request_id?: string
+          kind?: string
+          actor_account_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_publication_event_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "site"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_event_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "area"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_event_previous_release_id_fkey"
+            columns: ["previous_release_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_release"
+            referencedColumns: ["release_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_event_new_release_id_fkey"
+            columns: ["new_release_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_release"
+            referencedColumns: ["release_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_event_membership_fkey"
+            columns: ["new_release_id", "site_id", "area_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_release_area"
+            referencedColumns: ["release_id", "site_id", "area_id"]
+          },
+          {
+            foreignKeyName: "mapping_publication_event_actor_account_id_fkey"
+            columns: ["actor_account_id"]
+            isOneToOne: false
+            referencedRelation: "account"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
       account: {
         Row: {
           account_id: string
@@ -194,6 +1489,7 @@ export type Database = {
       }
       burial_record: {
         Row: {
+          interment_confirmed: boolean | null
           burial_id: number
           created_at: string
           created_by: string | null
@@ -204,6 +1500,7 @@ export type Database = {
           interment_order_number: string | null
           interment_status: string
           lot_id: number
+          inscription: string | null
           quality_notes: string | null
           record_source: string | null
           record_status: string
@@ -215,6 +1512,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          interment_confirmed?: boolean | null
           burial_id?: number
           created_at?: string
           created_by?: string | null
@@ -225,6 +1523,7 @@ export type Database = {
           interment_order_number?: string | null
           interment_status: string
           lot_id: number
+          inscription?: string | null
           quality_notes?: string | null
           record_source?: string | null
           record_status?: string
@@ -236,6 +1535,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          interment_confirmed?: boolean | null
           burial_id?: number
           created_at?: string
           created_by?: string | null
@@ -246,6 +1546,7 @@ export type Database = {
           interment_order_number?: string | null
           interment_status?: string
           lot_id?: number
+          inscription?: string | null
           quality_notes?: string | null
           record_source?: string | null
           record_status?: string
@@ -295,6 +1596,7 @@ export type Database = {
           deceased_id: number
           display_name: string
           public_display: boolean
+          sex: string | null
         }
         Insert: {
           birth_date?: string | null
@@ -303,6 +1605,7 @@ export type Database = {
           deceased_id?: number
           display_name: string
           public_display?: boolean
+          sex?: string | null
         }
         Update: {
           birth_date?: string | null
@@ -311,6 +1614,7 @@ export type Database = {
           deceased_id?: number
           display_name?: string
           public_display?: boolean
+          sex?: string | null
         }
         Relationships: []
       }
@@ -455,31 +1759,82 @@ export type Database = {
       }
       map_edge: {
         Row: {
+          artifact_hash: string | null
           distance_m: number | null
           edge_id: number
           edge_type: string
+          forward_cost_m: number | null
           from_node_id: number
+          imported_at: string | null
           is_restricted: boolean
+          layer_name: string | null
+          layer_version: string | null
+          mapping_release_id: string | null
           path_geom: unknown
+          reverse_cost_m: number | null
+          review_notes: string | null
+          review_state: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision: number | null
+          site_id: number | null
+          source_feature_id: string | null
+          source_walkway_id: string | null
           to_node_id: number
+          direction: string | null
+          walking_allowed: boolean | null
         }
         Insert: {
+          artifact_hash?: string | null
           distance_m?: number | null
           edge_id?: number
           edge_type: string
+          forward_cost_m?: number | null
           from_node_id: number
+          imported_at?: string | null
           is_restricted?: boolean
+          layer_name?: string | null
+          layer_version?: string | null
+          mapping_release_id?: string | null
           path_geom?: unknown
+          reverse_cost_m?: number | null
+          review_notes?: string | null
+          review_state?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number | null
+          site_id?: number | null
+          source_feature_id?: string | null
+          source_walkway_id?: string | null
           to_node_id: number
+          direction?: string | null
+          walking_allowed?: boolean | null
         }
         Update: {
+          artifact_hash?: string | null
           distance_m?: number | null
           edge_id?: number
           edge_type?: string
+          forward_cost_m?: number | null
           from_node_id?: number
+          imported_at?: string | null
           is_restricted?: boolean
+          layer_name?: string | null
+          layer_version?: string | null
+          mapping_release_id?: string | null
           path_geom?: unknown
+          reverse_cost_m?: number | null
+          review_notes?: string | null
+          review_state?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number | null
+          site_id?: number | null
+          source_feature_id?: string | null
+          source_walkway_id?: string | null
           to_node_id?: number
+          direction?: string | null
+          walking_allowed?: boolean | null
         }
         Relationships: [
           {
@@ -496,35 +1851,73 @@ export type Database = {
             referencedRelation: "map_node"
             referencedColumns: ["node_id"]
           },
+          { foreignKeyName: "map_edge_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "map_edge_from_release_node_fkey"; columns: ["from_node_id", "site_id", "mapping_release_id"]; isOneToOne: false; referencedRelation: "map_node"; referencedColumns: ["node_id", "site_id", "mapping_release_id"] },
+          { foreignKeyName: "map_edge_to_release_node_fkey"; columns: ["to_node_id", "site_id", "mapping_release_id"]; isOneToOne: false; referencedRelation: "map_node"; referencedColumns: ["node_id", "site_id", "mapping_release_id"] },
+          { foreignKeyName: "map_edge_source_walkway_fkey"; columns: ["source_walkway_id", "mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_walkway_source"; referencedColumns: ["walkway_source_id", "mapping_release_id", "site_id"] },
+          { foreignKeyName: "map_edge_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
         ]
       }
       map_node: {
         Row: {
+          artifact_hash: string | null
+          imported_at: string | null
+          layer_name: string | null
+          layer_version: string | null
           location_geom: unknown
+          mapping_release_id: string | null
           node_id: number
           node_name: string
           node_type: string
           px_loc_x: number | null
           px_loc_y: number | null
+          review_notes: string | null
+          review_state: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision: number | null
           site_id: number
+          source_feature_id: string | null
         }
         Insert: {
+          artifact_hash?: string | null
+          imported_at?: string | null
+          layer_name?: string | null
+          layer_version?: string | null
           location_geom?: unknown
+          mapping_release_id?: string | null
           node_id?: number
           node_name: string
           node_type: string
           px_loc_x?: number | null
           px_loc_y?: number | null
+          review_notes?: string | null
+          review_state?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number | null
           site_id: number
+          source_feature_id?: string | null
         }
         Update: {
+          artifact_hash?: string | null
+          imported_at?: string | null
+          layer_name?: string | null
+          layer_version?: string | null
           location_geom?: unknown
+          mapping_release_id?: string | null
           node_id?: number
           node_name?: string
           node_type?: string
           px_loc_x?: number | null
           px_loc_y?: number | null
+          review_notes?: string | null
+          review_state?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number | null
           site_id?: number
+          source_feature_id?: string | null
         }
         Relationships: [
           {
@@ -534,6 +1927,8 @@ export type Database = {
             referencedRelation: "site"
             referencedColumns: ["site_id"]
           },
+          { foreignKeyName: "map_node_release_site_fkey"; columns: ["mapping_release_id", "site_id"]; isOneToOne: false; referencedRelation: "mapping_release"; referencedColumns: ["release_id", "site_id"] },
+          { foreignKeyName: "map_node_reviewed_by_fkey"; columns: ["reviewed_by"]; isOneToOne: false; referencedRelation: "account"; referencedColumns: ["account_id"] },
         ]
       }
       photo: {
@@ -794,6 +2189,7 @@ export type Database = {
           birth_date: string | null
           block_number: number | null
           burial_id: number | null
+          coordinate_status: string | null
           death_date: string | null
           display_name: string | null
           interment_date: string | null
@@ -804,11 +2200,164 @@ export type Database = {
           px_loc_y: number | null
           record_status: string | null
           sector_name: string | null
+          inscription: string | null
         }
         Relationships: []
       }
     }
     Functions: {
+      staff_sample_plot_references: {
+        Args: { p_lot_ids: number[] }
+        Returns: Json
+      }
+      staff_interment_plot_options: { Args: Record<PropertyKey, never>; Returns: Json }
+      public_shared_plot_burials: { Args: { p_burial_id: number }; Returns: Json }
+      staff_save_georeferencing_run: {
+        Args: {
+          p_run_id: string | null
+          p_expected_revision: number | null
+          p_values: Json
+          p_memberships: Json
+          p_results: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      staff_review_georeferencing_run: {
+        Args: {
+          p_run_id: string
+          p_expected_revision: number
+          p_decision: string
+          p_acknowledgements: Json
+          p_notes: string | null
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      staff_save_survey_point: {
+        Args: { p_point_id: string | null; p_expected_revision: number | null; p_values: Json; p_request_id: string }
+        Returns: Json
+      }
+      staff_record_survey_capture: {
+        Args: { p_point_id: string; p_capture_code: string; p_meta: Json; p_observations: Json; p_request_id: string }
+        Returns: Json
+      }
+      staff_review_survey_capture: {
+        Args: { p_capture_id: string; p_expected_revision: number; p_decision: string; p_acknowledgements: Json; p_notes: string | null; p_request_id: string }
+        Returns: Json
+      }
+      staff_create_mapping_release: {
+        Args: { p_values: Json; p_request_id: string }
+        Returns: Json
+      }
+      staff_reject_mapping_release: {
+        Args: {
+          p_release_id: string
+          p_expected_revision: number
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      staff_begin_mapping_import: {
+        Args: {
+          p_release_id: string
+          p_expected_revision: number
+          p_request_id: string
+          p_package_digest: string
+          p_manifest_bytes_base64: string
+        }
+        Returns: Json
+      }
+      staff_stage_mapping_import_chunk: {
+        Args: {
+          p_import_id: string
+          p_request_id: string
+          p_package_digest: string
+          p_expected_revision: number
+          p_file_name: string
+          p_chunk_index: number
+          p_bytes_base64: string
+        }
+        Returns: Json
+      }
+      staff_seal_mapping_import: {
+        Args: {
+          p_import_id: string
+          p_expected_revision: number
+          p_request_id: string
+          p_operation_id: string
+        }
+        Returns: Json
+      }
+      staff_abandon_mapping_import: {
+        Args: {
+          p_import_id: string
+          p_expected_revision: number
+          p_reason: string
+          p_request_id: string
+          p_operation_id: string
+        }
+        Returns: Json
+      }
+      staff_mapping_import_status: {
+        Args: {
+          p_import_id: string
+          p_report_page?: number
+          p_report_page_size?: number
+        }
+        Returns: Json
+      }
+      staff_validate_mapping_import: {
+        Args: {
+          p_import_id: string
+          p_expected_revision: number
+          p_request_id: string
+          p_operation_id: string
+        }
+        Returns: Json
+      }
+      staff_finalize_mapping_import: {
+        Args: {
+          p_import_id: string
+          p_expected_revision: number
+          p_report_digest: string
+          p_acknowledgements: Json
+          p_request_id: string
+          p_operation_id: string
+        }
+        Returns: Json
+      }
+      staff_review_mapping_release: {
+        Args: {
+          p_release_id: string
+          p_expected_revision: number
+          p_decision: string
+          p_acknowledgements: Json
+          p_notes: string | null
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      staff_publish_mapping_release: {
+        Args: {
+          p_release_id: string
+          p_expected_revision: number
+          p_expected_scope_revision: number
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      staff_rollback_mapping_release: {
+        Args: {
+          p_release_id: string
+          p_expected_revision: number
+          p_expected_scope_revision: number
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       admin_activate_account: {
         Args: { p_account_id: string }
         Returns: {
@@ -1042,6 +2591,46 @@ export type Database = {
         Args: { p_page?: number; p_query?: string }
         Returns: Json
       }
+      staff_burial_records: {
+        Args: {
+          p_date_filter?: string
+          p_direction?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_section?: string
+          p_sort?: string
+          p_status?: string
+          p_verification?: string
+        }
+        Returns: Json
+      }
+      staff_coordinate_verification: {
+        Args: {
+          p_area?: string
+          p_direction?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_sort?: string
+          p_state?: string
+        }
+        Returns: Json
+      }
+      staff_plot_management: {
+        Args: {
+          p_area?: string
+          p_direction?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_sort?: string
+          p_state?: string
+          p_verification?: string
+        }
+        Returns: Json
+      }
+      staff_dashboard_data: { Args: never; Returns: Json }
       staff_dashboard_counts: { Args: never; Returns: Json }
       staff_save_record: {
         Args: {

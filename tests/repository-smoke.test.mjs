@@ -66,7 +66,7 @@ test("protected provisioning keeps the Auth admin key server-side", async () => 
 
 test("navigation requests browser geolocation", async () => {
   const source = await read("src/components/visitor/navigation-route-map.tsx");
-  assert.match(source, /subscribeToLocation\(navigator\.geolocation/);
+  assert.match(source, /subscribeToLocation\(\s*navigator\.geolocation/);
 });
 
 test("photo uploads stay optional, validated, and recover from metadata failure", async () => {
@@ -96,10 +96,14 @@ test("public queries and exports apply security boundaries", async () => {
   assert.match(publicData, /\.limit\(1000\)/);
   assert.match(publicData, /throw new PublicDataUnavailableError/);
 
-  const report = await read("src/components/admin/admin-page-content.tsx");
-  assert.match(report, /\[\\t\\r\\n \]\*\[=\+\\-@\]/);
-  assert.match(report, /csvCell\(record\.burialId\)/);
-  assert.match(report, /csvCell\(record\.recordStatus\)/);
+  const report = await read("src/app/admin/reports/export/route.ts");
+  const reportAuth = await read("src/lib/supabase/staff-reports.ts");
+  assert.match(report, /await requireReportClient\(\)/);
+  assert.match(reportAuth, /await requireStaff\(undefined, client\)/);
+  assert.match(report, /row\.map\(csvCell\)/);
+  assert.match(report, /"Cache-Control": "private, no-store"/);
+  const audit = await read("src/components/admin/admin-page-content.tsx");
+  assert.match(audit, /\[row\.audit_id,[^\n]+\]\.map\(csvCell\)/);
 });
 
 test("auth callback data is scrubbed before session exchange", async () => {

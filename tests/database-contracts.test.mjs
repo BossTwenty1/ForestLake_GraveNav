@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { createTestDatabase } from "./database-helper.mjs";
 
 test("database migrations and operational contracts", async (t) => {
@@ -65,12 +66,38 @@ test("database migrations and operational contracts", async (t) => {
     });
     await t.test("burial creation is atomic and double-submission safe", async () => {
       const request = randomUUID();
-      firstBurial = await save("burial_record", null, null, burial(firstLot.id), "save", request);
-      assert.deepEqual(await save("burial_record", null, null, burial(firstLot.id), "save", request), firstBurial);
+      const values = { ...burial(firstLot.id), sex: "female" };
+      firstBurial = await save("burial_record", null, null, values, "save", request);
+      assert.deepEqual(await save("burial_record", null, null, values, "save", request), firstBurial);
       await assert.rejects(save("burial_record", null, null, burial(firstLot.id)), /already has/);
       assert.equal((await db.query("select count(*)::int n from public.deceased")).rows[0].n, 1);
       await assert.rejects(save("burial_record", firstBurial.id, firstBurial.revision, { ...burial(firstLot.id, "Changed"), remains_type: "INVALID" }), /check constraint/);
       assert.equal((await db.query("select display_name from public.deceased")).rows[0].display_name, "Maria Santos");
+    });
+    await t.test("deceased sex is optional, validated, and restored by record recovery", async () => {
+      const values = burial(firstLot.id);
+      const readSex = async () => (await db.query(
+        "select d.sex from public.deceased d join public.burial_record b using (deceased_id) where b.burial_id = $1",
+        [firstBurial.id],
+      )).rows[0].sex;
+      const update = async (patch) => {
+        firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, { ...values, ...patch });
+      };
+
+      assert.equal(await readSex(), "female");
+      await assert.rejects(update({ sex: "invalid" }), /deceased_sex_check/);
+      await update({ sex: "male" });
+      await update({});
+      assert.equal(await readSex(), "male");
+      await update({ sex: null });
+      assert.equal(await readSex(), null);
+      const history = (await db.query(
+        "select history_id from public.record_history where entity = 'burial_record' and record_id = $1 and after_revision = $2",
+        [firstBurial.id, firstBurial.revision],
+      )).rows[0];
+      firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision,
+        { history_id: history.history_id }, "revert");
+      assert.equal(await readSex(), "male");
     });
     await t.test("ranked name and plot search respects public visibility, filters and pagination", async () => {
       const secondLot = await save("lot", null, null, lot("RPG-002"));
@@ -83,6 +110,7 @@ test("database migrations and operational contracts", async (t) => {
       let result = await search("Santos,   Maria");
       assert.equal(result.items[0].display_name, "Maria Santos");
       assert.equal(result.items[0].match_type, "exact");
+      assert.equal(Object.hasOwn(result.items[0], "sex"), false);
       assert.equal(result.items[0].interment_date, "2020-01-05");
       assert.equal((await search("rpg 001")).items[0].match_type, "exact");
       assert.ok((await search("Maria Santso")).items.some((row) => row.match_type === "similar"));
@@ -149,6 +177,200 @@ test("database migrations and operational contracts", async (t) => {
       firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, { history_id: h.history_id }, "revert");
       assert.equal((await search("rpg001")).items[0].display_name, "Maria Santos");
       await assert.rejects(save("burial_record", firstBurial.id, firstBurial.revision, { history_id: h.history_id }, "revert"), /latest unchanged/);
+    });
+    await t.test("staff burial workspace searches, filters, sorts, and pages on the server", async () => {
+      const list = async ({ query = "", verification = "all", sort = "updated", direction = "desc", page = 1 } = {}) =>
+        (await db.query(
+          "select public.staff_burial_records($1,'all','all',$2,'all',$3,$4,$5,10) as result",
+          [query, verification, sort, direction, page],
+        )).rows[0].result;
+      const all = await list({ sort: "name", direction: "asc" });
+      assert.equal(all.total, all.totalAll);
+      assert.ok(all.items.length > 1);
+      assert.deepEqual(
+        all.items.map((item) => item.name),
+        [...all.items.map((item) => item.name)].sort((a, b) => a.localeCompare(b)),
+      );
+      assert.ok(all.sections.includes("Test garden"));
+      const searched = await list({ query: "RPG-002" });
+      assert.equal(searched.total, 1);
+      assert.equal(searched.items[0].plot, "RPG-002");
+      const pendingCoordinates = await list({ verification: "pending" });
+      assert.ok(pendingCoordinates.items.length > 0);
+      assert.ok(pendingCoordinates.items.every((item) => !item.coordinateVerified));
+      await db.exec("set role anon");
+      await assert.rejects(list(), /permission denied|active staff account/);
+      await login(admin);
+    });
+    await t.test("plot workspace derives occupancy and supports bounded server queries", async () => {
+      const list = async ({ query = "", area = "all", state = "all", verification = "all", sort = "updated", direction = "desc", page = 1, pageSize = 10 } = {}) =>
+        (await db.query(
+          "select public.staff_plot_management($1,$2,$3,$4,$5,$6,$7,$8) as result",
+          [query, area, state, verification, sort, direction, page, pageSize],
+        )).rows[0].result;
+
+      await save("lot", null, null, { ...lot("RPG-010"), status: "BOOKED" });
+      await save("lot", null, null, { ...lot("RPG-011"), status: "HOLD" });
+      for (let index = 12; index <= 19; index += 1) await save("lot", null, null, lot(`RPG-0${index}`));
+
+      const all = await list({ sort: "plot", direction: "asc" });
+      assert.equal(all.total, all.totalAll);
+      assert.equal(all.items.length, 10);
+      assert.deepEqual(
+        all.items.map((item) => item.lotCode),
+        [...all.items.map((item) => item.lotCode)].sort((a, b) => a.localeCompare(b)),
+      );
+      assert.deepEqual(all.areas, [{ areaId: 1, areaCode: "RPG", label: "Test garden" }]);
+
+      const expectedOccupied = (await db.query("select count(*)::int n from public.lot l where l.deleted_at is null and exists(select 1 from public.burial_record br where br.lot_id=l.lot_id)")).rows[0].n;
+      const expectedAvailable = (await db.query("select count(*)::int n from public.lot l where l.deleted_at is null and l.status='AVAILABLE' and not exists(select 1 from public.burial_record br where br.lot_id=l.lot_id)")).rows[0].n;
+      const expectedVerification = (await db.query("select count(*)::int n from public.lot where deleted_at is null and (location_geom is null or coordinate_status in ('pending','rejected'))")).rows[0].n;
+      assert.equal(all.summary.occupied, expectedOccupied);
+      assert.equal(all.summary.available, expectedAvailable);
+      assert.equal(all.summary.needsVerification, expectedVerification);
+      assert.equal(all.summary.total, all.summary.occupied + all.summary.available + all.summary.booked + all.summary.onHold);
+
+      const searched = await list({ query: "RPG-001" });
+      assert.equal(searched.total, 1);
+      assert.equal(searched.items[0].operationalState, "occupied");
+      assert.equal(searched.items[0].assignedDeceasedName, "Maria Santos");
+      assert.equal((await list({ area: "1" })).total, all.totalAll);
+      assert.ok((await list({ state: "booked" })).items.every((item) => item.operationalState === "booked"));
+      assert.ok((await list({ verification: "verified" })).items.every((item) => item.coordinateState === "verified"));
+      assert.equal((await list({ query: "RPG-010", area: "1", state: "booked", verification: "pending" })).total, 1);
+
+      const secondPage = await list({ sort: "plot", direction: "asc", page: 2 });
+      assert.ok(secondPage.items.length > 0);
+      assert.ok(!all.items.some((item) => secondPage.items.some((next) => next.lotId === item.lotId)));
+      assert.equal((await list({ pageSize: 50 })).items.length, all.totalAll);
+
+      firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, {}, "delete");
+      const reservedForRecovery = await list({ query: "RPG-001" });
+      assert.equal(reservedForRecovery.items[0].operationalState, "occupied");
+      assert.equal(reservedForRecovery.items[0].assignedBurialDeleted, true);
+      firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, {}, "restore");
+
+      await login(manager);
+      assert.equal(typeof (await list()).summary.total, "number");
+      await login(null, "anon");
+      await assert.rejects(list(), /permission denied|active staff account/);
+      await login(admin);
+    });
+    await t.test("coordinate verification queue is bounded, consistent, auditable, and administrator-only", async () => {
+      const list = async ({ query = "", area = "all", state = "actionable", sort = "priority", direction = "asc", page = 1, pageSize = 10 } = {}) =>
+        (await db.query(
+          "select public.staff_coordinate_verification($1,$2,$3,$4,$5,$6,$7) as result",
+          [query, area, state, sort, direction, page, pageSize],
+        )).rows[0].result;
+
+      const missing = await save("lot", null, null, { ...lot("CV-001"), location_geom: null, coordinate_accuracy_m: null });
+      const rejected = await save("lot", null, null, { ...lot("CV-002"), coordinate_accuracy_m: 8.25 });
+      await save("lot", rejected.id, rejected.revision, { status: "rejected", reason: "Marker is outside the plot boundary" }, "review");
+
+      const queue = await list();
+      const directNeedsReview = (await db.query("select count(*)::int n from public.lot where deleted_at is null and (location_geom is null or coordinate_status in ('pending','rejected'))")).rows[0].n;
+      const directVerified = (await db.query("select count(*)::int n from public.lot where deleted_at is null and location_geom is not null and coordinate_status='verified' and coordinate_verified")).rows[0].n;
+      assert.equal(queue.total, directNeedsReview);
+      assert.equal(queue.summary.needsVerification, directNeedsReview);
+      assert.equal(queue.summary.verified, directVerified);
+      assert.equal(queue.summary.needsVerification, queue.summary.missing + queue.summary.pending + queue.summary.rejected);
+      assert.ok(queue.items.every((item) => ["missing", "pending", "rejected"].includes(item.coordinateState)));
+
+      assert.equal((await list({ query: "CV-001" })).items[0].lotId, Number(missing.id));
+      assert.ok((await list({ query: "Maria Santos", state: "all" })).items.some((item) => item.assignedDeceasedName === "Maria Santos"));
+      assert.equal((await list({ area: "1" })).total, queue.total);
+      assert.ok((await list({ state: "missing" })).items.every((item) => item.coordinateState === "missing"));
+      const rejectedOnly = await list({ state: "rejected" });
+      assert.equal(rejectedOnly.total, 1);
+      assert.equal(rejectedOnly.items[0].rejectionReason, "Marker is outside the plot boundary");
+      assert.ok(rejectedOnly.items[0].history.some((event) => event.event === "rejected" && event.actorName === "admin"));
+      assert.ok((await list({ state: "verified" })).items.every((item) => item.coordinateState === "verified"));
+      assert.equal((await list({ query: "CV-002", area: "1", state: "rejected" })).total, 1);
+
+      const ascending = await list({ state: "all", sort: "plot", direction: "asc" });
+      assert.deepEqual(ascending.items.map((item) => item.lotCode), [...ascending.items.map((item) => item.lotCode)].sort((a, b) => a.localeCompare(b)));
+      const laterPage = await list({ state: "all", sort: "plot", direction: "asc", page: 2 });
+      assert.ok(laterPage.items.length > 0);
+      assert.ok(!ascending.items.some((item) => laterPage.items.some((next) => next.lotId === item.lotId)));
+      assert.equal((await list({ state: "all", pageSize: 50 })).items.length, queue.totalAll);
+
+      await login(manager);
+      await assert.rejects(list(), /administrator|permission denied/);
+      await login(null, "anon");
+      await assert.rejects(list(), /permission denied|administrator/);
+      await login(admin);
+    });
+    await t.test("dashboard aggregation follows burial, occupancy, verification, area, and audit rules", async () => {
+      const missingLot = await save("lot", null, null, { ...lot("RPG-005"), location_geom: null, coordinate_accuracy_m: null });
+      let rejectedLot = await save("lot", null, null, lot("RPG-006"));
+      rejectedLot = await save("lot", rejectedLot.id, rejectedLot.revision, { status: "rejected", reason: "Marker needs recapture" }, "review");
+
+      const dashboard = (await db.query("select public.staff_dashboard_data() as data")).rows[0].data;
+      const expectedRecords = (await db.query("select count(*)::int n from public.burial_record where deleted_at is null")).rows[0].n;
+      const expectedOccupied = (await db.query("select count(*)::int n from public.lot l where l.deleted_at is null and exists(select 1 from public.burial_record br where br.lot_id=l.lot_id)")).rows[0].n;
+      const expectedAvailable = (await db.query("select count(*)::int n from public.lot l where l.deleted_at is null and l.status='AVAILABLE' and not exists(select 1 from public.burial_record br where br.lot_id=l.lot_id)")).rows[0].n;
+      const expectedVerification = (await db.query("select count(*)::int n from public.lot where deleted_at is null and (location_geom is null or coordinate_status in ('pending','rejected'))")).rows[0].n;
+
+      assert.equal(dashboard.summary.totalBurialRecords, expectedRecords);
+      assert.equal(dashboard.summary.occupiedPlots, expectedOccupied);
+      assert.equal(dashboard.summary.availablePlots, expectedAvailable);
+      assert.equal(dashboard.summary.needsVerification, expectedVerification);
+      assert.equal(dashboard.occupancy.occupied + dashboard.occupancy.available + dashboard.occupancy.booked + dashboard.occupancy.onHold, dashboard.occupancy.total);
+      assert.equal(dashboard.occupancy.occupancyPercent, Math.round(expectedOccupied * 100 / dashboard.occupancy.total));
+      assert.deepEqual(dashboard.burialsBySection.map((section) => section.areaName), ["Test garden"]);
+      assert.equal(dashboard.burialsBySection[0].burialCount, expectedRecords);
+      assert.ok(dashboard.recentChanges.length <= 6);
+      assert.ok(dashboard.recentChanges.some((event) => event.label === "Coordinates rejected" && event.plotCode === "RPG-006"));
+      assert.ok(dashboard.verificationItems.some((item) => item.lotId === Number(missingLot.id) && item.status === "missing"));
+      assert.ok(dashboard.verificationItems.some((item) => item.lotId === Number(rejectedLot.id) && item.status === "rejected"));
+
+      firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, {}, "delete");
+      const afterSoftDelete = (await db.query("select public.staff_dashboard_data() as data")).rows[0].data;
+      assert.equal(afterSoftDelete.summary.totalBurialRecords, expectedRecords - 1);
+      assert.equal(afterSoftDelete.summary.occupiedPlots, expectedOccupied);
+      firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, {}, "restore");
+
+      await login(manager);
+      assert.equal(typeof (await db.query("select public.staff_dashboard_data() as data")).rows[0].data.summary.totalBurialRecords, "number");
+      await login(null, "anon");
+      await assert.rejects(db.exec("select public.staff_dashboard_data()"), /permission denied/);
+      await login(admin);
+    });
+    await t.test("private storage only exposes approved photos of public memorials from the dedicated bucket", async () => {
+      await db.exec("reset role");
+      const { burial_id: privateId } = (await db.query("select burial_id from public.burial_record join public.deceased using (deceased_id) where display_name = 'Maria Private'")).rows[0];
+      const publicPath = "burial/" + firstBurial.id + "/public.jpg";
+      const pendingPath = "burial/" + firstBurial.id + "/pending.jpg";
+      const hiddenPath = "burial/" + privateId + "/hidden.jpg";
+      const wrongFolder = "burial/" + privateId + "/unrelated.jpg";
+      await db.exec(`
+        create schema storage;
+        create table storage.buckets (id text primary key, public boolean not null);
+        create table storage.objects (bucket_id text, name text);
+        alter table storage.objects enable row level security;
+        grant usage on schema storage to anon;
+        grant select on storage.objects to anon;
+        insert into storage.buckets values ('gravenav-memorial-photos', false), ('other-photos', false);
+      `);
+      await db.query(`
+        insert into public.photo(burial_id, uploaded_by, storage_path, file_name, approval_status, public_display)
+        values ($1,$2,$3,'public.jpg','approved',true), ($1,$2,$4,'pending.jpg','pending',false),
+               ($5,$2,$6,'hidden.jpg','approved',true), ($1,$2,$7,'unrelated.jpg','approved',true)
+      `, [firstBurial.id, manager, publicPath, pendingPath, privateId, hiddenPath, wrongFolder]);
+      await db.query(`
+        insert into storage.objects values ('gravenav-memorial-photos',$1), ('gravenav-memorial-photos',$2),
+          ('gravenav-memorial-photos',$3), ('gravenav-memorial-photos',$4), ('other-photos',$1),
+          ('gravenav-memorial-photos','burial/999/untracked.jpg')
+      `, [publicPath, pendingPath, hiddenPath, wrongFolder]);
+      await db.exec(await readFile(new URL("../scripts/visitor-memorial-photo-storage.sql", import.meta.url), "utf8"));
+      await login(null, "anon");
+      const visible = async () => (await db.query("select name from storage.objects")).rows.map(row => row.name);
+      assert.deepEqual(await visible(), [publicPath]);
+      await assert.rejects(db.exec("insert into storage.objects values ('gravenav-memorial-photos','burial/999/file.jpg')"), /permission denied/);
+      await login(admin);
+      await save("burial_record", firstBurial.id, firstBurial.revision, {}, "delete");
+      await login(null, "anon");
+      assert.deepEqual(await visible(), []);
     });
   } finally { await db.close(); }
 });

@@ -1,0 +1,40 @@
+.coordinates summary {
+  min-height: 44px;
+  align-content: center;
+  color: var(--visitor-ink);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.coordinates p {
+  margin: 0 0 12px;
+  color: var(--visitor-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.coordinates table {
+  width: 100%;
+  margin-bottom: 12px;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.coordinates th,
+.coordinates td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--visitor-border);
+}
+
+.coordinates th {
+  color: var(--visitor-muted);
+  text-align: left;
+  font-weight: 500;
+}
+
+.coordinates td {
+  color: var(--visitor-ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

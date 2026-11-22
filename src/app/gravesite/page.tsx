@@ -1,20 +1,42 @@
-import Link from "next/link";
+import { getBurialMapScope, getCapstonePlanningPlot } from "@/lib/supabase/phase2-data";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { safeResultsReturnTo } from "@/lib/visitor-presentation";
+import { getPublicMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
+import { PublicMemorialProfile } from "./public-memorial-profile";
+import styles from "./memorial.module.css";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icons";
-import { getPublicBurialRecord } from "@/lib/supabase/public-data";
+import { getPublicBurialRecord, getPublicSharedPlotBurials } from "@/lib/supabase/public-data";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function GravesitePage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const record = await getPublicBurialRecord(getParam(params?.id));
-  if (!record) redirect(`/record-not-found?query=${encodeURIComponent(getParam(params?.id) || "that gravesite")}`);
-  return <VisitorShell><div className="visitor-stack"><Link className="subtle-link" href="/results">← Back to search results</Link><div className="profile-heading"><p className="visitor-kicker">Public gravesite profile</p><div className="profile-heading__row"><div><h1>{record.name}</h1><p>{record.dates}</p></div><Badge icon="verification" variant="success">Active record</Badge></div></div><Card className="profile-card"><div className={`profile-media ${record.tone}`}><Icon name="tree" size={58} /></div><CardContent><div className="profile-location"><Icon name="location" size={20} /><div><span>{record.plotLabel}</span><p>{record.section} · {record.row}</p></div></div><div className="profile-details"><div><span>Burial date</span><strong>{record.burialDate}</strong></div><div><span>Location</span><strong>{record.location ? "GPS available" : record.pixelLocation ? "Map position available" : "Not recorded"}</strong></div></div></CardContent></Card><AlertProfile record={record} /><div className="profile-actions"><Link href={`/navigation?id=${record.id}`}><Button className="button--full" icon="walk" size="lg">Navigate to gravesite</Button></Link><Link href={`/map?plot=${encodeURIComponent(record.plot)}`}><Button className="button--full" icon="map" variant="secondary">View on map</Button></Link></div></div></VisitorShell>;
+  const id = getParam(params.id);
+  const returnTo = safeResultsReturnTo(params.returnTo);
+  let record;
+  try {
+    record = await getPublicBurialRecord(id);
+  } catch {
+    const retryHref = "/gravesite?" + new URLSearchParams({ id, returnTo });
+    return <VisitorShell batchOne wide className={styles.shell}>
+      <section className={styles.recovery}>
+        <h1>Memorial temporarily unavailable</h1>
+        <p>The public registry could not be reached. Please try again.</p>
+        <div><a className="button button--primary" href={retryHref}>Try again</a>
+          <Link className="button button--secondary" href={returnTo}>Back to search results</Link></div>
+      </section>
+    </VisitorShell>;
+  }
+  if (!record) redirect("/record-not-found?" + new URLSearchParams({ returnTo }));
+
+  const [mapScope, planningPlot, shared, photos] = await Promise.all([
+    getBurialMapScope(record), getCapstonePlanningPlot(record.id), getPublicSharedPlotBurials(record.id), getPublicMemorialPhotos(record.id).catch(() => []),
+  ]);
+
+  return <VisitorShell backHref={returnTo} backLabel="Back to Search Results" batchOne wide className={styles.shell} helpHref="#gravesite-details">
+    <PublicMemorialProfile record={record} mapScope={mapScope === "unavailable" && planningPlot ? "planning" : mapScope} planningPlot={planningPlot} shared={shared} photos={photos} returnTo={returnTo} />
+  </VisitorShell>;
 }
 
-function AlertProfile({ record }: { record: NonNullable<Awaited<ReturnType<typeof getPublicBurialRecord>>> }) { return <div className="profile-note"><Icon name="info" size={19} /><p>{record.location ? `Existing GPS location is available${record.locationVerified ? " and verified" : ", but its accuracy is still pending verification"}.` : record.pixelLocation ? "An existing image-map location is available. GPS coordinates have not been collected." : "Location coordinates are not recorded yet; the cemetery map prototype remains available."}</p></div>; }
 function getParam(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] || "" : value || ""; }

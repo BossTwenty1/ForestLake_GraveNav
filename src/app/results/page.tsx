@@ -1,46 +1,64 @@
 import Link from "next/link";
-import { VisitorShell } from "@/components/visitor/visitor-shell";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
-import { searchPublicBurials } from "@/lib/supabase/public-data";
+import { Icon } from "@/components/ui/icons";
+import { PublicSearchForm } from "@/components/visitor/public-search-form";
+import { PublicSearchResultCard } from "@/components/visitor/public-search-result-card";
+import { getPublicGardenNames, searchPublicBurials } from "@/lib/supabase/public-data";
+import { MemorialSearchHelp, MemorialSearchShell } from "../search/memorial-search-shell";
+import styles from "../search/memorial-search.module.css";
+import { readSearchParams, resultsHref } from "../search/search-params";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-export default async function ResultsPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
-  const query = getParam(params.query).slice(0, 160);
-  const section = getParam(params.section) || "all";
-  const year = getParam(params.year) || "any";
-  const sort = getParam(params.sort) === "newest" ? "newest" : "name";
-  const page = Math.max(1, Math.min(10000, Number.parseInt(getParam(params.page), 10) || 1));
-  const url = (nextPage: number, nextSort = sort) => "/results?" + new URLSearchParams({ query, section, year, sort: nextSort, page: String(nextPage) });
-  let result;
-  try { result = await searchPublicBurials({ query, section, year, sort, page }); }
-  catch { return <VisitorShell><Alert icon="alert" title="Search unavailable" variant="danger">Search is temporarily unavailable—try again. <Link href={url(page)}>Retry search</Link></Alert></VisitorShell>; }
-  const { items, total, pageSize } = result;
-  return <VisitorShell><div className="visitor-stack">
-    <form action="/results" className="results-search" method="get">
-      <Input aria-label="Name or plot code" defaultValue={query} maxLength={160} name="query" placeholder="Search by name or plot code" icon="search" />
-      <input name="section" type="hidden" value={section} /><input name="year" type="hidden" value={year} /><input name="sort" type="hidden" value={sort} />
-      <button className="button button--primary" type="submit">Search</button>
-    </form>
-    <div className="results-heading"><div><p className="visitor-kicker">Active public records</p><h1>{total} results for “{query || "all records"}”</h1><p>Exact matches appear first. Similar names are suggestions—check the dates, garden, and plot.</p></div>
-      <div className="results-controls"><Link href="/search">Change filters</Link><Link href={url(1, sort === "newest" ? "name" : "newest")}>{sort === "newest" ? "Sort by name" : "Newest first"}</Link></div>
-    </div>
-    {!items.length ? <Alert title={total ? "No results on this page" : "No matching records"}>Try a shorter name, a plot code, or different filters. {total ? <Link href={url(1)}>Return to page 1</Link> : null}</Alert> : null}
-    <div className="results-list">{items.map((record) => <Card className="result-card" key={record.id}><div className="result-body">
-      <Badge variant={record.matchType === "similar" ? "warning" : "info"}>{record.matchType === "similar" ? "Similar name suggestion" : record.matchType === "exact" ? "Exact match" : "Matching record"}</Badge>
-      <h2>{record.name}</h2><p className="result-years">{record.dates}</p>
-      <p><strong>{record.plotLabel}</strong> · {record.section}</p><p>Burial date: {record.burialDate}</p>
-      <p>{record.location ? record.locationVerified ? "GPS location verified" : "GPS location awaiting verification" : "Location not recorded"}</p>
-      <Link className="button button--primary" href={"/gravesite?id=" + record.id}>View {record.matchType === "similar" ? "suggested " : ""}gravesite</Link>
-    </div></Card>)}</div>
-    <nav aria-label="Search result pages" className="results-controls">
-      {page > 1 ? <Link rel="prev" href={url(page - 1)}>Previous</Link> : null}
-      <span>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
-      {page * pageSize < total ? <Link rel="next" href={url(page + 1)}>Next</Link> : null}
-    </nav>
-  </div></VisitorShell>;
+export default async function ResultsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const state = readSearchParams(await searchParams);
+  const { query, section, year, sort, page } = state;
+  const currentHref = resultsHref(state);
+  const searchHref = "/search?" + new URLSearchParams({ query, section, year, sort });
+  const [search, gardens] = await Promise.allSettled([searchPublicBurials(state), getPublicGardenNames()]);
+
+  if (search.status === "rejected") {
+    return (
+      <MemorialSearchShell>
+        <section className={styles.statePanel} aria-labelledby="search-error">
+          <Icon name="alert" size={32} />
+          <h1 id="search-error">Search is temporarily unavailable</h1>
+          <p>The public registry could not be reached. Your search details are still preserved.</p>
+          <div className={styles.stateActions}><a href={currentHref}>Try again</a><Link href={searchHref}>Change search</Link></div>
+        </section>
+        <MemorialSearchHelp />
+      </MemorialSearchShell>
+    );
+  }
+
+  const { items, total, pageSize } = search.value;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <MemorialSearchShell>
+      <PublicSearchForm state={state} gardens={gardens.status === "fulfilled" ? gardens.value : []}
+        gardenListUnavailable={gardens.status === "rejected"} resultCount={total} />
+      {items.length ? (
+        <section className={styles.cards} aria-label="Search results">
+          {items.map(record => <PublicSearchResultCard key={record.id} record={record} returnTo={currentHref} />)}
+        </section>
+      ) : (
+        <section className={styles.statePanel} aria-labelledby="search-empty">
+          <Icon name="search" size={32} />
+          <h2 id="search-empty">{total ? "No records on this page" : "No matching memorial records"}</h2>
+          <p>{total ? "This page is outside the available result range." : "Try a shorter name, check the spelling, or clear your filters."}</p>
+          <div className={styles.stateActions}>
+            {total ? <Link href={resultsHref(state, { page: 1 })}>Return to page 1</Link> : <Link href={searchHref}>Adjust search</Link>}
+          </div>
+        </section>
+      )}
+      <div className={styles.resultsFooter}>
+        {items.length ? <nav className={styles.pagination} aria-label="Search result pages">
+          {page > 1 ? <Link href={resultsHref(state, { page: page - 1 })} rel="prev"><Icon name="chevronRight" size={15} />Previous</Link>
+            : <span aria-disabled="true"><Icon name="chevronRight" size={15} />Previous</span>}
+          <span>Page <b>{page}</b> of {pageCount}</span>
+          {page < pageCount ? <Link href={resultsHref(state, { page: page + 1 })} rel="next">Next<Icon name="chevronRight" size={15} /></Link>
+            : <span aria-disabled="true">Next<Icon name="chevronRight" size={15} /></span>}
+        </nav> : null}
+        <MemorialSearchHelp />
+      </div>
+    </MemorialSearchShell>
+  );
 }
-function getParam(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] || "" : value || ""; }

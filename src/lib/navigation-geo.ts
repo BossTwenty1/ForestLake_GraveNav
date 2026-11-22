@@ -1,10 +1,25 @@
-export type GpsPosition = { longitude: number; latitude: number; accuracy: number; timestamp: number };
+export type GpsPosition = {
+  longitude: number;
+  latitude: number;
+  accuracy: number;
+  timestamp: number;
+  heading?: number | null;
+  speed?: number | null;
+};
 export function subscribeToLocation(geolocation: Pick<Geolocation, "watchPosition" | "clearWatch">,
   onPosition: (position: GpsPosition) => void, onError: (error: GeolocationPositionError) => void) {
   let active = true;
   const id = geolocation.watchPosition((position) => {
-    if (active) onPosition({ longitude: position.coords.longitude, latitude: position.coords.latitude,
-      accuracy: position.coords.accuracy, timestamp: position.timestamp });
+    if (active) onPosition({
+      longitude: position.coords.longitude,
+      latitude: position.coords.latitude,
+      accuracy: position.coords.accuracy,
+      timestamp: position.timestamp,
+      ...(typeof position.coords.heading === "number" && Number.isFinite(position.coords.heading)
+        ? { heading: position.coords.heading } : {}),
+      ...(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed)
+        ? { speed: position.coords.speed } : {}),
+    });
   }, (error) => { if (active) onError(error); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
   return () => { active = false; geolocation.clearWatch(id); };
 }

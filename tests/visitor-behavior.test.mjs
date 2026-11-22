@@ -2,94 +2,528 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
+
 function load(file, dependencies = {}) {
-  const source = readFileSync(new URL("../" + file, import.meta.url), "utf8");
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const source = readFileSync(
+    new URL("../" + file, import.meta.url),
+    "utf8",
+  );
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
   const loadedModule = { exports: {} };
-  new Function("require", "module", "exports", output)((name) => {
-    if (!(name in dependencies)) throw Error("Unexpected dependency " + name);
-    return dependencies[name];
-  }, loadedModule, loadedModule.exports);
+
+  new Function("require", "module", "exports", output)(
+    (name) => {
+      if (!(name in dependencies)) {
+        throw Error("Unexpected dependency " + name);
+      }
+      return dependencies[name];
+    },
+    loadedModule,
+    loadedModule.exports,
+  );
+
   return loadedModule.exports;
 }
+
 const geo = load("src/lib/navigation-geo.ts");
-test("live location emits updates, propagates denial, and stops even when watch id is zero", () => {
-  let success, fail, cleared;
-  const positions = [], errors = [];
-  const stop = geo.subscribeToLocation({
-    watchPosition(onSuccess, onError, options) { success = onSuccess; fail = onError; assert.equal(options.enableHighAccuracy, true); return 0; },
-    clearWatch(id) { cleared = id; },
-  }, (p) => positions.push(p), (e) => errors.push(e));
-  const reading = { coords: { longitude: 123, latitude: 13, accuracy: 4 }, timestamp: Date.now() };
-  success(reading); success({ ...reading, coords: { ...reading.coords, latitude: 13.001 } });
-  fail({ code: 1 });
-  assert.equal(positions.length, 2); assert.equal(errors[0].code, 1);
-  stop(); success(reading); fail({ code: 2 });
-  assert.equal(cleared, 0); assert.equal(positions.length, 2); assert.equal(errors.length, 1);
+const publicNavigation = load("src/lib/public-navigation.ts", {
+  "@/lib/supabase/types": {},
 });
-test("arrival language is gated by fresh, sufficiently accurate nearby readings", () => {
-  const now = Date.now(), destination = { longitude: 123, latitude: 13 };
-  const position = { ...destination, accuracy: 4, timestamp: now };
-  assert.equal(geo.nearPlot(position, destination, now), true);
-  assert.equal(geo.nearPlot({ ...position, accuracy: 80 }, destination, now), false);
-  assert.equal(geo.nearPlot({ ...position, timestamp: now - 31000 }, destination, now), false);
-  assert.equal(geo.nearPlot({ ...position, latitude: 13.01 }, destination, now), false);
-  assert.equal(geo.usablePosition({ ...position, longitude: NaN }, now), false);
+
+test(
+  "public navigation requires a present and explicitly verified coordinate",
+  () => {
+    const location = { longitude: 123.7, latitude: 13.1 };
+
+    assert.equal(
+      publicNavigation.canNavigateToPublicRecord({
+        location,
+        locationVerified: true,
+        coordinateStatus: "verified",
+      }),
+      true,
+    );
+    assert.equal(
+      publicNavigation.canNavigateToPublicRecord({
+        location,
+        locationVerified: false,
+        coordinateStatus: "verified",
+      }),
+      false,
+    );
+    assert.equal(
+      publicNavigation.canNavigateToPublicRecord({
+        location,
+        locationVerified: true,
+        coordinateStatus: "pending",
+      }),
+      false,
+    );
+    assert.equal(
+      publicNavigation.canNavigateToPublicRecord({
+        location: null,
+        locationVerified: true,
+        coordinateStatus: "verified",
+      }),
+      false,
+    );
+  },
+);
+
+test(
+  "live location emits updates, propagates denial, and stops even when watch id is zero",
+  () => {
+    let success;
+    let fail;
+    let cleared;
+    const positions = [];
+    const errors = [];
+    const stop = geo.subscribeToLocation(
+      {
+        watchPosition(onSuccess, onError, options) {
+          success = onSuccess;
+          fail = onError;
+          assert.equal(options.enableHighAccuracy, true);
+          return 0;
+        },
+        clearWatch(id) {
+          cleared = id;
+        },
+      },
+      (position) => positions.push(position),
+      (error) => errors.push(error),
+    );
+    const reading = {
+      coords: { longitude: 123, latitude: 13, accuracy: 4 },
+      timestamp: Date.now(),
+    };
+
+    success(reading);
+    success({
+      ...reading,
+      coords: { ...reading.coords, latitude: 13.001 },
+    });
+    fail({ code: 1 });
+
+    assert.equal(positions.length, 2);
+    assert.equal(errors[0].code, 1);
+
+    stop();
+    success(reading);
+    fail({ code: 2 });
+
+    assert.equal(cleared, 0);
+    assert.equal(positions.length, 2);
+    assert.equal(errors.length, 1);
+  },
+);
+
+test(
+  "arrival language is gated by fresh, sufficiently accurate nearby readings",
+  () => {
+    const now = Date.now();
+    const destination = { longitude: 123, latitude: 13 };
+    const position = { ...destination, accuracy: 4, timestamp: now };
+
+    assert.equal(geo.nearPlot(position, destination, now), true);
+    assert.equal(
+      geo.nearPlot({ ...position, accuracy: 80 }, destination, now),
+      false,
+    );
+    assert.equal(
+      geo.nearPlot(
+        { ...position, timestamp: now - 31000 },
+        destination,
+        now,
+      ),
+      false,
+    );
+    assert.equal(
+      geo.nearPlot(
+        { ...position, latitude: 13.01 },
+        destination,
+        now,
+      ),
+      false,
+    );
+    assert.equal(
+      geo.usablePosition({ ...position, longitude: NaN }, now),
+      false,
+    );
+  },
+);
+
+const mapModule = load("src/lib/phase1-map-data.ts", {
+  "@/lib/map-layout": {
+    schematicImageWidth: 100,
+    schematicImageHeight: 100,
+  },
+  "@/lib/supabase/config": {},
 });
-const mapModule = load("src/lib/phase1-map-data.ts", { "@/lib/map-layout": { schematicImageWidth: 100, schematicImageHeight: 100 }, "@/lib/supabase/config": {} });
-const routing = load("src/lib/phase1-routing.ts", { "@/lib/phase1-map-data": mapModule });
-test("route recalculates from new positions and ends on the path, with recorded landmarks only", () => {
-  const map = {
-    geographicBounds: { minLongitude: 0, minLatitude: 0, maxLongitude: 1, maxLatitude: 1 },
-    nodes: [
-      { properties: { id: "a", name: "Main entrance", node_type: "entrance" }, schematicPosition: [0, 0] },
-      { properties: { id: "b", name: "Recorded landmark", node_type: "landmark" }, schematicPosition: [0, 40] },
-      { properties: { id: "c", name: "Path end", node_type: "junction" }, schematicPosition: [0, 80] },
-    ],
-    edges: { features: [
-      { properties: { from_node_id: "a", to_node_id: "b", distance_m: 40 }, geometry: { coordinates: [[0,0],[40,0]] } },
-      { properties: { from_node_id: "b", to_node_id: "c", distance_m: 40 }, geometry: { coordinates: [[40,0],[80,0]] } },
-    ] },
-  };
-  const destination = { longitude: 0.9, latitude: 0.1 };
-  const first = routing.findShortestPhaseOneRoute(map, destination);
-  const walked = routing.findShortestPhaseOneRoute(map, destination, { longitude: 0.4, latitude: 0 });
-  assert.equal(first.distanceM, 80); assert.equal(walked.distanceM, 40);
-  assert.deepEqual(first.coordinates.at(-1), [0,80]);
-  assert.ok(first.instructions.some((i) => i.includes("Recorded landmark")));
-  map.edges.features[1].properties.is_restricted = true;
-  const restricted = routing.findShortestPhaseOneRoute(map, destination);
-  assert.deepEqual(restricted.coordinates.at(-1), [0,40]);
-  assert.equal(routing.findShortestPhaseOneRoute(map, destination, { longitude: 5, latitude: 5 }), null);
+const routing = load("src/lib/phase1-routing.ts", {
+  "@/lib/phase1-map-data": mapModule,
 });
+
+test(
+  "route recalculates from new positions and ends on the path, with recorded landmarks only",
+  () => {
+    const map = {
+      geographicBounds: {
+        minLongitude: 0,
+        minLatitude: 0,
+        maxLongitude: 1,
+        maxLatitude: 1,
+      },
+      nodes: [
+        {
+          properties: {
+            id: "a",
+            name: "Main entrance",
+            node_type: "entrance",
+          },
+          schematicPosition: [0, 0],
+        },
+        {
+          properties: {
+            id: "b",
+            name: "Recorded landmark",
+            node_type: "landmark",
+          },
+          schematicPosition: [0, 40],
+        },
+        {
+          properties: {
+            id: "c",
+            name: "Path end",
+            node_type: "junction",
+          },
+          schematicPosition: [0, 80],
+        },
+      ],
+      edges: {
+        features: [
+          {
+            properties: {
+              from_node_id: "a",
+              to_node_id: "b",
+              distance_m: 40,
+            },
+            geometry: { coordinates: [[0, 0], [40, 0]] },
+          },
+          {
+            properties: {
+              from_node_id: "b",
+              to_node_id: "c",
+              distance_m: 40,
+            },
+            geometry: { coordinates: [[40, 0], [80, 0]] },
+          },
+        ],
+      },
+    };
+    const destination = { longitude: 0.9, latitude: 0.1 };
+    const first = routing.findShortestPhaseOneRoute(map, destination);
+    const walked = routing.findShortestPhaseOneRoute(map, destination, {
+      longitude: 0.4,
+      latitude: 0,
+    });
+
+    assert.equal(first.distanceM, 80);
+    assert.equal(walked.distanceM, 40);
+    assert.deepEqual(first.coordinates.at(-1), [0, 80]);
+    assert.ok(
+      first.instructions.some((instruction) =>
+        instruction.includes("Recorded landmark"),
+      ),
+    );
+
+    map.edges.features[1].properties.is_restricted = true;
+    const restricted = routing.findShortestPhaseOneRoute(
+      map,
+      destination,
+    );
+
+    assert.deepEqual(restricted.coordinates.at(-1), [0, 40]);
+    assert.equal(
+      routing.findShortestPhaseOneRoute(map, destination, {
+        longitude: 5,
+        latitude: 5,
+      }),
+      null,
+    );
+  },
+);
+
 function publicModule(response) {
-  const query = { select() { return this; }, order() { return this; }, limit() { return Promise.resolve(response); }, eq() { return this; }, maybeSingle() { return Promise.resolve(response); } };
+  const query = {
+    select() {
+      return this;
+    },
+    order() {
+      return this;
+    },
+    limit() {
+      return Promise.resolve(response);
+    },
+    eq() {
+      return this;
+    },
+    maybeSingle() {
+      return Promise.resolve(response);
+    },
+  };
+
   return load("src/lib/supabase/public-data.ts", {
-    "./config": { getPublicSupabase: () => ({ from: () => query, rpc: async () => response }), localSupabaseConfig: { environment: "hosted" } },
-    "@/lib/mock-data": {}, "@/lib/map-layout": { phaseOneGardenNames: [] },
+    "./config": {
+      getPublicSupabase: () => ({
+        from: () => query,
+        rpc: async () => response,
+      }),
+      localSupabaseConfig: { environment: "hosted" },
+    },
+    "@/lib/mock-data": {},
+    "@/lib/map-layout": { phaseOneGardenNames: [] },
   });
 }
+
 test("database errors are distinct from a successful empty search", async () => {
-  await assert.rejects(publicModule({ data: null, error: { message: "private database details" } }).searchPublicBurials({ query: "Maria" }), /temporarily unavailable/);
-  const result = await publicModule({ data: { items: [], total: 0 }, error: null }).searchPublicBurials();
-  assert.equal(result.total, 0); assert.deepEqual(result.items, []);
-  await assert.rejects(publicModule({ data: null, error: {} }).getPublicBurialRecord("1"), /temporarily unavailable/);
+  await assert.rejects(
+    publicModule({
+      data: null,
+      error: { message: "private database details" },
+    }).searchPublicBurials({ query: "Maria" }),
+    /temporarily unavailable/,
+  );
+
+  const result = await publicModule({
+    data: { items: [], total: 0 },
+    error: null,
+  }).searchPublicBurials();
+
+  assert.equal(result.total, 0);
+  assert.deepEqual(result.items, []);
+
+  await assert.rejects(
+    publicModule({
+      data: null,
+      error: {},
+    }).getPublicBurialRecord("1"),
+    /temporarily unavailable/,
+  );
 });
+
+test("garden choices skip repeated burial rows and keep later public names", async () => {
+  const rows = ["", "   ", ...Array(160).fill("Butterfly Palm Garden"),
+    ...Array(120).fill("Majestic Palm Court C"), "Majestic Palm Garden", null];
+  const requestedCursors = [];
+  let failureAt;
+  const reader = load("src/lib/supabase/public-data.ts", {
+    "./config": { getPublicSupabase: () => ({
+      from(view) {
+        assert.equal(view, "public_burial_records");
+        let after;
+        let limit;
+        return {
+          select(column) { assert.equal(column, "area_name"); return this; },
+          not(column, operator, value) {
+            assert.deepEqual([column, operator, value], ["area_name", "is", null]);
+            return this;
+          },
+          order(column) { assert.equal(column, "area_name"); return this; },
+          limit(size) { limit = size; return this; },
+          gt(column, value) { assert.equal(column, "area_name"); after = value; return this; },
+          then(resolve) {
+            requestedCursors.push(after);
+            const data = rows.filter(name => name !== null && (after === undefined || name > after))
+              .slice(0, Math.min(limit, 50)).map(area_name => ({ area_name }));
+            resolve(after !== undefined && after === failureAt
+              ? { data: null, error: { message: "test-only connection failure" } }
+              : { data, error: null });
+          },
+        };
+      },
+    }) },
+  });
+  assert.deepEqual(await reader.getPublicGardenNames(), [
+    "Butterfly Palm Garden", "Majestic Palm Court C", "Majestic Palm Garden",
+  ]);
+  assert.deepEqual(requestedCursors, [
+    undefined, "Butterfly Palm Garden", "Majestic Palm Court C", "Majestic Palm Garden",
+  ]);
+  failureAt = "Butterfly Palm Garden";
+  await assert.rejects(reader.getPublicGardenNames(), /temporarily unavailable/);
+});
+
 test("public burial dates use interment dates, never death dates", async () => {
-  const row = { burial_id: 1, display_name: "Test", death_date: "2020-01-01", birth_date: null, lot_code: "A", interment_date: "2020-01-05" };
-  const record = await publicModule({ data: row, error: null }).getPublicBurialRecord("1");
-  assert.equal(record.burialDate.includes("05") || record.burialDate.includes("5,"), true);
-  const missing = await publicModule({ data: { ...row, interment_date: null }, error: null }).getPublicBurialRecord("1");
+  const row = {
+    burial_id: 1,
+    display_name: "Test",
+    death_date: "2020-01-01",
+    birth_date: null,
+    lot_code: "A",
+    interment_date: "2020-01-05",
+  };
+  const record = await publicModule({
+    data: row,
+    error: null,
+  }).getPublicBurialRecord("1");
+
+  assert.equal(
+    record.burialDate.includes("05") ||
+      record.burialDate.includes("5,"),
+    true,
+  );
+
+  const missing = await publicModule({
+    data: { ...row, interment_date: null },
+    error: null,
+  }).getPublicBurialRecord("1");
+
   assert.equal(missing.burialDate, "Not recorded");
 });
 
-test("development demo profiles retain slug IDs while hosted lookups require numeric IDs", async () => {
-  const demo = { id: "demo-person", name: "Demo Person" };
-  const local = load("src/lib/supabase/public-data.ts", {
-    "./config": { getPublicSupabase: () => null, localSupabaseConfig: { environment: "local" } },
-    "@/lib/mock-data": { getGravesiteById: (id) => id === demo.id ? demo : null },
-    "@/lib/map-layout": { phaseOneGardenNames: [] },
+test(
+  "public navigation eligibility preserves the real coordinate review state",
+  async () => {
+    const point = {
+      type: "Point",
+      coordinates: [123.7, 13.1],
+    };
+    const verified = await publicModule({
+      data: {
+        burial_id: 1,
+        display_name: "Test",
+        lot_code: "A",
+        location_geom: point,
+        location_verified: true,
+        coordinate_status: "verified",
+      },
+      error: null,
+    }).getPublicBurialRecord("1");
+    const rejected = await publicModule({
+      data: {
+        burial_id: 1,
+        display_name: "Test",
+        lot_code: "A",
+        location_geom: point,
+        location_verified: false,
+        coordinate_status: "rejected",
+      },
+      error: null,
+    }).getPublicBurialRecord("1");
+    const missing = await publicModule({
+      data: {
+        burial_id: 1,
+        display_name: "Test",
+        lot_code: "A",
+        location_geom: null,
+        location_verified: true,
+        coordinate_status: "verified",
+      },
+      error: null,
+    }).getPublicBurialRecord("1");
+
+    assert.equal(verified.coordinateStatus, "verified");
+    assert.equal(verified.locationVerified, true);
+    assert.equal(rejected.coordinateStatus, "rejected");
+    assert.equal(rejected.locationVerified, false);
+    assert.equal(missing.coordinateStatus, "missing");
+    assert.equal(missing.locationVerified, false);
+  },
+);
+
+test("Unconfigured public readers never substitute fictional records", async () => {
+  const local = load("src/lib/supabase/public-data.ts", { "./config": {getPublicSupabase:()=>null} });
+  await assert.rejects(local.getPublicBurialRecord("5"), /temporarily unavailable/);
+  await assert.rejects(local.searchPublicBurials({query:"anything"}), /temporarily unavailable/);
+  await assert.rejects(local.getPublicBurialRecordByPlot("anything"), /temporarily unavailable/);
+  assert.deepEqual(await local.getPublicGardenNames(),[]);
+  assert.equal(await publicModule({data:null,error:{}}).getPublicBurialRecord("not-an-id"),null);
+});
+
+test("Shared-grave roster distinguishes unavailable, malformed, empty and authorized results",async()=>{
+  let response={data:null,error:{code:"PGRST202"}};
+  const reader=load("src/lib/supabase/public-data.ts",{"./config":{getPublicSupabase:()=>({rpc:async()=>response})}});
+  assert.deepEqual(await reader.getPublicSharedPlotBurials("5"),{state:"unavailable",items:[]});
+  response={data:[],error:null};
+  assert.deepEqual(await reader.getPublicSharedPlotBurials("5"),{state:"ready",items:[]});
+  response={data:[{id:"6",name:"Synthetic eligible person"}],error:null};
+  assert.deepEqual(await reader.getPublicSharedPlotBurials("5"),{state:"ready",items:response.data});
+  response={data:[{id:"6",name:"Synthetic eligible person",restrictedNote:"test-only restricted detail"}],error:null};
+  assert.deepEqual((await reader.getPublicSharedPlotBurials("5")).items,[{id:"6",name:"Synthetic eligible person"}]);
+  response={data:[{id:"bad",name:"Synthetic malformed person"}],error:null};
+  assert.equal((await reader.getPublicSharedPlotBurials("5")).state,"unavailable");
+  assert.equal((await reader.getPublicSharedPlotBurials("unsafe")).state,"unavailable");
+});
+
+test("walking steps follow the approved route geometry and disappear when guidance pauses", () => {
+  const { walkingSteps } = load("src/lib/phase2-routing.ts", { "./navigation-geo.ts": geo });
+  const coordinates = [[123, 13], [123.0005, 13], [123.0005, 12.9995]];
+  const steps = walkingSteps({ state: "ready", coordinates, distanceM: 110 });
+  assert.deepEqual(steps.map(step => step.instruction), [
+    "Follow the highlighted path", "Turn right along the path", "Approach the gravesite and check the marker",
+  ]);
+  assert(steps[0].distanceM > 50 && steps[1].distanceM > 50);
+  assert.deepEqual(walkingSteps({ state: "off_route", coordinates, distanceM: null }), []);
+  assert.deepEqual(walkingSteps({ state: "arrived", coordinates, distanceM: 0 }), []);
+});
+
+test("entrance route preview computes shortest reviewed path without requiring live GPS", () => {
+  const { routePhaseTwoFromEntrance } = load("src/lib/phase2-routing.ts", { "./navigation-geo.ts": geo });
+  const data = {
+    releaseId: "rel-1",
+    scopeRevision: 1,
+    target: { id: "plot-1", geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] }, properties: { lotId: "10" } },
+    accessPoint: { id: "ap-1", geometry: { type: "Point", coordinates: [123.001, 13] }, properties: { lotId: "10", nodeId: "n2" } },
+    layers: {
+      boundaries: [], plots: [], access_points: [], walkways: [], landmarks: [],
+      nodes: [
+        { id: "node-1", geometry: { type: "Point", coordinates: [123, 13] }, properties: { nodeId: "n1", nodeType: "main_entrance" } },
+        { id: "node-2", geometry: { type: "Point", coordinates: [123.001, 13] }, properties: { nodeId: "n2", nodeType: "access" } },
+      ],
+      edges: [
+        {
+          id: "edge-1",
+          geometry: { type: "LineString", coordinates: [[123, 13], [123.001, 13]] },
+          properties: { fromNodeId: "n1", toNodeId: "n2", direction: "both", forwardCostM: 108, reverseCostM: 108, walkingAllowed: true, isRestricted: false },
+        },
+      ],
+    },
+  };
+  const route = routePhaseTwoFromEntrance(data);
+  assert.equal(route.state, "ready");
+  assert.equal(route.distanceM, 108);
+  assert.deepEqual(route.coordinates, [[123, 13], [123.001, 13]]);
+});
+
+test("park layout walkway router builds a single path from entrance landmark to target plot", () => {
+  const planning = load("src/lib/phase2-planning.ts", { "./phase2-cad-details": {}, "./phase2-plot-coordinates": {} });
+  const layoutRouter = load("src/lib/phase2-layout-routing.ts", {
+    "./park-details": { PARK_NAME: "Forest Lake Memorial Park - Legazpi", PARK_ADDRESS: "Legazpi City" },
+    "./phase2-planning": planning,
   });
-  assert.equal((await local.getPublicBurialRecord(demo.id)).id, demo.id);
-  assert.equal(await publicModule({ data: null, error: {} }).getPublicBurialRecord(demo.id), null);
+  const bundle = {
+    data: {
+      layers: {
+        roads: [{ id: "roads:1", shape: { kind: "line", positions: [[0, 0], [0, 20], [20, 20]] } }],
+        paths: [{ id: "paths:1", shape: { kind: "line", positions: [[20, 20], [20, 40]] } }],
+      },
+    },
+    places: { landmarks: [{ id: "185B", name: "Guard House", kind: "facility", cadXY: [0, 0] }] },
+    details: { labels: [] },
+  };
+  const graph = layoutRouter.buildLayoutWalkwayGraph(bundle);
+  const starts = layoutRouter.layoutStartPoints(bundle);
+  assert.equal(starts[0].label, "Main Entrance (Guard House)");
+  const route = layoutRouter.routeOnParkLayout(graph, starts[0], { id: "lawn:1", bounds: [21, 39, 23, 41] });
+  assert.ok(route);
+  assert.ok(route.path.length >= 2);
+  assert.equal(route.approach.length, 2);
+  assert.ok(route.steps.some(step => /Guard House/.test(step.instruction)));
+  assert.ok(route.steps.at(-1).instruction.includes("check the grave marker"));
 });
