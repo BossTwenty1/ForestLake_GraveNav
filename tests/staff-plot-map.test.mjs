@@ -88,3 +88,4 @@ test("Multi-area Phase 2 scope accepts plots in any configured approved area and
   assert.equal(focusPublishedStaffPlot(plotInArea3, multiScope, multiGeo)?.target, target3);
   assert.match(plotMapUnavailable({ ...plotInArea3, areaId: 9 }, multiScope), /outside the approved/);
 });
+

@@ -1,0 +1,128 @@
+{
+  "sourcePackageSha256": "280a5e3fb9b2c44d62aee553a7c13243ef80795fecc3656a3260e88b215cf703",
+  "geometrySha256": "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77",
+  "semanticAuditSha256": "9b3a903acd3d8f0b516b4baa94a17fe8ae53082af3dcfaa7b6f4f941a7c153f5",
+  "notice": "Names confirmed in the CAD plan; physical completion and precise garden extents unverified. CAD text anchors and named-block footprint centers only.",
+  "landmarks": [
+    {
+      "id": "1867",
+      "name": "Butterfly Palm Garden",
+      "kind": "garden",
+      "cadXY": [
+        98.1539057665804,
+        158.4969956710764
+      ],
+      "source": {
+        "type": "CAD text",
+        "reference": "1867"
+      }
+    },
+    {
+      "id": "1869",
+      "name": "Butterfly Palm Garden",
+      "kind": "garden",
+      "cadXY": [
+        123.5850540988439,
+        124.0557345214609
+      ],
+      "source": {
+        "type": "CAD text",
+        "reference": "1869"
+      }
+    },
+    {
+      "id": "18BE",
+      "name": "Majestic Palm Garden",
+      "kind": "garden",
+      "cadXY": [
+        116.0144985283741,
+        67.33750167901854
+      ],
+      "source": {
+        "type": "CAD text",
+        "reference": "18BE"
+      }
+    },
+    {
+      "id": "18C1",
+      "name": "Majestic Palm Court C",
+      "kind": "garden",
+      "cadXY": [
+        101.6991536534996,
+        88.07595407880109
+      ],
+      "source": {
+        "type": "CAD text",
+        "reference": "18C1"
+      }
+    },
+    {
+      "id": "1759",
+      "name": "Water Tank",
+      "kind": "facility",
+      "cadXY": [
+        141.1513140790784,
+        183.8067206867443
+      ],
+      "source": {
+        "type": "CAD text",
+        "reference": "1759"
+      }
+    },
+    {
+      "id": "185B",
+      "name": "Guard House",
+      "kind": "facility",
+      "cadXY": [
+        142.7563775961652,
+        176.7956426524568
+      ],
+      "source": {
+        "type": "CAD text",
+        "reference": "185B"
+      }
+    },
+    {
+      "id": "1898",
+      "name": "NEW MPH (CAD name)",
+      "kind": "facility",
+      "cadXY": [
+        122.0766363032395,
+        81.34584486143058
+      ],
+      "source": {
+        "type": "named CAD block footprint center",
+        "reference": "1898/27D",
+        "block": "NEW MPH"
+      }
+    },
+    {
+      "id": "18C3",
+      "name": "Standard Gazebo",
+      "kind": "facility",
+      "cadXY": [
+        141.5842494764919,
+        49.14104584414125
+      ],
+      "source": {
+        "type": "named CAD block footprint center",
+        "reference": "18C3/283",
+        "block": "Standard Gazebo (25.00SQM)"
+      }
+    },
+    {
+      "id": "1A25",
+      "name": "Meter Center",
+      "kind": "facility",
+      "cadXY": [
+        107.76591888523261,
+        75.84644537061655
+      ],
+      "source": {
+        "type": "named CAD block footprint center",
+        "reference": "1A25/1345",
+        "block": "Meter Center (4.00M(L))"
+      }
+    }
+  ]
+}

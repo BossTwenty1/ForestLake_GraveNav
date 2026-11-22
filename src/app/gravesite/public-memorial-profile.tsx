@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { GravesiteLocationCard } from "@/components/visitor/gravesite-location-card";
 import { MemorialMapPreview } from "@/components/visitor/memorial-map-preview";
+import { getMemorialInscription } from "@/lib/memorial-inscriptions";
 import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
 import type { SharedPlotBurials } from "@/lib/supabase/public-data";
 import type { PublicMemorialPhoto } from "@/lib/supabase/public-memorial-photos";
@@ -35,7 +36,7 @@ export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, 
     { label: "Interment date", value: record.burialDate === "Not recorded" ? null : record.burialDate, icon: "records" },
   ];
   const datesAvailable = facts.some(fact => fact.value);
-  const inscription = record.inscription?.trim();
+  const inscription = record.inscription === undefined ? getMemorialInscription(record) : record.inscription;
   return (
     <article className={styles.content} aria-labelledby="memorial-name">
       <section className={styles.hero} aria-labelledby="memorial-name">

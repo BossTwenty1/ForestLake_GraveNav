@@ -33,17 +33,14 @@ export default async function HomePage() {
   const hasParkPreview = ["base.png", "roads.png", "paths.png", "trees.png"].every((file) =>
     existsSync(path.join(process.cwd(), "public", landscape, file)));
 
-  const hasHeroVideo = existsSync(path.join(process.cwd(), "public/homepage/park-hero-showcase.mp4"));
-  const hasTutorialVideo = existsSync(path.join(process.cwd(), "public/videos/visitor-journey.mp4"));
-
   return (
     <VisitorShell batchOne wide className={styles.shell} helpHref="#visitor-information" searchInputId="homepage-query">
       <section className={styles.hero} aria-label={`${PARK_NAME} memorial search`}>
-        {hasHeroVideo ? <HeroBackgroundVideo
+        <HeroBackgroundVideo
           className={styles.heroVideo}
           poster="/homepage/park-hero-poster.jpg"
-          src="/homepage/park-hero-showcase.mp4"
-        /> : null}
+          src="/homepage/park-hero.mp4"
+        />
         <div className={styles.context}>
           <div className={styles.container}>
             <span className={styles.contextPark}><i aria-hidden="true" /> {PARK_NAME}</span>
@@ -108,7 +105,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {hasTutorialVideo ? <section className={styles.tutorial} aria-labelledby="tutorial-title">
+      <section className={styles.tutorial} aria-labelledby="tutorial-title">
         <div className={styles.container}>
           <p className={styles.sectionLabel}><Icon name="eye" size={15} />Video Tutorial</p>
           <h2 id="tutorial-title"><span className={styles.mobileIcon}><Icon name="eye" size={19} /></span>A Simple Guide to GraveNav</h2>
@@ -122,7 +119,7 @@ export default async function HomePage() {
             </div>
           </div>
         </div>
-      </section> : null}
+      </section>
 
       <section id="visitor-information" className={styles.information} aria-label="Visitor information">
         <div className={styles.container}>

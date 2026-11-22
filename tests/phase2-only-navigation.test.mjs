@@ -26,11 +26,7 @@ const presentation = load("src/lib/visitor-presentation.ts", {
 });
 
 test("Map entry renders the integrated GraveNav section without redirecting to the static viewer", async () => {
-  let planningAssets = true;
   const { default: page } = load("src/app/map/page.tsx", {
-    "node:fs": { existsSync: () => planningAssets },
-    "node:path": { join: (...segments) => segments.join("/") },
-    "next/link": ({ children, ...props }) => jsx.jsx("a", { ...props, children }),
     "react/jsx-runtime": jsx,
     "next/navigation": { redirect },
     "@/components/visitor/visitor-shell": { VisitorShell: ({ children }) => jsx.jsx("main", { children }) },
@@ -50,10 +46,6 @@ test("Map entry renders the integrated GraveNav section without redirecting to t
     assert.doesNotMatch(html, /iframe|phase2-viewer/);
   }
   assert.match(renderToStaticMarkup(await page(request({ id: "17" }))), /data-burial="17" data-view="geographic"/);
-  planningAssets = false;
-  const html = renderToStaticMarkup(await page(request()));
-  assert.match(html, /park map and walking directions are unavailable in this preview/);
-  assert.ok(html.includes('href="/search"'));
 });
 
 test("Navigation cannot fall back to the retired network", async () => {

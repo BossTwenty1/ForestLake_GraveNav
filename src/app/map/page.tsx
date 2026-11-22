@@ -1,6 +1,3 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import Link from "next/link";
 import { safeResultsReturnTo } from "@/lib/visitor-presentation";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
 import { ParkExplorer } from "@/components/visitor/park-explorer";
@@ -20,19 +17,6 @@ export default async function MapPage({ searchParams }: { searchParams: SearchPa
   const section = value("section") || "all";
   const requestedPage = Number(value("page"));
   const page = Number.isInteger(requestedPage) ? Math.max(1, Math.min(requestedPage, 10000)) : 1;
-  const hasPlanningMap = existsSync(join(process.cwd(), "public/phase2-viewer/data/phase2.local.json"));
-  if (!hasPlanningMap) {
-    const { geography } = await getPhaseTwoDestination(id);
-    if (!geography.data) {
-      return <VisitorShell wide>
-        <section className="public-results-state">
-          <h1>Park map</h1>
-          <p>The park map and walking directions are unavailable in this preview.</p>
-          <Link className="button button--primary" href="/search">Search Memorials</Link>
-        </section>
-      </VisitorShell>;
-    }
-  }
   if (!id && !query && section === "all" && page === 1) {
     const { geography } = await getPhaseTwoDestination();
     return <VisitorShell wide><ParkExplorer geography={geography.data} startPublished={view === "geographic"} /></VisitorShell>;

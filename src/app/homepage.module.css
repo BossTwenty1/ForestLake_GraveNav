@@ -122,7 +122,7 @@
   padding: 0 0 28px;
   overflow: hidden;
   isolation: isolate;
-  background: #033019 var(--home-park) center / cover no-repeat;
+  background: #033019;
 }
 
 .heroVideo {

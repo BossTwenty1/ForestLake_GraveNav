@@ -1,6 +1,6 @@
 import { canNavigateToPublicRecord } from "@/lib/public-navigation";
 import { planningDataSha256 } from "@/lib/phase2-planning";
-import { getPublicSupabase, localSupabaseConfig } from "./config";
+import { getPublicSupabase } from "./config";
 import { getPublicBurialGis, getPublicMappingLayer } from "./gis-data";
 import { loadPhaseTwoGeography, phaseTwoScope } from "@/lib/phase2-geographic";
 import { getPublicBurialRecord } from "./public-data";
@@ -46,7 +46,7 @@ type CapstonePlanningDatabase = {
 };
 
 export async function getCapstonePlanningPlot(id: string): Promise<string | null> {
-  if (localSupabaseConfig.environment !== "local" || !/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return null;
+  if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return null;
   try {
     const client = getPublicSupabase<CapstonePlanningDatabase>();
     if (!client) return null;
@@ -62,9 +62,8 @@ export async function getCapstonePlanningPlot(id: string): Promise<string | null
 export type CapstonePlanningMemorial = { id: string; name: string; dates: string; reference: string | null };
 
 export async function getCapstonePlanningMemorials(candidateId: string, signal: AbortSignal): Promise<CapstonePlanningMemorial[]> {
-  if (localSupabaseConfig.environment !== "local") return [];
   const client = getPublicSupabase<CapstonePlanningDatabase>();
-  if (!client) throw Error("Local memorial registry is unavailable");
+  if (!client) throw Error("Memorial registry is unavailable");
   const { data, error } = await client.rpc("get_capstone_planning_memorials", {
     p_cad_candidate_id: candidateId, p_plan_sha256: planningDataSha256,
   }).abortSignal(signal);
