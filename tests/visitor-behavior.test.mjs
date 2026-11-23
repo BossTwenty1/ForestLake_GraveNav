@@ -527,3 +527,45 @@ test("park layout walkway router builds a single path from entrance landmark to 
   assert.ok(route.steps.some(step => /Guard House/.test(step.instruction)));
   assert.ok(route.steps.at(-1).instruction.includes("check the grave marker"));
 });
+
+test("toPublicRecord decodes PostGIS EWKB hex geography points for verified navigation destinations", () => {
+  const publicData = load("src/lib/supabase/public-data.ts", {
+    "./config": { getPublicSupabase: () => null },
+  });
+  const record = publicData.toPublicRecord({
+    burial_id: 5,
+    display_name: "Tomas Kuwento",
+    birth_date: "1945-01-01",
+    death_date: "2020-05-01",
+    interment_date: "2020-05-05",
+    record_status: "active",
+    lot_code: "P2S-f20993b15d71761b056a3c878b29125bfdd1f5cca743604bcea9ed830f4e87b2",
+    area_name: "Butterfly Palm Garden",
+    location_geom: "0101000020E610000044847F1174EF5E409D887E6DFD402A40",
+    px_loc_x: null,
+    px_loc_y: null,
+    location_verified: true,
+    coordinate_status: "verified",
+  });
+  assert.ok(record.location, "EWKB hex Point must decode to coordinates");
+  assert.ok(Math.abs(record.location.longitude - 123.741459) < 0.001);
+  assert.ok(Math.abs(record.location.latitude - 13.126933) < 0.001);
+  assert.equal(record.coordinateStatus, "verified");
+  assert.equal(record.locationVerified, true);
+
+  const invalid = publicData.toPublicRecord({
+    burial_id: 6,
+    display_name: "Invalid Hex",
+    birth_date: null,
+    death_date: null,
+    record_status: "active",
+    lot_code: "TEST-1",
+    location_geom: "0102000020E6100000",
+    px_loc_x: null,
+    px_loc_y: null,
+    location_verified: true,
+    coordinate_status: "verified",
+  });
+  assert.equal(invalid.location, null);
+  assert.equal(invalid.locationVerified, false);
+});

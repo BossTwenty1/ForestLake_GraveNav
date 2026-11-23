@@ -159,13 +159,38 @@ function getPointCoordinates(value: unknown): [number, number] | null {
     const coordinates = parsed.coordinates;
     if (Array.isArray(coordinates) && coordinates.length >= 2 && typeof coordinates[0] === "number" && typeof coordinates[1] === "number") return [coordinates[0], coordinates[1]];
   } catch {
-    // PostgREST may return geography as WKT text.
+    // PostgREST may return geography as WKT text or PostGIS EWKB hex.
   }
   const match = normalized.match(/^\s*POINT\s*\(\s*([^\s,]+)\s+([^\s,)]+)\s*\)\s*$/i);
-  if (!match) return null;
-  const longitude = Number(match[1]);
-  const latitude = Number(match[2]);
-  return Number.isFinite(longitude) && Number.isFinite(latitude) ? [longitude, latitude] : null;
+  if (match) {
+    const longitude = Number(match[1]);
+    const latitude = Number(match[2]);
+    return Number.isFinite(longitude) && Number.isFinite(latitude) ? [longitude, latitude] : null;
+  }
+  return parseEwkbPointHex(normalized);
+}
+
+function parseEwkbPointHex(value: string): [number, number] | null {
+  const hex = value.trim();
+  if (!/^[0-9a-f]+$/i.test(hex) || hex.length < 42 || hex.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  const view = new DataView(bytes.buffer);
+  const byteOrder = view.getUint8(0);
+  if (byteOrder !== 0 && byteOrder !== 1) return null;
+  const littleEndian = byteOrder === 1;
+  const rawType = view.getUint32(1, littleEndian);
+  const hasSrid = (rawType & 0x20000000) !== 0;
+  if ((rawType & 0x000000ff) !== 1) return null;
+  const offset = 5 + (hasSrid ? 4 : 0);
+  if (bytes.length < offset + 16) return null;
+  const longitude = view.getFloat64(offset, littleEndian);
+  const latitude = view.getFloat64(offset + 8, littleEndian);
+  return Number.isFinite(longitude) && Number.isFinite(latitude) && Math.abs(longitude) <= 180 && Math.abs(latitude) <= 90
+    ? [longitude, latitude]
+    : null;
 }
 
 function formatDate(value: string) {
