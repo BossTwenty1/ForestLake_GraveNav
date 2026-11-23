@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Forest Lake Phase 2 — Hosted DB vs PRS92 vs Luzon 1911 Comparison</name>
+    <description>Toggle the 3 folders in Google Earth Pro to see whether Hosted Supabase DB (2026-11-13) or PRS92/Luzon 1911 sits directly on Forest Lake Phase 2.</description>
+    <Style id="hostedPin"><IconStyle><color>ff00b4ff</color><scale>1.1</scale></IconStyle></Style>
+    <Style id="hostedLine"><LineStyle><color>ff00b4ff</color><width>3.0</width></LineStyle></Style>
+    <Style id="hostedCadLine"><LineStyle><color>ff00ffff</color><width>2.0</width></LineStyle></Style>
+    <Style id="hostedAreaLine"><LineStyle><color>aa00d4ff</color><width>2.0</width></LineStyle></Style>
+    <Style id="prs92Pin"><IconStyle><color>ff34d399</color><scale>0.95</scale></IconStyle></Style>
+    <Style id="prs92Line"><LineStyle><color>ff34d399</color><width>2.0</width></LineStyle></Style>
+    <Style id="luzonPin"><IconStyle><color>ff60a5fa</color><scale>0.95</scale></IconStyle></Style>
+    <Style id="luzonLine"><LineStyle><color>ff60a5fa</color><width>2.0</width></LineStyle></Style>
+    <Folder>
+      <name>Hosted Supabase DB (2026-11-13 public.site / public.lot)</name>
+      <Placemark>
+        <name>GCP-01 [HOSTED DB]</name>
+        <description>Guard House center (North Main Entrance) (Main Entrance) | Derived from hosted public.lot (2026-11-13): 13.1274220, 123.7416148</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7416148,13.1274220,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-02 [HOSTED DB]</name>
+        <description>Water Tank pad center (North of Guard House) (Main Entrance) | Derived from hosted public.lot (2026-11-13): 13.1274854, 123.7416000</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7416000,13.1274854,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-03 [HOSTED DB]</name>
+        <description>North-most property boundary corner (near road entrance) (Perimeter North) | Derived from hosted public.lot (2026-11-13): 13.1276364, 123.7416819</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7416819,13.1276364,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-04 [HOSTED DB]</name>
+        <description>Butterfly Palm Garden B center / upper road curve (Butterfly Palm Garden B) | Derived from hosted public.lot (2026-11-13): 13.1272566, 123.7412035</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7412035,13.1272566,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-01 [HOSTED DB]</name>
+        <description>Parking Area 01 (48 slots along 11.5m RROW between Butterfly A and B) (Butterfly Palm Garden A/B) | Derived from hosted public.lot (2026-11-13): 13.1271065, 123.7414293</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7414293,13.1271065,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-05 [HOSTED DB]</name>
+        <description>Butterfly Palm Garden A sector marker (11.5m RROW curve) (Butterfly Palm Garden A) | Derived from hosted public.lot (2026-11-13): 13.1271969, 123.7416612</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7416612,13.1271969,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-06 [HOSTED DB]</name>
+        <description>Parking Area 03 (6 slots on east property fence line) (East Perimeter) | Derived from hosted public.lot (2026-11-13): 13.1269321, 123.7420962</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7420962,13.1269321,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-02 [HOSTED DB]</name>
+        <description>Majestic Palm Garden C section center (Majestic Palm Garden C) | Derived from hosted public.lot (2026-11-13): 13.1266250, 123.7422193</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7422193,13.1266250,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-07 [HOSTED DB]</name>
+        <description>Broad walkway junction along Majestic C / A boundary (Majestic Palm Garden C) | Derived from hosted public.lot (2026-11-13): 13.1264946, 123.7422651</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7422651,13.1264946,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-08 [HOSTED DB]</name>
+        <description>East-most property boundary corner (3m Creek Easement junction) (Perimeter East) | Derived from hosted public.lot (2026-11-13): 13.1261186, 123.7427976</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7427976,13.1261186,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-09 [HOSTED DB]</name>
+        <description>NEW MPH (Multipurpose Hall) building footprint center (Majestic Palm Court C) | Derived from hosted public.lot (2026-11-13): 13.1265593, 123.7414242</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7414242,13.1265593,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-03 [HOSTED DB]</name>
+        <description>Meter Center structure footprint center (9.5m RROW) (Majestic Palm Court C) | Derived from hosted public.lot (2026-11-13): 13.1265096, 123.7412922</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7412922,13.1265096,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-10 [HOSTED DB]</name>
+        <description>Standard Gazebo (25 sqm) footprint center between Majestic D and A (Majestic Palm Garden Central) | Derived from hosted public.lot (2026-11-13): 13.1262682, 123.7416041</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7416041,13.1262682,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-11 [HOSTED DB]</name>
+        <description>Majestic Palm Garden A sector center (Majestic Palm Garden A) | Derived from hosted public.lot (2026-11-13): 13.1265052, 123.7418678</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7418678,13.1265052,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-12 [HOSTED DB]</name>
+        <description>Parking Area 02 north end (west property line near 9.5m RROW) (West Perimeter) | Derived from hosted public.lot (2026-11-13): 13.1264043, 123.7405843</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7405843,13.1264043,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-13 [HOSTED DB]</name>
+        <description>West-most property boundary corner (steel matting fence) (Perimeter West) | Derived from hosted public.lot (2026-11-13): 13.1262812, 123.7404808</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7404808,13.1262812,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-04 [HOSTED DB]</name>
+        <description>Parking Area 02 south bay (near southwest Majestic D corner) (West Parking 02) | Derived from hosted public.lot (2026-11-13): 13.1263106, 123.7406595</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7406595,13.1263106,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-14 [HOSTED DB]</name>
+        <description>Majestic Palm Garden D section center (Majestic Palm Garden D) | Derived from hosted public.lot (2026-11-13): 13.1262435, 123.7411278</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7411278,13.1262435,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-15 [HOSTED DB]</name>
+        <description>South-most property boundary corner along creek easement (Perimeter South) | Derived from hosted public.lot (2026-11-13): 13.1258640, 123.7411269</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7411269,13.1258640,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-05 [HOSTED DB]</name>
+        <description>South creek edge midpoint (south of Standard Gazebo) (South Creek Edge) | Derived from hosted public.lot (2026-11-13): 13.1259894, 123.7417654</description>
+        <styleUrl>#hostedPin</styleUrl>
+        <Point><coordinates>123.7417654,13.1259894,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>Hosted public.site Boundary (28 pts)</name>
+        <styleUrl>#hostedLine</styleUrl>
+        <LineString><tessellate>1</tessellate><coordinates>123.7429856,13.1258906,0 123.7434160,13.1261436,0 123.7436297,13.1263093,0 123.7437432,13.1262158,0 123.7437431,13.1257676,0 123.7434636,13.1250223,0 123.7433726,13.1247872,0 123.7431998,13.1247915,0 123.7428953,13.1249087,0 123.7421899,13.1247571,0 123.7420667,13.1250588,0 123.7415515,13.1248483,0 123.7414651,13.1251176,0 123.7410411,13.1250102,0 123.7405039,13.1252596,0 123.7401368,13.1254434,0 123.7405552,13.1261286,0 123.7404808,13.1262812,0 123.7406466,13.1265486,0 123.7412288,13.1265371,0 123.7412884,13.1265463,0 123.7412687,13.1271945,0 123.7411862,13.1273981,0 123.7412481,13.1275106,0 123.7416663,13.1277043,0 123.7417729,13.1272416,0 123.7419434,13.1271533,0 123.7429856,13.1258906,0</coordinates></LineString>
+      </Placemark>
+      <Placemark>
+        <name>CAD Boundary Transformed to Hosted DB (38 pts)</name>
+        <styleUrl>#hostedCadLine</styleUrl>
+        <LineString><tessellate>1</tessellate><coordinates>123.7412884,13.1265463,0 123.7412687,13.1271945,0 123.7411862,13.1273982,0 123.7411954,13.1274149,0 123.7412178,13.1274100,0 123.7412946,13.1273949,0 123.7413483,13.1273885,0 123.7414137,13.1273957,0 123.7414842,13.1274311,0 123.7415362,13.1274754,0 123.7415889,13.1275210,0 123.7416075,13.1276002,0 123.7416819,13.1276364,0 123.7417728,13.1272416,0 123.7419434,13.1271534,0 123.7427976,13.1261186,0 123.7426246,13.1261850,0 123.7424958,13.1261979,0 123.7423410,13.1261611,0 123.7423080,13.1261574,0 123.7422748,13.1261574,0 123.7422418,13.1261610,0 123.7421360,13.1261846,0 123.7421192,13.1261858,0 123.7418739,13.1260745,0 123.7415274,13.1259595,0 123.7413670,13.1259133,0 123.7411601,13.1258651,0 123.7411269,13.1258640,0 123.7410957,13.1258752,0 123.7410207,13.1259211,0 123.7410030,13.1259298,0 123.7408009,13.1260986,0 123.7406648,13.1261906,0 123.7404808,13.1262812,0 123.7406466,13.1265485,0 123.7412288,13.1265372,0 123.7412884,13.1265463,0</coordinates></LineString>
+      </Placemark>
+      <Placemark>
+        <name>Hosted public.area: BPG - Butterfly Palm Garden</name>
+        <styleUrl>#hostedAreaLine</styleUrl>
+        <LineString><tessellate>1</tessellate><coordinates>123.7416704,13.1266450,0 123.7416645,13.1266452,0 123.7416589,13.1266467,0 123.7416536,13.1266492,0 123.7416491,13.1266528,0 123.7414021,13.1268928,0 123.7413984,13.1268973,0 123.7412728,13.1270866,0 123.7412720,13.1270882,0 123.7412687,13.1271945,0 123.7411990,13.1273666,0 123.7412031,13.1273743,0 123.7412117,13.1273903,0 123.7412151,13.1273952,0 123.7412195,13.1273992,0 123.7412247,13.1274023,0 123.7412304,13.1274041,0 123.7415537,13.1274720,0 123.7415587,13.1274726,0 123.7415638,13.1274723,0 123.7415687,13.1274710,0 123.7415734,13.1274690,0 123.7415775,13.1274661,0 123.7417556,13.1273165,0 123.7417729,13.1272416,0 123.7419434,13.1271533,0 123.7420538,13.1270196,0 123.7420539,13.1270177,0 123.7420534,13.1270128,0 123.7420519,13.1270081,0 123.7419716,13.1268153,0 123.7419704,13.1268127,0 123.7419572,13.1267888,0 123.7419559,13.1267867,0 123.7419387,13.1267612,0 123.7419361,13.1267580,0 123.7419331,13.1267551,0 123.7419116,13.1267381,0 123.7419103,13.1267371,0 123.7418973,13.1267280,0 123.7418960,13.1267272,0 123.7418882,13.1267223,0 123.7418726,13.1267127,0 123.7418648,13.1267078,0 123.7418570,13.1267030,0 123.7418415,13.1266933,0 123.7418342,13.1266902,0 123.7416761,13.1266460,0 123.7416704,13.1266450,0</coordinates></LineString>
+      </Placemark>
+      <Placemark>
+        <name>Hosted public.area: MPG - Majestic Palm Garden</name>
+        <styleUrl>#hostedAreaLine</styleUrl>
+        <LineString><tessellate>1</tessellate><coordinates>123.7410922,13.1258912,0 123.7410875,13.1258924,0 123.7410832,13.1258944,0 123.7410792,13.1258971,0 123.7410239,13.1259423,0 123.7409686,13.1259875,0 123.7409678,13.1259881,0 123.7408387,13.1261010,0 123.7408355,13.1261043,0 123.7408171,13.1261269,0 123.7408130,13.1261338,0 123.7408038,13.1261564,0 123.7408022,13.1261619,0 123.7407745,13.1263200,0 123.7407744,13.1263206,0 123.7407524,13.1264655,0 123.7407521,13.1264701,0 123.7407526,13.1264927,0 123.7407530,13.1265152,0 123.7407536,13.1265203,0 123.7407551,13.1265251,0 123.7407576,13.1265296,0 123.7407608,13.1265336,0 123.7407647,13.1265369,0 123.7407692,13.1265394,0 123.7407741,13.1265411,0 123.7407933,13.1265457,0 123.7412288,13.1265371,0 123.7412884,13.1265463,0 123.7412848,13.1266638,0 123.7421621,13.1268747,0 123.7421673,13.1268754,0 123.7421725,13.1268752,0 123.7421731,13.1268750,0 123.7426795,13.1262615,0 123.7426802,13.1262579,0 123.7426801,13.1262525,0 123.7426790,13.1262473,0 123.7426769,13.1262424,0 123.7426738,13.1262381,0 123.7426699,13.1262344,0 123.7426339,13.1262061,0 123.7426286,13.1262028,0 123.7426227,13.1262008,0 123.7412044,13.1258915,0 123.7411984,13.1258908,0 123.7411615,13.1258908,0 123.7410970,13.1258908,0 123.7410922,13.1258912,0</coordinates></LineString>
+      </Placemark>
+    </Folder>
+    <Folder><name>PRS92 Zone IV (EPSG:3124) — Reference</name>
+      <Placemark>
+        <name>GCP-01 [EPSG:3124]</name>
+        <description>Guard House center (North Main Entrance) | EPSG:3124 ref: 13.1260759, 123.7430040</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7430040,13.1260759,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-02 [EPSG:3124]</name>
+        <description>Water Tank pad center (North of Guard House) | EPSG:3124 ref: 13.1261393, 123.7429892</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7429892,13.1261393,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-03 [EPSG:3124]</name>
+        <description>North-most property boundary corner (near road entrance) | EPSG:3124 ref: 13.1262902, 123.7430711</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7430711,13.1262902,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-04 [EPSG:3124]</name>
+        <description>Butterfly Palm Garden B center / upper road curve | EPSG:3124 ref: 13.1259105, 123.7425927</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7425927,13.1259105,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-01 [EPSG:3124]</name>
+        <description>Parking Area 01 (48 slots along 11.5m RROW between Butterfly A and B) | EPSG:3124 ref: 13.1257604, 123.7428184</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7428184,13.1257604,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-05 [EPSG:3124]</name>
+        <description>Butterfly Palm Garden A sector marker (11.5m RROW curve) | EPSG:3124 ref: 13.1258508, 123.7430504</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7430504,13.1258508,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-06 [EPSG:3124]</name>
+        <description>Parking Area 03 (6 slots on east property fence line) | EPSG:3124 ref: 13.1255859, 123.7434854</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7434854,13.1255859,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-02 [EPSG:3124]</name>
+        <description>Majestic Palm Garden C section center | EPSG:3124 ref: 13.1252788, 123.7436085</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7436085,13.1252788,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-07 [EPSG:3124]</name>
+        <description>Broad walkway junction along Majestic C / A boundary | EPSG:3124 ref: 13.1251484, 123.7436543</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7436543,13.1251484,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-08 [EPSG:3124]</name>
+        <description>East-most property boundary corner (3m Creek Easement junction) | EPSG:3124 ref: 13.1247724, 123.7441868</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7441868,13.1247724,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-09 [EPSG:3124]</name>
+        <description>NEW MPH (Multipurpose Hall) building footprint center | EPSG:3124 ref: 13.1252132, 123.7428133</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7428133,13.1252132,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-03 [EPSG:3124]</name>
+        <description>Meter Center structure footprint center (9.5m RROW) | EPSG:3124 ref: 13.1251635, 123.7426814</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7426814,13.1251635,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-10 [EPSG:3124]</name>
+        <description>Standard Gazebo (25 sqm) footprint center between Majestic D and A | EPSG:3124 ref: 13.1249221, 123.7429933</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7429933,13.1249221,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-11 [EPSG:3124]</name>
+        <description>Majestic Palm Garden A sector center | EPSG:3124 ref: 13.1251591, 123.7432569</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7432569,13.1251591,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-12 [EPSG:3124]</name>
+        <description>Parking Area 02 north end (west property line near 9.5m RROW) | EPSG:3124 ref: 13.1250582, 123.7419734</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7419734,13.1250582,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-13 [EPSG:3124]</name>
+        <description>West-most property boundary corner (steel matting fence) | EPSG:3124 ref: 13.1249351, 123.7418700</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7418700,13.1249351,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-04 [EPSG:3124]</name>
+        <description>Parking Area 02 south bay (near southwest Majestic D corner) | EPSG:3124 ref: 13.1249645, 123.7420486</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7420486,13.1249645,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-14 [EPSG:3124]</name>
+        <description>Majestic Palm Garden D section center | EPSG:3124 ref: 13.1248974, 123.7425170</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7425170,13.1248974,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-15 [EPSG:3124]</name>
+        <description>South-most property boundary corner along creek easement | EPSG:3124 ref: 13.1245179, 123.7425161</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7425161,13.1245179,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-05 [EPSG:3124]</name>
+        <description>South creek edge midpoint (south of Standard Gazebo) | EPSG:3124 ref: 13.1246433, 123.7431545</description>
+        <styleUrl>#prs92Pin</styleUrl>
+        <Point><coordinates>123.7431545,13.1246433,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>Phase 2 Boundary (EPSG:3124)</name>
+        <styleUrl>#prs92Line</styleUrl>
+        <LineString><tessellate>1</tessellate><coordinates>123.7426776,13.1252002,0 123.7426579,13.1258484,0 123.7425754,13.1260521,0 123.7425846,13.1260688,0 123.7426070,13.1260639,0 123.7426838,13.1260488,0 123.7427375,13.1260424,0 123.7428029,13.1260496,0 123.7428734,13.1260850,0 123.7429255,13.1261293,0 123.7429781,13.1261749,0 123.7429967,13.1262541,0 123.7430711,13.1262902,0 123.7431620,13.1258955,0 123.7433326,13.1258073,0 123.7441868,13.1247724,0 123.7440138,13.1248388,0 123.7438850,13.1248517,0 123.7437302,13.1248149,0 123.7436972,13.1248112,0 123.7436640,13.1248112,0 123.7436310,13.1248148,0 123.7435252,13.1248384,0 123.7435083,13.1248397,0 123.7432631,13.1247283,0 123.7429165,13.1246134,0 123.7427562,13.1245671,0 123.7425493,13.1245189,0 123.7425161,13.1245179,0 123.7424849,13.1245290,0 123.7424099,13.1245750,0 123.7423921,13.1245836,0 123.7421900,13.1247525,0 123.7420540,13.1248444,0 123.7418700,13.1249351,0 123.7420358,13.1252024,0 123.7426180,13.1251910,0 123.7426776,13.1252002,0</coordinates></LineString>
+      </Placemark>
+    </Folder>
+    <Folder><name>Luzon 1911 Zone IV (EPSG:25394) — Reference</name>
+      <Placemark>
+        <name>GCP-01 [EPSG:25394]</name>
+        <description>Guard House center (North Main Entrance) | EPSG:25394 ref: 13.1260034, 123.7430289</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7430289,13.1260034,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-02 [EPSG:25394]</name>
+        <description>Water Tank pad center (North of Guard House) | EPSG:25394 ref: 13.1260668, 123.7430141</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7430141,13.1260668,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-03 [EPSG:25394]</name>
+        <description>North-most property boundary corner (near road entrance) | EPSG:25394 ref: 13.1262177, 123.7430960</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7430960,13.1262177,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-04 [EPSG:25394]</name>
+        <description>Butterfly Palm Garden B center / upper road curve | EPSG:25394 ref: 13.1258380, 123.7426176</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7426176,13.1258380,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-01 [EPSG:25394]</name>
+        <description>Parking Area 01 (48 slots along 11.5m RROW between Butterfly A and B) | EPSG:25394 ref: 13.1256879, 123.7428433</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7428433,13.1256879,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-05 [EPSG:25394]</name>
+        <description>Butterfly Palm Garden A sector marker (11.5m RROW curve) | EPSG:25394 ref: 13.1257782, 123.7430753</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7430753,13.1257782,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-06 [EPSG:25394]</name>
+        <description>Parking Area 03 (6 slots on east property fence line) | EPSG:25394 ref: 13.1255134, 123.7435103</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7435103,13.1255134,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-02 [EPSG:25394]</name>
+        <description>Majestic Palm Garden C section center | EPSG:25394 ref: 13.1252062, 123.7436333</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7436333,13.1252062,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-07 [EPSG:25394]</name>
+        <description>Broad walkway junction along Majestic C / A boundary | EPSG:25394 ref: 13.1250759, 123.7436791</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7436791,13.1250759,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-08 [EPSG:25394]</name>
+        <description>East-most property boundary corner (3m Creek Easement junction) | EPSG:25394 ref: 13.1246998, 123.7442117</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7442117,13.1246998,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-09 [EPSG:25394]</name>
+        <description>NEW MPH (Multipurpose Hall) building footprint center | EPSG:25394 ref: 13.1251406, 123.7428382</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7428382,13.1251406,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-03 [EPSG:25394]</name>
+        <description>Meter Center structure footprint center (9.5m RROW) | EPSG:25394 ref: 13.1250909, 123.7427063</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7427063,13.1250909,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-10 [EPSG:25394]</name>
+        <description>Standard Gazebo (25 sqm) footprint center between Majestic D and A | EPSG:25394 ref: 13.1248496, 123.7430181</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7430181,13.1248496,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-11 [EPSG:25394]</name>
+        <description>Majestic Palm Garden A sector center | EPSG:25394 ref: 13.1250866, 123.7432818</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7432818,13.1250866,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-12 [EPSG:25394]</name>
+        <description>Parking Area 02 north end (west property line near 9.5m RROW) | EPSG:25394 ref: 13.1249857, 123.7419983</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7419983,13.1249857,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-13 [EPSG:25394]</name>
+        <description>West-most property boundary corner (steel matting fence) | EPSG:25394 ref: 13.1248626, 123.7418948</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7418948,13.1248626,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-04 [EPSG:25394]</name>
+        <description>Parking Area 02 south bay (near southwest Majestic D corner) | EPSG:25394 ref: 13.1248920, 123.7420735</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7420735,13.1248920,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-14 [EPSG:25394]</name>
+        <description>Majestic Palm Garden D section center | EPSG:25394 ref: 13.1248249, 123.7425419</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7425419,13.1248249,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>GCP-15 [EPSG:25394]</name>
+        <description>South-most property boundary corner along creek easement | EPSG:25394 ref: 13.1244454, 123.7425409</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7425409,13.1244454,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>VAL-05 [EPSG:25394]</name>
+        <description>South creek edge midpoint (south of Standard Gazebo) | EPSG:25394 ref: 13.1245707, 123.7431794</description>
+        <styleUrl>#luzonPin</styleUrl>
+        <Point><coordinates>123.7431794,13.1245707,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>Phase 2 Boundary (EPSG:25394)</name>
+        <styleUrl>#luzonLine</styleUrl>
+        <LineString><tessellate>1</tessellate><coordinates>123.7427024,13.1251276,0 123.7426828,13.1257759,0 123.7426003,13.1259795,0 123.7426095,13.1259963,0 123.7426319,13.1259913,0 123.7427087,13.1259763,0 123.7427624,13.1259699,0 123.7428278,13.1259770,0 123.7428983,13.1260125,0 123.7429504,13.1260568,0 123.7430030,13.1261023,0 123.7430216,13.1261815,0 123.7430960,13.1262177,0 123.7431869,13.1258230,0 123.7433575,13.1257347,0 123.7442117,13.1246998,0 123.7440387,13.1247662,0 123.7439099,13.1247791,0 123.7437550,13.1247424,0 123.7437220,13.1247387,0 123.7436888,13.1247386,0 123.7436558,13.1247423,0 123.7435500,13.1247659,0 123.7435332,13.1247671,0 123.7432879,13.1246558,0 123.7429414,13.1245408,0 123.7427810,13.1244946,0 123.7425741,13.1244464,0 123.7425409,13.1244454,0 123.7425097,13.1244565,0 123.7424347,13.1245024,0 123.7424170,13.1245111,0 123.7422149,13.1246800,0 123.7420788,13.1247719,0 123.7418948,13.1248626,0 123.7420607,13.1251299,0 123.7426428,13.1251185,0 123.7427024,13.1251276,0</coordinates></LineString>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>

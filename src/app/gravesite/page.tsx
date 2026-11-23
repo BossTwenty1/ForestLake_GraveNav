@@ -35,7 +35,7 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
   ]);
 
   return <VisitorShell backHref={returnTo} backLabel="Back to Search Results" batchOne wide className={styles.shell} helpHref="#gravesite-details">
-    <PublicMemorialProfile record={record} mapScope={mapScope === "unavailable" && planningPlot ? "planning" : mapScope} shared={shared} photos={photos} returnTo={returnTo} />
+    <PublicMemorialProfile record={record} mapScope={mapScope === "unavailable" && planningPlot ? "planning" : mapScope} planningPlot={planningPlot} shared={shared} photos={photos} returnTo={returnTo} />
   </VisitorShell>;
 }
 

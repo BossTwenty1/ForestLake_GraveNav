@@ -1500,6 +1500,7 @@ export type Database = {
           interment_order_number: string | null
           interment_status: string
           lot_id: number
+          inscription: string | null
           quality_notes: string | null
           record_source: string | null
           record_status: string
@@ -1522,6 +1523,7 @@ export type Database = {
           interment_order_number?: string | null
           interment_status: string
           lot_id: number
+          inscription?: string | null
           quality_notes?: string | null
           record_source?: string | null
           record_status?: string
@@ -1544,6 +1546,7 @@ export type Database = {
           interment_order_number?: string | null
           interment_status?: string
           lot_id?: number
+          inscription?: string | null
           quality_notes?: string | null
           record_source?: string | null
           record_status?: string
@@ -1593,6 +1596,7 @@ export type Database = {
           deceased_id: number
           display_name: string
           public_display: boolean
+          sex: string | null
         }
         Insert: {
           birth_date?: string | null
@@ -1601,6 +1605,7 @@ export type Database = {
           deceased_id?: number
           display_name: string
           public_display?: boolean
+          sex?: string | null
         }
         Update: {
           birth_date?: string | null
@@ -1609,6 +1614,7 @@ export type Database = {
           deceased_id?: number
           display_name?: string
           public_display?: boolean
+          sex?: string | null
         }
         Relationships: []
       }
@@ -2194,6 +2200,7 @@ export type Database = {
           px_loc_y: number | null
           record_status: string | null
           sector_name: string | null
+          inscription: string | null
         }
         Relationships: []
       }

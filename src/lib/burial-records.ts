@@ -15,6 +15,7 @@ export function recordInputFromRecord(
   return {
     revision: record.revision,
     name: record.name,
+    sex: record.sex,
     lotId: record.lotId,
     birthDate: record.birthDate || "",
     deathDate: record.deathDate || "",
@@ -29,6 +30,7 @@ export function recordInputFromRecord(
     serviceProvider: record.serviceProvider || "",
     recordSource: record.recordSource || "",
     qualityNotes: record.qualityNotes || "",
+    inscription: record.inscription ?? undefined,
     ...override,
   };
 }

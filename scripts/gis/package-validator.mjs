@@ -3,9 +3,8 @@ import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   DATA_FILE_NAMES,
-  EVIDENCE_CONTRACTS,
   EVIDENCE_FILE_NAMES,
-  GEOJSON_CONTRACTS,
+  FULL_PACKAGE_LIMITS,
   GEOJSON_FILE_NAMES,
   IDENTIFIER_PATTERNS,
   MANIFEST_FILE_NAME,
@@ -14,6 +13,9 @@ import {
   PRIVATE_PUBLIC_PROPERTY_NAMES,
   computePackageDigest,
   computeSha256,
+  getEvidenceContracts,
+  getGeoJsonContracts,
+  getPackageLimits,
   sortValidationErrors,
   validationError,
 } from "./package-contract.mjs";
@@ -22,6 +24,11 @@ import { StrictJsonError, parseStrictJson } from "./strict-json.mjs";
 const MANIFEST_KEYS = [
   "schema_version", "package_id", "site_id", "pilot_area_id", "release_code", "title", "description",
   "source_plan", "crs", "exported_at", "qgis_version", "selected_run_code", "pilot_lot_ids",
+  "provenance_notes", "limitations", "files",
+];
+const FULL_MANIFEST_KEYS = [
+  "schema_version", "package_id", "site_id", "area_ids", "release_code", "title", "description",
+  "source_plan", "crs", "exported_at", "qgis_version", "selected_run_code", "declared_lot_ids",
   "provenance_notes", "limitations", "files",
 ];
 const SOURCE_PLAN_KEYS = ["reference", "version", "sha256", "coordinate_space"];
@@ -119,20 +126,54 @@ export async function validatePackageDirectory(root, options = {}) {
       }
       initialStats.set(name, stat);
       totalBytes += stat.size;
-      if (name === MANIFEST_FILE_NAME && stat.size > PACKAGE_LIMITS.maxManifestBytes) add("manifest_too_large", name);
-      if (name !== MANIFEST_FILE_NAME && stat.size > PACKAGE_LIMITS.maxDataFileBytes) add("file_too_large", name);
+      if (name === MANIFEST_FILE_NAME && stat.size > FULL_PACKAGE_LIMITS.maxManifestBytes) add("manifest_too_large", name);
+      if (name !== MANIFEST_FILE_NAME && stat.size > FULL_PACKAGE_LIMITS.maxDataFileBytes) add("file_too_large", name);
     } catch {
       add("filesystem_error", name);
     }
   }
-  if (totalBytes > PACKAGE_LIMITS.maxPackageBytes) add("package_too_large");
+  if (totalBytes > FULL_PACKAGE_LIMITS.maxPackageBytes) add("package_too_large");
 
   if (errors.some((error) => ["unsafe_file_type", "missing_file", "manifest_too_large", "file_too_large", "package_too_large", "filesystem_error"].includes(error.code))) {
     return report();
   }
 
-  const bytesByName = new Map();
-  for (const name of PACKAGE_FILE_NAMES) {
+  let manifestBytes;
+  try {
+    manifestBytes = await readStableFile(safeRoot, MANIFEST_FILE_NAME, options);
+  } catch (error) {
+    add(error?.code || "filesystem_error", error?.file || MANIFEST_FILE_NAME);
+    return report();
+  }
+
+  let parsedManifest = null;
+  let manifestParseError = null;
+  try {
+    parsedManifest = parseStrictJson(manifestBytes, {
+      maxDepth: FULL_PACKAGE_LIMITS.maxDepth,
+      maxNodes: FULL_PACKAGE_LIMITS.maxNodesPerFile,
+      maxStringLength: FULL_PACKAGE_LIMITS.maxStringLength,
+    });
+  } catch (error) {
+    manifestParseError = error instanceof StrictJsonError ? error.code : "malformed_json";
+  }
+
+  const schemaVersion = isPlainObject(parsedManifest) && parsedManifest.schema_version === 2 ? 2 : 1;
+  const limits = getPackageLimits(schemaVersion);
+  const geoJsonContracts = getGeoJsonContracts(schemaVersion);
+  const evidenceContracts = getEvidenceContracts(schemaVersion);
+
+  for (const [name, stat] of initialStats.entries()) {
+    if (name === MANIFEST_FILE_NAME && stat.size > limits.maxManifestBytes) add("manifest_too_large", name);
+    if (name !== MANIFEST_FILE_NAME && stat.size > limits.maxDataFileBytes) add("file_too_large", name);
+  }
+  if (totalBytes > limits.maxPackageBytes) add("package_too_large");
+  if (errors.some((error) => ["manifest_too_large", "file_too_large", "package_too_large"].includes(error.code))) {
+    return report();
+  }
+
+  const bytesByName = new Map([[MANIFEST_FILE_NAME, manifestBytes]]);
+  for (const name of DATA_FILE_NAMES) {
     try {
       const bytes = await readStableFile(safeRoot, name, options);
       bytesByName.set(name, bytes);
@@ -153,16 +194,23 @@ export async function validatePackageDirectory(root, options = {}) {
 
   const parsed = new Map();
   let packageNodes = 0;
-  for (const name of PACKAGE_FILE_NAMES) {
+  if (manifestParseError) {
+    add(manifestParseError, MANIFEST_FILE_NAME);
+  } else {
+    parsed.set(MANIFEST_FILE_NAME, parsedManifest);
+    packageNodes += countJsonNodes(parsedManifest);
+    if (packageNodes > limits.maxNodesPerPackage) add("package_json_node_limit");
+  }
+  for (const name of DATA_FILE_NAMES) {
     try {
       const value = parseStrictJson(bytesByName.get(name), {
-        maxDepth: PACKAGE_LIMITS.maxDepth,
-        maxNodes: PACKAGE_LIMITS.maxNodesPerFile,
-        maxStringLength: PACKAGE_LIMITS.maxStringLength,
+        maxDepth: limits.maxDepth,
+        maxNodes: limits.maxNodesPerFile,
+        maxStringLength: limits.maxStringLength,
       });
       parsed.set(name, value);
       packageNodes += countJsonNodes(value);
-      if (packageNodes > PACKAGE_LIMITS.maxNodesPerPackage) add("package_json_node_limit");
+      if (packageNodes > limits.maxNodesPerPackage) add("package_json_node_limit");
     } catch (error) {
       add(error instanceof StrictJsonError ? error.code : "malformed_json", name);
     }
@@ -170,7 +218,7 @@ export async function validatePackageDirectory(root, options = {}) {
   if (errorCount > 0) return report();
 
   manifest = parsed.get(MANIFEST_FILE_NAME);
-  validateManifest(manifest, add);
+  validateManifest(manifest, limits, add);
   if (!isPlainObject(manifest) || !Array.isArray(manifest.files)) return report();
 
   const declaredNames = new Set();
@@ -187,8 +235,8 @@ export async function validatePackageDirectory(root, options = {}) {
     if (declaredNames.has(entry.name)) add("duplicate_manifest_file", MANIFEST_FILE_NAME, `${field}.name`);
     declaredNames.add(entry.name);
     if (!IDENTIFIER_PATTERNS.sha256.test(entry.sha256 || "")) add("invalid_sha256", MANIFEST_FILE_NAME, `${field}.sha256`);
-    if (!isBoundedInteger(entry.bytes, 0, PACKAGE_LIMITS.maxDataFileBytes)) add("invalid_file_bytes", MANIFEST_FILE_NAME, `${field}.bytes`);
-    if (!isBoundedInteger(entry.feature_count, 0, 20_000)) add("invalid_feature_count", MANIFEST_FILE_NAME, `${field}.feature_count`);
+    if (!isBoundedInteger(entry.bytes, 0, limits.maxDataFileBytes)) add("invalid_file_bytes", MANIFEST_FILE_NAME, `${field}.bytes`);
+    if (!isBoundedInteger(entry.feature_count, 0, limits.maxFeatureCount)) add("invalid_feature_count", MANIFEST_FILE_NAME, `${field}.feature_count`);
     if (!isSourceId(entry.layer_version)) add("unsafe_identifier", MANIFEST_FILE_NAME, `${field}.layer_version`);
     declaredFiles.push(entry);
   }
@@ -203,32 +251,32 @@ export async function validatePackageDirectory(root, options = {}) {
     if (entry.sha256 !== computeSha256(bytes)) add("file_hash_mismatch", entry.name);
   }
 
-  packageDigest = computePackageDigest(bytesByName.get(MANIFEST_FILE_NAME), declaredFiles);
+  packageDigest = computePackageDigest(bytesByName.get(MANIFEST_FILE_NAME), declaredFiles, schemaVersion);
 
   let geometryVertices = 0;
   const sourceIdsByFile = new Map();
   for (const name of GEOJSON_FILE_NAMES) {
     const value = parsed.get(name);
-    const result = validateGeoJson(name, value, manifest, add);
+    const result = validateGeoJson(name, value, manifest, geoJsonContracts[name], add);
     counts[name] = result.count;
     geometryVertices += result.vertices;
     sourceIdsByFile.set(name, result.sourceIds);
     const declaration = declaredFiles.find((entry) => entry.name === name);
     if (declaration && declaration.feature_count !== result.count) add("file_count_mismatch", name);
   }
-  if (geometryVertices > PACKAGE_LIMITS.maxGeometryVertices) add("geometry_vertex_limit");
+  if (geometryVertices > limits.maxGeometryVertices) add("geometry_vertex_limit");
   counts.geometry_vertices = geometryVertices;
 
   const evidenceRows = new Map();
   for (const name of EVIDENCE_FILE_NAMES) {
     const value = parsed.get(name);
-    const rows = validateEvidence(name, value, manifest, add);
+    const rows = validateEvidence(name, value, manifest, evidenceContracts[name], add);
     evidenceRows.set(name, rows);
     counts[name] = rows.length;
     const declaration = declaredFiles.find((entry) => entry.name === name);
     if (declaration && declaration.feature_count !== rows.length) add("file_count_mismatch", name);
   }
-  if ((counts["georeferencing_run_points.json"] || 0) + (counts["georeferencing_validation.json"] || 0) > PACKAGE_LIMITS.maxMembershipsAndResults) {
+  if ((counts["georeferencing_run_points.json"] || 0) + (counts["georeferencing_validation.json"] || 0) > limits.maxMembershipsAndResults) {
     add("aggregate_membership_result_limit");
   }
 
@@ -286,15 +334,30 @@ function isSafePackageFileName(name) {
     !name.includes("/") && !name.includes("\\") && name !== "." && name !== ".." && !name.includes("\0");
 }
 
-function validateManifest(value, add) {
+function validateManifest(value, limits, add) {
   if (!isPlainObject(value)) {
     add("invalid_manifest", MANIFEST_FILE_NAME);
     return;
   }
-  exactKeys(value, MANIFEST_KEYS, [], add, MANIFEST_FILE_NAME, "manifest");
-  if (value.schema_version !== 1) add("unsupported_schema_version", MANIFEST_FILE_NAME, "schema_version");
+  const isFullV2 = value.schema_version === 2;
+  exactKeys(value, isFullV2 ? FULL_MANIFEST_KEYS : MANIFEST_KEYS, [], add, MANIFEST_FILE_NAME, "manifest");
+  if (value.schema_version !== 1 && value.schema_version !== 2) add("unsupported_schema_version", MANIFEST_FILE_NAME, "schema_version");
   if (!isSourceId(value.package_id)) add("unsafe_identifier", MANIFEST_FILE_NAME, "package_id");
-  for (const field of ["site_id", "pilot_area_id"]) if (!isDecimalId(value[field])) add("unsafe_identifier", MANIFEST_FILE_NAME, field);
+  if (!isDecimalId(value.site_id)) add("unsafe_identifier", MANIFEST_FILE_NAME, "site_id");
+  if (isFullV2) {
+    if (!Array.isArray(value.area_ids) || value.area_ids.length < 1 || value.area_ids.length > limits.maxAreas) {
+      add("invalid_area_ids", MANIFEST_FILE_NAME, "area_ids");
+    } else {
+      const seenAreas = new Set();
+      for (const id of value.area_ids) {
+        if (!isDecimalId(id)) add("unsafe_identifier", MANIFEST_FILE_NAME, "area_ids");
+        if (seenAreas.has(id)) add("duplicate_identifier", MANIFEST_FILE_NAME, "area_ids");
+        seenAreas.add(id);
+      }
+    }
+  } else {
+    if (!isDecimalId(value.pilot_area_id)) add("unsafe_identifier", MANIFEST_FILE_NAME, "pilot_area_id");
+  }
   for (const field of ["release_code", "selected_run_code"]) if (!isSourceId(value[field])) add("unsafe_identifier", MANIFEST_FILE_NAME, field);
   boundedText(value.title, 200, add, MANIFEST_FILE_NAME, "title");
   boundedText(value.description, 2_000, add, MANIFEST_FILE_NAME, "description", true);
@@ -317,12 +380,15 @@ function validateManifest(value, add) {
     if (value.crs.field !== 4326 || value.crs.working !== 32651 || value.crs.export !== 4326) add("invalid_crs", MANIFEST_FILE_NAME, "crs");
   }
 
-  if (!Array.isArray(value.pilot_lot_ids) || value.pilot_lot_ids.length < 1 || value.pilot_lot_ids.length > PACKAGE_LIMITS.maxPlots) add("invalid_pilot_lot_ids", MANIFEST_FILE_NAME, "pilot_lot_ids");
+  const lotField = isFullV2 ? "declared_lot_ids" : "pilot_lot_ids";
+  const lotErrorCode = isFullV2 ? "invalid_declared_lot_ids" : "invalid_pilot_lot_ids";
+  const lotList = value[lotField];
+  if (!Array.isArray(lotList) || lotList.length < 1 || lotList.length > limits.maxPlots) add(lotErrorCode, MANIFEST_FILE_NAME, lotField);
   else {
     const seen = new Set();
-    for (const id of value.pilot_lot_ids) {
-      if (!isDecimalId(id)) add("unsafe_identifier", MANIFEST_FILE_NAME, "pilot_lot_ids");
-      if (seen.has(id)) add("duplicate_identifier", MANIFEST_FILE_NAME, "pilot_lot_ids");
+    for (const id of lotList) {
+      if (!isDecimalId(id)) add("unsafe_identifier", MANIFEST_FILE_NAME, lotField);
+      if (seen.has(id)) add("duplicate_identifier", MANIFEST_FILE_NAME, lotField);
       seen.add(id);
     }
   }
@@ -331,8 +397,7 @@ function validateManifest(value, add) {
   if (!Array.isArray(value.files)) add("invalid_manifest_files", MANIFEST_FILE_NAME, "files");
 }
 
-function validateGeoJson(name, value, manifest, add) {
-  const contract = GEOJSON_CONTRACTS[name];
+function validateGeoJson(name, value, manifest, contract, add) {
   if (!isPlainObject(value)) {
     add("invalid_geojson", name);
     return { count: 0, vertices: 0, sourceIds: new Set() };
@@ -458,8 +523,7 @@ function validatePolygon(value, add, file, field) {
   return count;
 }
 
-function validateEvidence(name, value, manifest, add) {
-  const contract = EVIDENCE_CONTRACTS[name];
+function validateEvidence(name, value, manifest, contract, add) {
   if (!Array.isArray(value)) {
     add("invalid_evidence_file", name);
     return [];
@@ -525,11 +589,36 @@ function validateEvidenceRow(name, row, manifest, add, base) {
 }
 
 function validateInternalReferences(parsed, evidenceRows, sourceIdsByFile, manifest, add) {
+  const isFullV2 = manifest.schema_version === 2;
+  const declaredAreas = isFullV2 ? new Set(manifest.area_ids || []) : null;
+  if (isFullV2 && declaredAreas) {
+    const sectionFeatures = parsed.get("garden_sections.geojson")?.features || [];
+    const sectionAreaIds = new Set();
+    for (const item of sectionFeatures) {
+      const areaId = item.properties?.area_id;
+      if (!declaredAreas.has(areaId)) add("undeclared_area_boundary", "garden_sections.geojson");
+      sectionAreaIds.add(areaId);
+    }
+    for (const areaId of declaredAreas) {
+      if (!sectionAreaIds.has(areaId)) add("missing_area_boundary", "garden_sections.geojson");
+    }
+  }
+
   const plotFeatures = parsed.get("grave_plots.geojson")?.features || [];
-  const lotIds = new Set(plotFeatures.map((item) => item.properties?.lot_id));
-  const declaredLots = new Set(manifest.pilot_lot_ids || []);
-  for (const id of lotIds) if (!declaredLots.has(id)) add("undeclared_pilot_lot", "grave_plots.geojson");
-  for (const id of declaredLots) if (!lotIds.has(id)) add("missing_pilot_lot_geometry", "grave_plots.geojson");
+  const plotAreaByLot = new Map();
+  for (const item of plotFeatures) {
+    const lotId = item.properties?.lot_id;
+    const areaId = item.properties?.area_id;
+    if (isFullV2) {
+      if (plotAreaByLot.has(lotId)) add("duplicate_lot_geometry", "grave_plots.geojson");
+      if (declaredAreas && !declaredAreas.has(areaId)) add("undeclared_plot_area", "grave_plots.geojson");
+    }
+    plotAreaByLot.set(lotId, areaId);
+  }
+  const lotIds = new Set(plotAreaByLot.keys());
+  const declaredLots = new Set((isFullV2 ? manifest.declared_lot_ids : manifest.pilot_lot_ids) || []);
+  for (const id of lotIds) if (!declaredLots.has(id)) add(isFullV2 ? "undeclared_lot" : "undeclared_pilot_lot", "grave_plots.geojson");
+  for (const id of declaredLots) if (!lotIds.has(id)) add(isFullV2 ? "missing_lot_geometry" : "missing_pilot_lot_geometry", "grave_plots.geojson");
 
   const nodes = sourceIdsByFile.get("route_nodes.geojson") || new Set();
   const walkways = sourceIdsByFile.get("roads_walkways.geojson") || new Set();
@@ -539,7 +628,10 @@ function validateInternalReferences(parsed, evidenceRows, sourceIdsByFile, manif
     if (!walkways.has(properties.walkway_source_feature_id)) add("unresolved_package_reference", "route_edges.geojson");
   }
   for (const item of parsed.get("grave_access_points.geojson")?.features || []) {
-    if (!nodes.has(item.properties?.node_source_feature_id) || !lotIds.has(item.properties?.lot_id)) add("unresolved_package_reference", "grave_access_points.geojson");
+    const lotId = item.properties?.lot_id;
+    const areaId = item.properties?.area_id;
+    if (!nodes.has(item.properties?.node_source_feature_id) || !lotIds.has(lotId)) add("unresolved_package_reference", "grave_access_points.geojson");
+    if (isFullV2 && plotAreaByLot.has(lotId) && plotAreaByLot.get(lotId) !== areaId) add("access_point_area_mismatch", "grave_access_points.geojson");
   }
 
   const pointCodes = new Set((evidenceRows.get("survey_points.json") || []).map((row) => row.point_code));

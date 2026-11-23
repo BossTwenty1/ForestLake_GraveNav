@@ -3,7 +3,7 @@ import { BurialRecordDetail } from "@/components/admin/burial-record-pages";
 
 export default async function BurialRecordRoute({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ returnTo?: string; saved?: string }>;
+  searchParams: Promise<{ returnTo?: string; saved?: string; photoStatus?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   return <AdminShell active="Deceased & Interments">
@@ -12,6 +12,7 @@ export default async function BurialRecordRoute({ params, searchParams }: {
       recordId={id}
       returnTo={typeof query.returnTo === "string" ? query.returnTo : undefined}
       saved={query.saved === "1"}
+      photoStatus={typeof query.photoStatus === "string" ? query.photoStatus : undefined}
     />
   </AdminShell>;
 }

@@ -60,46 +60,11 @@
   padding: 0;
 }
 
-.shell.shell :global(.visitor-header) {
-  background: var(--home-card);
-  border-bottom-color: var(--home-border);
-}
-
-.container,
-.shell.shell :global(.visitor-header__inner) {
+.container {
   width: 100%;
   max-width: 1440px;
   margin-inline: auto;
   padding-inline: 16px;
-}
-
-.shell.shell :global(.visitor-header__inner) {
-  min-height: 62px;
-  gap: 10px;
-}
-
-.shell.shell :global(.brand-name) { color: var(--home-accent); font-size: 1.05rem; }
-.shell.shell :global(.brand-subtitle) {
-  color: var(--home-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.62rem;
-}
-.shell.shell :global(.brand-mark) {
-  width: 34px;
-  height: 34px;
-  padding: 2px;
-  border-radius: 9px;
-  border: 1px solid var(--home-green);
-  background: #fff;
-}
-
-.shell.shell :global(.visitor-header__actions) { gap: 4px; }
-.shell.shell :global(.visitor-header__actions > *) {
-  border: 1px solid transparent;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--home-muted);
 }
 
 .shell.shell :global(.visitor-bottom-nav) {
@@ -862,8 +827,7 @@
 
 /* Tablet & larger phones (>= 640px) */
 @media (min-width: 640px) {
-  .container,
-  .shell.shell :global(.visitor-header__inner) {
+  .container {
     padding-inline: 24px;
   }
 
@@ -942,21 +906,9 @@
 
 /* Desktop (>= 900px) */
 @media (min-width: 900px) {
-  .container,
-  .shell.shell :global(.visitor-header__inner) {
+  .container {
     padding-inline: 32px;
   }
-
-  .shell.shell :global(.visitor-header__inner) {
-    display: flex;
-    gap: 32px;
-    min-height: 68px;
-  }
-
-  .shell.shell :global(.visitor-desktop-nav) { margin-right: auto; }
-  .shell.shell :global(.visitor-header__help) { order: -1; }
-  .shell.shell :global(.brand-name) { font-size: 1.12rem; }
-  .shell.shell :global(.brand-mark) { width: 38px; height: 38px; }
 
   .hero {
     min-height: 680px;

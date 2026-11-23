@@ -19,6 +19,17 @@ export interface PlanningMapActions {
   focus: (feature: CadFeature) => void;
   place: (position: [number, number]) => void;
   focusPlaces: (positions: [number, number][]) => void;
+  fitRoute?: (positions: [number, number][]) => void;
+}
+export interface PlanningRouteOverlay {
+  path: [number, number][];
+  approach: [number, number][];
+  startLabel: string;
+  destinationLabel?: string;
+  destinationReference?: string;
+  isLiveGps?: boolean;
+  gpsPosition?: [number, number] | null;
+  gpsAccuracyMeters?: number | null;
 }
 export interface PlanningMapProps {
   bundle: PlanningBundle;
@@ -26,11 +37,14 @@ export interface PlanningMapProps {
   selected: CadFeature | null;
   focusOnLoad?: CadFeature | null;
   lotPopup?: PlanningLotPopupOptions;
+  layoutRoute?: PlanningRouteOverlay | null;
   places: boolean;
   trees: boolean;
   protection: boolean;
   details: boolean;
   reviewMode?: boolean;
+  scrollWheelZoom?: boolean;
+  zoomPosition?: L.ControlPosition;
   attempt: number;
   onSelect: (feature: CadFeature | null) => void;
   onReady: (actions: PlanningMapActions) => void;
@@ -116,7 +130,7 @@ function PlanningLayers(props: PlanningMapProps) {
       });
       detailOverlays[role] = image;
     }
-    for (const [name, zIndex] of [["planning-lines", 300], ["planning-plots", 340], ["planning-labels", 355], ["planning-review", 370], ["planning-selection", 380]] as const) {
+    for (const [name, zIndex] of [["planning-lines", 300], ["planning-plots", 340], ["planning-labels", 355], ["planning-review", 370], ["planning-route", 375], ["planning-selection", 380]] as const) {
       const pane = map.getPane(name) ?? map.createPane(name);
       pane.style.zIndex = String(zIndex);
       pane.style.pointerEvents = name === "planning-plots" ? "auto" : "none";
@@ -146,6 +160,14 @@ function PlanningLayers(props: PlanningMapProps) {
       focus: feature => map.fitBounds(mapBounds(feature.bounds), { padding: [70, 70], maxZoom: 5.5, animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches }),
       place: position => map.setView(cadToMap(position), 3.3, { animate: false }),
       focusPlaces: positions => map.fitBounds(L.latLngBounds(positions.map(cadToMap)), { padding: [62, 62], maxZoom: 3.3, animate: false }),
+      fitRoute: positions => {
+        if (!positions.length) return;
+        map.fitBounds(L.latLngBounds(positions.map(cadToMap)), {
+          padding: [56, 56],
+          maxZoom: 4.2,
+          animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        });
+      },
     });
     if (focusOnLoad) map.fitBounds(mapBounds(focusOnLoad.bounds), { padding: [70, 70], maxZoom: 5.5, animate: false });
     else reset();
@@ -204,6 +226,117 @@ function PlanningLayers(props: PlanningMapProps) {
     ]).addTo(map);
     return () => { highlight.remove(); };
   }, [map, selected]);
+
+  useEffect(() => {
+    const route = props.layoutRoute;
+    if (!route || route.path.length < 2) return;
+    const layers: L.Layer[] = [
+      L.polyline(route.path.map(cadToMap), {
+        pane: "planning-route", interactive: false, color: "#ffffff", weight: 9, opacity: 0.96, lineCap: "round", lineJoin: "round",
+      }),
+      L.polyline(route.path.map(cadToMap), {
+        pane: "planning-route", interactive: false, color: "#2563eb", weight: 5, opacity: 1, lineCap: "round", lineJoin: "round",
+      }),
+    ];
+    if (route.approach.length >= 2) {
+      layers.push(L.polyline(route.approach.map(cadToMap), {
+        pane: "planning-route", interactive: false, color: "#ffffff", weight: 5.5, dashArray: "6 6", opacity: 0.9,
+      }));
+      layers.push(L.polyline(route.approach.map(cadToMap), {
+        pane: "planning-route", interactive: false, color: "#2563eb", weight: 3, dashArray: "6 6", opacity: 0.98,
+      }));
+      const destPoint = route.approach[route.approach.length - 1];
+      if (route.destinationLabel) {
+        const pinHtml = `<span class="${detailStyles.destinationPin}"><span class="${detailStyles.destinationPinCore}"></span></span>`;
+        const destMarker = L.marker(cadToMap(destPoint), {
+          pane: "planning-selection",
+          interactive: false,
+          icon: L.divIcon({
+            className: detailStyles.destinationPinWrap,
+            html: pinHtml,
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+          }),
+        });
+        const labelNode = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = route.destinationLabel;
+        labelNode.appendChild(title);
+        if (route.destinationReference) {
+          const ref = document.createElement("span");
+          ref.className = detailStyles.destinationTooltipRef;
+          ref.textContent = route.destinationReference;
+          labelNode.appendChild(ref);
+        }
+        destMarker.bindTooltip(labelNode, {
+          permanent: true,
+          direction: "right",
+          offset: L.point(14, -14),
+          className: detailStyles.destinationTooltip,
+        });
+        layers.push(destMarker);
+      }
+    }
+
+    if (route.isLiveGps && route.gpsPosition) {
+      const gpsLatLng = cadToMap(route.gpsPosition);
+      if (typeof route.gpsAccuracyMeters === "number" && Number.isFinite(route.gpsAccuracyMeters)) {
+        layers.push(L.circle(gpsLatLng, {
+          pane: "planning-route",
+          interactive: false,
+          radius: Math.max(3, Math.min(route.gpsAccuracyMeters, 45)),
+          color: "#2563eb",
+          weight: 1.25,
+          opacity: 0.55,
+          fillColor: "#3b82f6",
+          fillOpacity: 0.16,
+        }));
+      }
+      const pulseMarker = L.marker(gpsLatLng, {
+        pane: "planning-selection",
+        interactive: false,
+        icon: L.divIcon({
+          className: detailStyles.gpsPulseWrap,
+          html: `<span class="${detailStyles.gpsPulseRing}"></span><span class="${detailStyles.gpsPulseDot}"></span>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
+      });
+      const callout = document.createElement("div");
+      callout.className = detailStyles.gpsCalloutInner;
+      const arrow = document.createElement("span");
+      arrow.className = detailStyles.gpsCalloutArrow;
+      callout.appendChild(arrow);
+      const copy = document.createElement("div");
+      const heading = document.createElement("strong");
+      heading.textContent = "Your Location";
+      copy.appendChild(heading);
+      if (typeof route.gpsAccuracyMeters === "number" && Number.isFinite(route.gpsAccuracyMeters)) {
+        const meta = document.createElement("span");
+        meta.className = detailStyles.gpsCalloutMeta;
+        meta.textContent = `(±${Math.max(1, Math.round(route.gpsAccuracyMeters))} m)`;
+        copy.appendChild(meta);
+      }
+      callout.appendChild(copy);
+      pulseMarker.bindTooltip(callout, {
+        permanent: true,
+        direction: "top",
+        offset: L.point(0, -14),
+        className: detailStyles.gpsCalloutTooltip,
+      });
+      layers.push(pulseMarker);
+    } else {
+      const startMarker = L.circleMarker(cadToMap(route.path[0]), {
+        pane: "planning-route", interactive: false, radius: 7, color: "#ffffff", weight: 2.5, fillColor: "#2563eb", fillOpacity: 1,
+      });
+      startMarker.bindTooltip(route.startLabel, {
+        permanent: true, direction: "top", offset: L.point(0, -10), className: "phase-two-place-label",
+      });
+      layers.push(startMarker);
+    }
+    const group = L.layerGroup(layers).addTo(map);
+    return () => { group.remove(); };
+  }, [map, props.layoutRoute]);
 
   useEffect(() => {
     if (!places) return;
@@ -340,8 +473,8 @@ function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: 
 export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: MutableRefObject<PlanningMapActions | null>; onTogglePaths: () => void }) {
   return <MapContainer className="cemetery-leaflet-canvas phase-two-planning-canvas" aria-label={`${PARK_NAME} Phase 2 park map`}
     crs={L.CRS.Simple} center={[110, 145]} zoom={1} minZoom={-2} maxZoom={7} zoomSnap={0.1} zoomDelta={0.5}
-    zoomControl={false} preferCanvas scrollWheelZoom>
-    <ZoomControl position={props.explorer ? "topright" : "bottomright"} />
+    zoomControl={false} preferCanvas scrollWheelZoom={props.scrollWheelZoom ?? true}>
+    <ZoomControl position={props.zoomPosition ?? (props.explorer ? "topright" : "bottomright")} />
     <PlanningLayers {...props} />
     {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id} feature={props.selected} {...props.lotPopup} /> : null}
     {props.explorer ? <ExplorerMarkers explorer={props.explorer} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}

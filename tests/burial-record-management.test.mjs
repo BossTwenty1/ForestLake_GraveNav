@@ -22,12 +22,12 @@ const row = {
   reference_no: "TEST-REF", service_provider: "Test provider", record_source: "Test source",
   quality_notes: "Private notes", interment_order_number: "TEST-ORDER", interment_confirmed: true,
 };
-function readers({ empty = false, referenceError = null } = {}) {
+function readers({ empty = false, referenceError = null, sexReadError = null } = {}) {
   const calls = [];
   const rows = {
     burial_record: empty ? [] : [row],
     deceased: [{ deceased_id: 9, display_name: "Test person", public_display: false,
-      birth_date: "1900-01-01", death_date: "2020-01-01" }],
+      birth_date: "1900-01-01", death_date: "2020-01-01", sex: "female" }],
     lot: [{ lot_id: 12, lot_code: "TEST-INTERNAL", area_id: 1,
       coordinate_status: "pending", coordinate_verified: false }],
     area: [{ area_id: 1, area_name: "Test garden" }],
@@ -39,7 +39,12 @@ function readers({ empty = false, referenceError = null } = {}) {
         get: (_, method) => method === "then"
           ? (resolve, reject) => Promise.resolve({ data: rows[table], count: rows[table].length })
             .then(resolve, reject)
-          : (...args) => { calls.push([method, ...args]); return chain; },
+          : method === "maybeSingle"
+            ? async () => ({
+              data: sexReadError ? null : rows[table][0],
+              error: sexReadError,
+            })
+            : (...args) => { calls.push([method, ...args]); return chain; },
       });
       return chain;
     },
@@ -62,6 +67,7 @@ test("detail lookup targets the exact burial ID outside the directory page", asy
   assert.ok(calls.some(([method, field, id]) => method === "eq" && field === "burial_id" && id === 47));
   assert.ok(calls.some(([method, field, value]) => method === "is" && field === "deleted_at" && value === null));
   assert.equal(record.burialId, 47);
+  assert.equal(record.sex, "female");
   assert.equal(record.intermentConfirmed, true);
   assert.equal(record.intermentOrderNumber, "TEST-ORDER");
   assert.equal(record.syntheticPlotReference, "TEST SYNTHETIC REFERENCE");
@@ -94,6 +100,7 @@ test("editing and directory status changes retain private fields, revision and c
   const record = await readers().api.getAdminRecord("47");
   const input = helpers.recordInputFromRecord(record, { recordStatus: "archived" });
   assert.equal(input.revision, 4);
+  assert.equal(input.sex, "female");
   assert.equal(input.publicDisplay, false);
   assert.equal(input.recordStatus, "archived");
   assert.equal(input.intermentConfirmed, true);
@@ -101,6 +108,12 @@ test("editing and directory status changes retain private fields, revision and c
   assert.equal(input.qualityNotes, "Private notes");
   assert.equal(input.recordSource, "Test source");
   assert.equal(input.lotId, 12);
+});
+
+test("record details still load before the optional sex column is migrated", async () => {
+  const record = await readers({ sexReadError: { code: "42703" } }).api.getAdminRecord("47");
+  assert.equal(record.burialId, 47);
+  assert.equal(helpers.recordInputFromRecord(record).sex, undefined);
 });
 
 test("legacy unknown confirmation is preserved rather than converted into a reviewed fact", async () => {

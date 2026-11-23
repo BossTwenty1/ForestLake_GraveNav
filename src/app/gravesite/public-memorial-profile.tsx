@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { GravesiteLocationCard } from "@/components/visitor/gravesite-location-card";
+import { MemorialMapPreview } from "@/components/visitor/memorial-map-preview";
+import { getMemorialInscription } from "@/lib/memorial-inscriptions";
 import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
 import type { SharedPlotBurials } from "@/lib/supabase/public-data";
 import type { PublicMemorialPhoto } from "@/lib/supabase/public-memorial-photos";
@@ -16,9 +18,10 @@ function recordedDate(value: string | null) {
   return Number.isNaN(date.valueOf()) ? null : new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" }).format(date);
 }
 
-export function PublicMemorialProfile({ record, mapScope, shared, photos, returnTo }: {
+export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, photos, returnTo }: {
   record: PublicBurialRecord;
   mapScope: GravesiteMapScope;
+  planningPlot?: string | null;
   shared: SharedPlotBurials;
   photos: PublicMemorialPhoto[];
   returnTo: string;
@@ -33,6 +36,7 @@ export function PublicMemorialProfile({ record, mapScope, shared, photos, return
     { label: "Interment date", value: record.burialDate === "Not recorded" ? null : record.burialDate, icon: "records" },
   ];
   const datesAvailable = facts.some(fact => fact.value);
+  const inscription = record.inscription === undefined ? getMemorialInscription(record) : record.inscription;
   return (
     <article className={styles.content} aria-labelledby="memorial-name">
       <section className={styles.hero} aria-labelledby="memorial-name">
@@ -45,8 +49,8 @@ export function PublicMemorialProfile({ record, mapScope, shared, photos, return
         </div>
         <div className={styles.heroActions}>
           <Link className={styles.mapAction} href={memorialMapHref(record.id, mapScope, returnTo)}>
-            <Icon name="map" size={18} />
-            <span>{mapScope === "unavailable" ? "Browse Park Map" : "Find Gravesite on Map"}</span>
+            <Icon name={mapScope === "unavailable" ? "map" : "walk"} size={18} />
+            <span>{mapScope === "unavailable" ? "Browse Park Map" : "Open Gravesite Guide"}</span>
           </Link>
           <MemorialActions id={record.id} key={record.id} name={record.name} />
         </div>
@@ -54,7 +58,11 @@ export function PublicMemorialProfile({ record, mapScope, shared, photos, return
 
       <div className={styles.layout}>
         <section className={styles.remembering} aria-labelledby="memorial-remembering">
-          <div className={styles.sectionTitle}><h2 id="memorial-remembering">Remembering {record.name}</h2><Icon name="tree" size={21} /></div>
+          <div className={styles.sectionTitle}><h2 id="memorial-remembering">Remembering {record.name}</h2><Icon name="quote" size={21} /></div>
+          {inscription ? <blockquote className={styles.inscription} aria-label="Memorial inscription">
+            <span className={styles.inscriptionMark} aria-hidden="true"><Icon name="quote" size={18} /></span>
+            <p>“{inscription}”</p>
+          </blockquote> : null}
           {datesAvailable ? <>
             <h3 className={styles.timelineTitle}>Biographical &amp; Interment Timeline</h3>
             <dl className={styles.timeline}>
@@ -64,7 +72,13 @@ export function PublicMemorialProfile({ record, mapScope, shared, photos, return
           </> : <p className={styles.muted}>Biographical dates are unavailable in this memorial record.</p>}
         </section>
         <div className={styles.location} id="gravesite-details" tabIndex={-1}>
-          <GravesiteLocationCard record={record} mapScope={mapScope} returnTo={returnTo} memorialOverview />
+          <GravesiteLocationCard
+            record={record}
+            mapScope={mapScope}
+            returnTo={returnTo}
+            memorialOverview
+            mapPreview={<MemorialMapPreview planningPlot={planningPlot} garden={plot.garden} plotReference={plot.reference} />}
+          />
         </div>
         {shared.state === "unavailable" || shared.items.length ? <section className={styles.shared} aria-labelledby="memorial-shared-title">
           <div className={styles.sectionTitle}><h2 id="memorial-shared-title"><Icon name="users" size={21} />Others at This Gravesite</h2>

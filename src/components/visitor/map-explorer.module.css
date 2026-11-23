@@ -73,8 +73,13 @@
   font-size: 0.76rem;
 }
 
-.optionsButton { margin-left: auto; }
-.mobileSearch { display: none; }
+.optionsButton {
+  margin-left: auto;
+}
+
+.mobileSearch {
+  display: none;
+}
 
 .options {
   display: flex;
@@ -94,9 +99,11 @@
   font-size: 0.8rem;
 }
 
-.options input { accent-color: var(--visitor-accent); }
+.options input {
+  accent-color: var(--visitor-accent);
+}
 
-.searchPanel > summary {
+.searchPanel>summary {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -110,11 +117,27 @@
   cursor: pointer;
 }
 
-.searchPanel > summary::after { content: "+"; margin-left: auto; }
-.searchPanel[open] > summary::after { content: "−"; }
-.searchPanel[open] > summary { margin-bottom: 8px; }
-.searchPanel > summary svg { color: var(--visitor-accent); }
-.panelContent { display: grid; gap: 10px; }
+.searchPanel>summary::after {
+  content: "+";
+  margin-left: auto;
+}
+
+.searchPanel[open]>summary::after {
+  content: "−";
+}
+
+.searchPanel[open]>summary {
+  margin-bottom: 8px;
+}
+
+.searchPanel>summary svg {
+  color: var(--visitor-accent);
+}
+
+.panelContent {
+  display: grid;
+  gap: 10px;
+}
 
 .experience :global(.map-search-panel),
 .experience :global(.map-destination-card),
@@ -124,34 +147,179 @@
   box-shadow: none;
 }
 
+.memorialCard {
+  gap: 12px;
+}
+
+.memorialIdentity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.memorialIcon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--visitor-surface-deep);
+  color: var(--visitor-accent);
+}
+
+.memorialIdentity h2 {
+  margin: 0;
+  color: var(--visitor-ink);
+  font-size: 1.0625rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.memorialIdentity p {
+  margin: 3px 0 0;
+  color: var(--visitor-muted);
+  font-size: 0.78rem;
+}
+
+.experience .memorialPlot {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  border-block: 1px solid var(--visitor-border);
+  padding-block: 9px;
+}
+
+.experience .memorialPlot div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.experience .memorialPlot dt {
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.experience .memorialPlot dd {
+  margin: 0;
+  font-size: 0.81rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+p.memorialStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memorialStatus svg {
+  flex: none;
+  color: var(--visitor-accent);
+}
+
+.memorialButtons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.memorialButtons> :only-child {
+  grid-column: 1 / -1;
+}
+
+.memorialButtons> :global(.button) {
+  min-height: 44px;
+  padding: 6px 7px;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.memorialButtons svg {
+  flex: none;
+}
+
+.experience :global(.map-stage[tabindex="-1"]) {
+  scroll-margin-top: 78px;
+}
+
 .experience :global(.map-search-form) {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
 
-.experience :global(.map-search-form > label:first-of-type) { grid-column: 1 / -1; }
-.experience :global(.map-search-form .button) { grid-column: 2; min-height: 44px; padding-inline: 12px; }
+.experience :global(.map-search-form > label:first-of-type) {
+  grid-column: 1 / -1;
+}
+
+.experience :global(.map-search-form .button) {
+  grid-column: 2;
+  min-height: 44px;
+  padding-inline: 12px;
+}
+
 .experience :global(.map-search-control) {
   min-width: 0;
   border-color: var(--map-field-border);
 }
-.experience :global(.map-search-control):hover { border-color: var(--map-field-hover); }
+
+.experience :global(.map-search-control):hover {
+  border-color: var(--map-field-hover);
+}
+
 .experience :global(.map-search-control):focus-within {
   border-color: var(--focus-ring);
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
   box-shadow: none;
 }
+
 .experience :global(.map-search-control input),
-.experience :global(.map-search-control select) { min-width: 0; min-height: 44px; }
-.experience :global(.map-record-list) { grid-template-columns: 1fr; max-height: 240px; overflow-y: auto; }
-.experience :global(.map-record-option) { min-height: 48px; }
-.experience :global(.map-panel-heading h2) { font-size: 0.96rem; }
-.experience :global(.map-destination-card) { scroll-margin-top: 84px; }
-.experience :global(.phase-two-layer-options .button) { min-height: 44px; }
-.experience :global(.phase-two-layer-options) { padding-block: 6px; }
-.experience :global(#walking-guidance) { scroll-margin-top: 84px; }
-.experience :global(#walking-guidance h2) { margin: 0; font-size: 1rem; }
+.experience :global(.map-search-control select) {
+  min-width: 0;
+  min-height: 44px;
+}
+
+.experience :global(.map-record-list) {
+  grid-template-columns: 1fr;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.experience :global(.map-record-option) {
+  min-height: 48px;
+}
+
+.experience :global(.map-panel-heading h2) {
+  font-size: 0.96rem;
+}
+
+.experience :global(.map-destination-card) {
+  scroll-margin-top: 84px;
+}
+
+.experience :global(.phase-two-layer-options .button) {
+  min-height: 44px;
+}
+
+.experience :global(.phase-two-layer-options) {
+  padding-block: 6px;
+}
+
+.experience :global(#walking-guidance) {
+  scroll-margin-top: 84px;
+}
+
+.experience :global(#walking-guidance h2) {
+  margin: 0;
+  font-size: 1rem;
+}
 
 .geographicCanvas {
   scroll-margin-top: 86px;
@@ -170,39 +338,819 @@
   padding: 10px 12px;
   background: var(--visitor-surface-deep);
 }
+
 .guidanceStatus h3 {
   margin: 0 0 4px;
   font-size: 0.9375rem;
   color: var(--visitor-ink);
 }
-.experience .guidanceStatus p { margin: 0; font-size: 0.875rem; }
+
+.experience .guidanceStatus p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
 .experience .distance strong {
   color: var(--visitor-accent);
   font-size: 1.125rem;
   font-variant-numeric: tabular-nums;
 }
 
+.routeCard {
+  display: grid;
+  gap: 10px;
+  border-color: color-mix(in srgb, var(--visitor-accent) 28%, var(--visitor-border));
+}
+
+.featuredBanner {
+  padding: 14px 16px;
+}
+
+.bannerGrid {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
+.bannerIntro {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.bannerIntro h2 {
+  margin: 0;
+  color: var(--visitor-ink);
+  font-size: 1.08rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.bannerRef {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--visitor-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.bannerRef svg {
+  color: var(--visitor-accent);
+  flex: none;
+}
+
+.bannerSubcopy {
+  margin: 2px 0 4px;
+  color: var(--visitor-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.routeChooser {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--visitor-accent) 18%, var(--visitor-border));
+  background: color-mix(in srgb, var(--visitor-accent) 7%, var(--visitor-surface-deep));
+}
+
+.routeChooserHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.routeChooserTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--visitor-ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.routeChooserTitle svg {
+  color: var(--visitor-accent);
+}
+
+.pavedToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--visitor-border);
+  background: var(--visitor-surface);
+  color: var(--visitor-muted);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.pavedToggle:hover {
+  border-color: color-mix(in srgb, var(--visitor-accent) 55%, var(--visitor-border));
+  color: var(--visitor-ink);
+}
+
+.pavedToggleActive {
+  border-color: var(--visitor-accent);
+  background: color-mix(in srgb, var(--visitor-accent) 12%, var(--visitor-surface));
+  color: var(--visitor-accent);
+}
+
+.pavedToggleTrack {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--visitor-muted) 35%, var(--visitor-surface-deep));
+  transition: background-color 140ms ease;
+}
+
+.pavedToggleActive .pavedToggleTrack {
+  background: var(--visitor-accent);
+}
+
+.pavedToggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 25%);
+  transition: transform 140ms ease;
+}
+
+.pavedToggleActive .pavedToggleThumb {
+  transform: translateX(13px);
+}
+
+.routeModeGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.modeOption {
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--visitor-border);
+  background: var(--visitor-surface);
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.modeOption:hover {
+  border-color: color-mix(in srgb, var(--visitor-accent) 60%, var(--visitor-border));
+}
+
+.modeOptionActive {
+  border-color: var(--visitor-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--visitor-accent) 25%, transparent);
+}
+
+.modeOptionTrigger {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.radioDot {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border-radius: 999px;
+  border: 2px solid var(--map-field-border);
+  background: var(--visitor-surface);
+}
+
+.modeOptionActive .radioDot {
+  border-color: var(--visitor-accent);
+}
+
+.modeOptionActive .radioDot::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: var(--visitor-accent);
+}
+
+.modeOptionBody {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.modeOptionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--visitor-ink);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.modeOptionHeader svg {
+  color: var(--visitor-accent);
+  flex: none;
+}
+
+.recommendedBadge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--visitor-accent) 14%, var(--visitor-surface));
+  color: var(--visitor-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.modeOptionDesc {
+  color: var(--visitor-muted);
+  font-size: 0.75rem;
+  line-height: 1.38;
+}
+
+.landmarkControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding-left: 27px;
+}
+
+.landmarkGoButton {
+  min-height: 40px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.gpsFeedback {
+  display: grid;
+  gap: 6px;
+  margin-left: 27px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--visitor-border);
+  background: var(--visitor-surface-deep);
+  color: var(--visitor-ink);
+  font-size: 0.74rem;
+  line-height: 1.38;
+}
+
+.gpsFeedbackLive {
+  border-color: color-mix(in srgb, #16a34a 38%, var(--visitor-border));
+  background: color-mix(in srgb, #16a34a 10%, var(--visitor-surface));
+}
+
+.gpsFeedbackWarn {
+  border-color: color-mix(in srgb, #d97706 42%, var(--visitor-border));
+  background: color-mix(in srgb, #d97706 10%, var(--visitor-surface));
+}
+
+.gpsFeedbackActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inlineAction {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--visitor-accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.bannerSummary {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding-left: 16px;
+  border-left: 1px solid var(--visitor-border);
+}
+
+.experience .bannerPlotMeta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  margin: 0;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--visitor-border);
+}
+
+.experience .bannerPlotMeta div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.experience .bannerPlotMeta dt {
+  color: var(--visitor-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.experience .bannerPlotMeta dd {
+  margin: 0;
+  color: var(--visitor-ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.bannerAssigned {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--visitor-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.assignedCheck {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--visitor-accent);
+  color: #ffffff;
+  flex: none;
+}
+
+.bannerSummaryActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.bannerSummaryActions> :global(.button) {
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 0.76rem;
+  justify-content: center;
+}
+
+.routePreviewCard {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 750;
+  width: min(264px, calc(100% - 28px));
+  display: grid;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--visitor-border);
+  background: color-mix(in srgb, var(--visitor-surface) 96%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px rgb(15 23 42 / 18%);
+}
+
+.routePreviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.routePreviewTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--visitor-ink);
+  font-size: 0.86rem;
+}
+
+.routePreviewTitle svg {
+  color: var(--visitor-accent);
+}
+
+.routePreviewClose {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--visitor-border);
+  background: var(--visitor-surface-deep);
+  color: var(--visitor-muted);
+  cursor: pointer;
+}
+
+.routePreviewClose:hover {
+  color: var(--visitor-ink);
+}
+
+.routePreviewMetric {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--visitor-surface-deep);
+}
+
+.routePreviewWalkIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--visitor-surface);
+  color: var(--visitor-ink);
+}
+
+.routePreviewMetric strong {
+  display: block;
+  color: var(--visitor-ink);
+  font-size: 1.02rem;
+  line-height: 1.2;
+}
+
+.routePreviewMetric span {
+  display: block;
+  color: var(--visitor-muted);
+  font-size: 0.74rem;
+  margin-top: 1px;
+}
+
+.routePreviewEndpoints {
+  position: relative;
+  display: grid;
+  gap: 9px;
+  padding-left: 2px;
+}
+
+.routePreviewPoint {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font-size: 0.77rem;
+  line-height: 1.35;
+  color: var(--visitor-ink);
+}
+
+.routePreviewPoint small {
+  display: block;
+  color: var(--visitor-muted);
+  font-size: 0.71rem;
+  margin-top: 1px;
+}
+
+.originDot {
+  width: 10px;
+  height: 10px;
+  margin: 4px auto 0;
+  border-radius: 999px;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgb(22 163 74 / 18%);
+}
+
+.destDot {
+  display: inline-grid;
+  place-items: center;
+  color: #dc2626;
+  margin-top: 1px;
+}
+
+.routePreviewNextStep {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #2563eb 10%, var(--visitor-surface-deep));
+  color: var(--visitor-ink);
+  font-size: 0.74rem;
+  line-height: 1.38;
+}
+
+.routePreviewCta {
+  width: 100%;
+  min-height: 40px;
+  justify-content: center;
+  font-size: 0.82rem;
+}
+
+.legendRouteLine {
+  background: #2563eb;
+}
+
+.routeHeading h2,
+.routeHeading p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.routeHeading h2 {
+  color: var(--visitor-ink);
+  font-size: 1rem;
+}
+
+.routeHeading p {
+  color: var(--visitor-muted);
+  font-size: 0.78rem;
+}
+
+.routeDetails>summary {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--visitor-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.routeDetails>summary::-webkit-details-marker {
+  display: none;
+}
+
+.routeDetails[open]>summary svg {
+  transform: rotate(180deg);
+}
+
+.routeDetails[open] .routeActions {
+  margin-top: 8px;
+}
+
+.routeDetails p {
+  margin-top: 8px;
+}
+
+.routeActionRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.routeActionRow :global(.button) {
+  min-height: 38px;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
+.nestedSearch>summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--visitor-border);
+  border-radius: 12px;
+  background: var(--visitor-surface);
+  color: var(--visitor-ink);
+  font-size: 0.86rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.nestedSearch>summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--visitor-muted);
+}
+
+.nestedSearch[open]>summary::after {
+  content: "−";
+}
+
+.nestedSearch[open]>summary {
+  margin-bottom: 8px;
+}
+
+.nestedSearch>summary svg {
+  color: var(--visitor-accent);
+}
+
+.routeSelect {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--map-field-border);
+  border-radius: 8px;
+  background: var(--visitor-surface);
+  color: var(--visitor-ink);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.routeActions {
+  display: grid;
+  gap: 8px;
+}
+
+.routeActions :global(.button) {
+  width: 100%;
+  min-height: 40px;
+  justify-content: center;
+}
+
+.routeSteps {
+  display: grid;
+  gap: 7px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routeSteps li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--visitor-surface-deep);
+  color: var(--visitor-ink);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.routeStepIndex {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--visitor-accent);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.routeNote {
+  margin: 0;
+  color: var(--visitor-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 1120px) {
+  .featuredBanner .bannerGrid {
+    grid-template-columns: minmax(195px, 0.9fr) minmax(430px, 2.25fr) 292px;
+    gap: 16px;
+  }
+
+  .featuredBanner .routeModeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) and (max-width: 1119px) {
+  .featuredBanner .bannerGrid {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  .featuredBanner .routeChooser {
+    grid-column: 1 / -1;
+    order: 2;
+  }
+
+  .featuredBanner .routeModeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 960px) {
-  .experience .searchPanel > summary { display: none; }
-  .experience .searchPanel { max-height: calc(100svh - 135px); overflow-y: auto; scrollbar-width: thin; }
+  .experience .searchPanel>summary {
+    display: none;
+  }
+
+  .experience .searchPanel {
+    max-height: calc(100svh - 135px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
 }
 
 @media (max-width: 959px) {
-  :global(.visitor-main):has(> .experience) { padding: 8px 10px 16px; }
-  .experience { gap: 8px; --cemetery-map-height: max(340px, calc(100svh - 300px)); }
-  .experience :global(.public-map-workspace) { grid-template-columns: 1fr; gap: 8px; }
-  .experience :global(.public-map-heading h1) { font-size: 1.25rem; }
+  :global(.visitor-main):has(> .experience) {
+    padding: 8px 10px 16px;
+  }
+
+  .experience {
+    gap: 8px;
+    --cemetery-map-height: max(360px, calc(100svh - 320px));
+  }
+
+  .experience :global(.public-map-workspace) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .experience :global(.public-map-heading h1) {
+    font-size: 1.25rem;
+  }
+
   .experience :global(.public-map-heading > div > span),
-  .experience :global(.map-source-badge) { display: none; }
-  .mobileSearch { display: inline-flex; min-height: 44px; padding-inline: 10px; font-size: 0.76rem; }
-  .experience .viewSwitch { gap: 4px; }
-  .viewSwitch :global(.button) { min-height: 44px; font-size: 0.7rem; padding-inline: 8px; }
-  .experience :global(.map-legend) { font-size: 0.65rem; gap: 7px; }
-  .experience :global(.public-map-context) { margin: 0; }
-  .experience :global(.map-search-panel .map-panel-heading) { display: none; }
-  .experience :global(.map-search-form) { margin-top: 0; }
+  .experience :global(.map-source-badge) {
+    display: none;
+  }
+
+  .mobileSearch {
+    display: inline-flex;
+    min-height: 44px;
+    padding-inline: 10px;
+    font-size: 0.76rem;
+  }
+
+  .experience .viewSwitch {
+    gap: 4px;
+  }
+
+  .viewSwitch :global(.button) {
+    min-height: 44px;
+    font-size: 0.7rem;
+    padding-inline: 8px;
+  }
+
+  .experience :global(.map-legend) {
+    font-size: 0.65rem;
+    gap: 7px;
+  }
+
+  .experience :global(.public-map-context) {
+    margin: 0;
+  }
+
+  .experience :global(.map-search-panel .map-panel-heading) {
+    display: none;
+  }
+
+  .experience :global(.map-search-form) {
+    margin-top: 0;
+  }
+
+  .bannerSummary {
+    padding-left: 0;
+    padding-top: 10px;
+    border-left: 0;
+    border-top: 1px solid var(--visitor-border);
+  }
+
+  .landmarkControls {
+    padding-left: 0;
+  }
+
+  .gpsFeedback {
+    margin-left: 0;
+  }
+
+  .routePreviewCard {
+    top: 10px;
+    left: 10px;
+    width: min(230px, calc(100% - 20px));
+    padding: 10px 11px;
+    gap: 8px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .experience { scroll-behavior: auto; }
+  .experience {
+    scroll-behavior: auto;
+  }
 }

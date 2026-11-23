@@ -1,13 +1,13 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import Form from "next/form";
-import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { HeroBackgroundVideo } from "@/components/visitor/hero-background-video";
 import { HeroVisitorVideo } from "@/components/visitor/hero-visitor-video";
+import { HomepageParkMap } from "@/components/visitor/homepage-park-map";
 import { SearchSubmitButton } from "@/components/visitor/search-submit-button";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
 import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
@@ -15,12 +15,6 @@ import { getPublicGardenNames } from "@/lib/supabase/public-data";
 import styles from "./homepage.module.css";
 
 const landscape = "/phase2-viewer/landscape/";
-const gardens = [
-  { name: "Butterfly Palm Garden", description: "Lawns A and B", area: "Garden lawns" },
-  { name: "Majestic Palm Garden", description: "Lawns A, C and D", area: "Garden lawns" },
-  { name: "Majestic Palm Court C", description: "Estate lots", area: "Estate section" },
-  { name: "Park pathways", description: "Roads, paths and landmarks", area: "Park layout" },
-];
 const information: { icon: IconName; label: string; title: string; body: string; note: string }[] = [
   { icon: "location", label: "Directions & access", title: "Park Location",
     body: "Explore the park layout before your visit.",
@@ -45,7 +39,7 @@ export default async function HomePage() {
         <HeroBackgroundVideo
           className={styles.heroVideo}
           poster="/homepage/park-hero-poster.jpg"
-          src="/homepage/park-hero-showcase.mp4"
+          src="/homepage/park-hero-showcase-web.mp4"
         />
         <div className={styles.context}>
           <div className={styles.container}>
@@ -106,31 +100,7 @@ export default async function HomePage() {
             </div>
             <Link href="/map" className={styles.desktopMapAction}>Explore Park Map <Icon name="navigation" size={18} /></Link>
           </div>
-          <div className={styles.mapCard}>
-            <div className={styles.gardenLegend}>
-              <p className={styles.legendLabel}>Park Layout</p>
-              <h3>Designated Garden Sections</h3>
-              <p>Explore the garden sections and main pathways shown on the park layout.</p>
-              <ul>
-                {gardens.map(({ name, description, area }, index) => <li key={name}>
-                  <span className={styles.legendIndex} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                  <span><strong>{name}</strong><small>{description}</small></span>
-                  <span className={styles.legendArea}>{area}</span>
-                </li>)}
-              </ul>
-              {gardenNames.length > 0 ? <nav className={styles.gardenLinks} aria-label="Quick garden searches">
-                {gardenNames.map(garden => <Link href={"/results?section=" + encodeURIComponent(garden)} key={garden}>{garden}</Link>)}
-              </nav> : null}
-            </div>
-            <figure className={styles.mapPreview}>
-              <figcaption>{PARK_NAME} · Park Layout</figcaption>
-              {hasParkPreview ? <div className={styles.mapLayers} role="img" aria-label="Preview of the local Phase 2 park layout">
-                {["base.png", "roads.png", "paths.png", "trees.png"].map((file) => (
-                  <Image src={landscape + file} alt="" fill key={file} sizes="(max-width: 899px) 100vw, 65vw" unoptimized />
-                ))}
-              </div> : <div className={styles.mapPlaceholder}><Icon name="map" size={42} /><p>Open the park map to check available map information.</p></div>}
-            </figure>
-          </div>
+          <HomepageParkMap gardenNames={gardenNames} hasParkPreview={hasParkPreview} />
           <Link href="/map" className={styles.mobileMapAction}><Icon name="navigation" size={18} />Explore Park Map</Link>
         </div>
       </section>

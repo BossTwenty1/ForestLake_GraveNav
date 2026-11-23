@@ -96,3 +96,13 @@ test("An approved access point on the outer mapping boundary remains eligible",(
  data.layers.boundaries[0].geometry.coordinates=[[[122.999,12.999],[123.001,12.999],[123.001,13.002],[122.999,13.002],[122.999,12.999]]];
  assert.equal(routePhaseTwo(data,fix(123.001),now).state,"arrived");
 });
+
+test("Multi-release navigation policy array selects only the unique matching release and revision", () => {
+ const { data, policy } = fixture();
+ const otherPolicy = { ...policy, releaseId: "10000000-0000-4000-8000-000000000002", scopeRevision: 2 };
+ const selected = readNavigationPolicy(JSON.stringify([otherPolicy, policy]), data);
+ assert.equal(selected?.releaseId, data.releaseId);
+ assert.equal(selected?.scopeRevision, data.scopeRevision);
+ assert.equal(readNavigationPolicy(JSON.stringify([policy, policy]), data), null);
+ assert.equal(readNavigationPolicy(JSON.stringify([otherPolicy]), data), null);
+});

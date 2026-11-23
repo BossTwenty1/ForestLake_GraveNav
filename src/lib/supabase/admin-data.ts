@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "./database.types";
 import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, GraveType, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
 
-const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
+const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,inscription,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
 const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_display";
 const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,legacy_location_code,legacy_pa_number,status,length_m,width_m,px_loc_x,px_loc_y,location_geom,coordinate_accuracy_m,coordinate_status,coordinate_verified,coordinate_rejection_reason,updated_at,deleted_at";
 const OWNER_COLUMNS = "revision,lot_owner_id,first_name,middle_name,last_name,suffix,aliases,address,representative_name,representative_contact,representative_relation";
@@ -145,6 +145,7 @@ export async function getAdminRecordsPage(
       serviceProvider: record.service_provider || null,
       recordSource: record.record_source || null,
       qualityNotes: record.quality_notes || null,
+      inscription: record.inscription || null,
       updatedAt: record.updated_at,
       location: parsePoint(lot?.location_geom),
       pixelLocation: lot?.px_loc_x !== null && lot?.px_loc_x !== undefined && lot?.px_loc_y !== null && lot?.px_loc_y !== undefined ? { x: lot.px_loc_x, y: lot.px_loc_y } : null,
@@ -169,10 +170,17 @@ export async function getAdminRecord(id: string): Promise<AdminRecord | null> {
   if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return null;
   const record = (await getAdminRecordsPage({ recordId: Number(id), pageSize: 1 })).items[0];
   if (!record) return null;
-  const { data, error } = await requireClient().rpc("staff_sample_plot_references", {
-    p_lot_ids: [record.lotId],
-  });
-  if (error?.code === "PGRST202") return record;
+  const client = requireClient();
+  const [referencesResult, personResult] = await Promise.all([
+    client.rpc("staff_sample_plot_references", { p_lot_ids: [record.lotId] }),
+    client.from("deceased").select("sex").eq("deceased_id", record.deceasedId).maybeSingle(),
+  ]);
+  // Keep the detail page usable while the database migration is pending.
+  if (personResult.error && personResult.error.code !== "42703") throw personResult.error;
+  const sex = personResult.data?.sex;
+  const detail = { ...record, sex: sex == null ? sex : enumValue(sex, ["female", "male"]) };
+  const { data, error } = referencesResult;
+  if (error?.code === "PGRST202") return detail;
   if (error) throw error;
   if (!Array.isArray(data) || !data.every((item) => isObject(item)
     && typeof item.lotId === "string"
@@ -181,7 +189,7 @@ export async function getAdminRecord(id: string): Promise<AdminRecord | null> {
   }
   const references = data as { lotId: string; reference: string | null }[];
   const reference = references.find((item) => item.lotId === String(record.lotId));
-  return { ...record, syntheticPlotReference: reference?.reference ?? null };
+  return { ...detail, syntheticPlotReference: reference?.reference ?? null };
 }
 
 
@@ -523,6 +531,27 @@ export async function getAdminPhotos(options: PageOptions & { status?: AdminPhot
 }
 
 
+export async function getBurialPhotos(burialId: number): Promise<AdminPhoto[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("photo")
+    .select(PHOTO_COLUMNS)
+    .eq("burial_id", burialId)
+    .order("photo_id", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((photo) => ({
+    revision: photo.revision,
+    photoId: photo.photo_id,
+    burialId: photo.burial_id,
+    fileName: photo.file_name,
+    caption: photo.caption,
+    capturedAt: photo.captured_at,
+    approvalStatus: photo.approval_status,
+    publicDisplay: Boolean(photo.public_display),
+    createdAt: photo.created_at,
+  })) as AdminPhoto[];
+}
+
 export async function updatePhotoReview(photoId: number, approvalStatus: AdminPhoto["approvalStatus"], revision: number) {
   return saveStaffRecord("photo", photoId, revision, { status: approvalStatus }, "review");
 }
@@ -625,6 +654,7 @@ export async function getRecordHistory(page = 0) {
 export type BurialRecordInput = {
   revision?: number;
   name: string;
+  sex?: AdminRecord["sex"];
   lotId: number;
   birthDate?: string;
   deathDate?: string;
@@ -639,6 +669,7 @@ export type BurialRecordInput = {
   serviceProvider?: string;
   recordSource?: string;
   qualityNotes?: string;
+  inscription?: string;
 };
 
 export type LotInput = {
@@ -737,6 +768,7 @@ function getPointCoordinates(value: unknown): [number, number] | null {
 function burialPayload(input: BurialRecordInput) {
   return {
     display_name: input.name,
+    ...(input.sex === undefined ? {} : { sex: input.sex }),
     birth_date: input.birthDate || null,
     death_date: input.deathDate || null,
     public_display: input.publicDisplay,
@@ -751,6 +783,7 @@ function burialPayload(input: BurialRecordInput) {
     service_provider: input.serviceProvider || null,
     record_source: input.recordSource || null,
     quality_notes: input.qualityNotes || null,
+    ...(input.inscription === undefined ? {} : { inscription: input.inscription.trim() || null }),
   };
 }
 

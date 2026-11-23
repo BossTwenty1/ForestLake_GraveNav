@@ -73,6 +73,98 @@
   overflow-wrap: anywhere;
 }
 
+.portraitBox {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-subtle, var(--surface));
+}
+
+.portraitFrame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.portraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.portraitControls {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.portraitHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.portraitHeader strong {
+  font-size: 0.92rem;
+}
+
+.portraitActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.photoList {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.photoItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.photoItemMeta {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.photoItemMeta strong {
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.photoItemMeta span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 @media (max-width: 600px) {
   .profile { grid-template-columns: 1fr; }
+  .portraitBox { grid-template-columns: 1fr; }
 }

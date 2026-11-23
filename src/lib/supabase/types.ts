@@ -29,6 +29,7 @@ export type PublicBurialRecord = {
   coordinateStatus: "missing" | "pending" | "verified" | "rejected";
   locationVerified: boolean;
   tone: string;
+  inscription?: string | null;
 };
 
 export type GraveType = "regular" | "mausoleum";
@@ -40,6 +41,7 @@ export type AdminRecord = {
   burialId: number;
   name: string;
   deceasedId: number;
+  sex?: "female" | "male" | null;
   lotId: number;
   plot: string;
   section: string;
@@ -56,6 +58,7 @@ export type AdminRecord = {
   serviceProvider: string | null;
   recordSource: string | null;
   qualityNotes: string | null;
+  inscription?: string | null;
   updatedAt: string;
   location: { latitude: number; longitude: number } | null;
   pixelLocation: { x: number; y: number } | null;

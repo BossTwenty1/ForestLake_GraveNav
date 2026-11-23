@@ -1,15 +1,17 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/icons";
 import { PARK_NAME } from "@/lib/park-details";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 import { memorialMapHref, visitorPlotDetails, type GravesiteMapScope } from "@/lib/visitor-presentation";
 
-export function GravesiteLocationCard({ record, mapScope = "unavailable", showMapLink = true, returnTo, memorialOverview = false }: {
+export function GravesiteLocationCard({ record, mapScope = "unavailable", showMapLink = true, returnTo, memorialOverview = false, mapPreview }: {
   record: PublicBurialRecord;
   mapScope?: GravesiteMapScope;
   showMapLink?: boolean;
   returnTo?: string;
   memorialOverview?: boolean;
+  mapPreview?: ReactNode;
 }) {
   const plot = visitorPlotDetails(record);
   const mapped = mapScope === "phase2";
@@ -17,7 +19,7 @@ export function GravesiteLocationCard({ record, mapScope = "unavailable", showMa
   const state: LocationState = onLayout ? {
     label: "Park layout available",
     heading: "Plot assigned on the park layout",
-    description: "View the assigned plot on the planning map. GPS and walking directions are unavailable.",
+    description: "Open the gravesite guide for a route preview on the park layout. Live GPS directions are unavailable.",
     tone: "unavailable",
     icon: "info",
   } : !mapped ? {
@@ -71,7 +73,7 @@ export function GravesiteLocationCard({ record, mapScope = "unavailable", showMa
         <div className="memorial-plot-information">{heading}{plotFields}</div>
         <div className="memorial-map-overview">
           <h3>Park Map Overview</h3>
-          <div className="memorial-map-surface"><Icon name="map" size={36} />{PARK_NAME}</div>
+          {mapPreview ?? <div className="memorial-map-surface"><Icon name="map" size={36} />{PARK_NAME}</div>}
           {mapActions}
         </div>
       </> : <>{heading}{plotFields}{mapActions}</>}

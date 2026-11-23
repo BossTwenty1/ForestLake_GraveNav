@@ -215,9 +215,10 @@ export function BurialRecordsCrud({
 }
 
 
-export function PlotManagementCrud({ initialQueryState, mapAreaId }: {
+export function PlotManagementCrud({ initialQueryState, mapAreaId, mapAreaIds }: {
   initialQueryState: PlotManagementQuery;
   mapAreaId?: string;
+  mapAreaIds?: string[];
 }) {
   const canAdmin = useStaff()?.role === "ADMIN";
   const [lots, setLots] = useState<PlotManagementItem[]>([]);
@@ -282,7 +283,7 @@ export function PlotManagementCrud({ initialQueryState, mapAreaId }: {
   return <div className="admin-page-frame admin-plot-page">
     {error && error !== loadError ? <DataError message={error} /> : null}{message ? <Alert icon="check" title="Plot update" variant="success">{message}</Alert> : null}
     {formOpen ? <LotForm key={editing?.lotId ?? "new"} lot={editing} areas={areas} owners={owners} onSearchOwners={searchOwners} onCancel={() => { setFormOpen(false); setEditing(null); }} onSaved={async () => { setFormOpen(false); setEditing(null); setMessage(editing ? "Plot updated." : "Plot created."); await refresh(); }} /> : null}
-    <PlotManagementList areas={areas} busy={busy} canAdmin={canAdmin} error={loadError} loading={loading} mapAreaId={mapAreaId} plots={lots} queryState={queryState} summary={summary} total={total} onAdd={() => { setEditing(null); setFormOpen(true); }} onDelete={setDeleteTarget} onEdit={(plot) => { setEditing(plot); setFormOpen(true); }} onQueryStateChange={setQueryState} onRetry={() => void loadPlots(queryState)} />
+    <PlotManagementList areas={areas} busy={busy} canAdmin={canAdmin} error={loadError} loading={loading} mapAreaId={mapAreaId} mapAreaIds={mapAreaIds} plots={lots} queryState={queryState} summary={summary} total={total} onAdd={() => { setEditing(null); setFormOpen(true); }} onDelete={setDeleteTarget} onEdit={(plot) => { setEditing(plot); setFormOpen(true); }} onQueryStateChange={setQueryState} onRetry={() => void loadPlots(queryState)} />
     <ConfirmationDialog open={Boolean(deleteTarget)} title="Delete plot?" description={<p>Only plots without a burial record can be removed. Administrators can restore removed plots in Recovery.</p>} confirmLabel={busy ? "Deleting…" : "Delete plot"} variant="danger" onConfirm={() => void removeLot()} onClose={() => { if (!busy) setDeleteTarget(null); }} />
   </div>;
 }

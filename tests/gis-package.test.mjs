@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile as fsWriteFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile as fsWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -426,4 +426,72 @@ test("offline validator has no Supabase client dependency", async () => {
     const source = await readFile(new URL(`../scripts/gis/${name}`, import.meta.url), "utf8");
     assert.doesNotMatch(source, /@supabase|createClient\s*\(/);
   }
+});
+
+test("schema_version 2 full-coverage multi-area package validates >50 plots across areas and enforces area/lot guards", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "gravenav-gis-full-v2-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const data = baseData();
+  data["garden_sections.geojson"] = collection([
+    feature(polygon(123.001, 13.001, 123.009, 13.019), { ...common("boundary.area.2"), kind: "area", area_id: "2" }),
+    feature(polygon(123.010, 13.001, 123.019, 13.019), { ...common("boundary.area.3"), kind: "area", area_id: "3" }),
+  ]);
+  const lotIds = Array.from({ length: 65 }, (_, index) => String(index + 1));
+  data["grave_plots.geojson"] = collection(lotIds.map((lotId, index) => {
+    const areaId = index < 35 ? "2" : "3";
+    const x = 123.002 + (index % 10) * 0.0005;
+    const y = 13.002 + Math.floor(index / 10) * 0.0005;
+    return feature(polygon(x, y, x + 0.0003, y + 0.0003), { ...common(`plot.${lotId}`), lot_id: lotId, area_id: areaId });
+  }));
+  data["grave_access_points.geojson"] = collection(lotIds.map((lotId, index) => ({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [123.0105, 13.0105] },
+    properties: { ...common(`access.${lotId}`), lot_id: lotId, area_id: index < 35 ? "2" : "3", node_source_feature_id: "node.end" },
+  })));
+  const fileBytes = Object.fromEntries(Object.entries(data).map(([name, value]) => [name, stableJson(value)]));
+  const manifest = {
+    schema_version: 2,
+    package_id: "forest-lake-phase2-full-v2",
+    site_id: "1",
+    area_ids: ["2", "3"],
+    release_code: "PILOT-V1",
+    title: "Synthetic Forest Lake Phase 2 full coverage",
+    description: "Multi-area full-coverage validation fixture",
+    source_plan: { reference: "synthetic-plan.png", version: "v2", sha256: HASH_B, coordinate_space: "image-pixels" },
+    crs: { field: 4326, working: 32651, export: 4326 },
+    exported_at: "2026-11-22T00:00:00.000Z",
+    qgis_version: "3.40",
+    selected_run_code: "RUN-01",
+    declared_lot_ids: lotIds,
+    provenance_notes: "Synthetic fixture; no production evidence.",
+    limitations: ["Not survey-grade."],
+    files: DATA_FILE_NAMES.map((name) => ({
+      name,
+      sha256: sha256(fileBytes[name]),
+      bytes: fileBytes[name].byteLength,
+      feature_count: JSON.parse(fileBytes[name]).features?.length ?? JSON.parse(fileBytes[name]).length,
+      layer_version: "v2",
+    })),
+  };
+  for (const [name, bytes] of Object.entries(fileBytes)) await writeFile(join(root, name), bytes);
+  await writeFile(join(root, "manifest.json"), stableJson(manifest));
+
+  const valid = await validatePackageDirectory(root);
+  assert.equal(valid.valid, true, JSON.stringify(valid));
+  assert.equal(valid.counts["grave_plots.geojson"], 65);
+  assert.equal(valid.requiresDatabaseValidation, true);
+  assert.notEqual(valid.packageDigest, computePackageDigest(stableJson(manifest), manifest.files, 1));
+  assert.equal(valid.packageDigest, computePackageDigest(stableJson(manifest), manifest.files, 2));
+
+  // Mismatched access point area is rejected.
+  data["grave_access_points.geojson"].features[0].properties.area_id = "3";
+  await rewriteDataFile(root, "grave_access_points.geojson", data["grave_access_points.geojson"]);
+  await expectInvalid(root, "access_point_area_mismatch");
+
+  // Missing area boundary is rejected.
+  data["grave_access_points.geojson"].features[0].properties.area_id = "2";
+  await rewriteDataFile(root, "grave_access_points.geojson", data["grave_access_points.geojson"]);
+  data["garden_sections.geojson"].features.pop();
+  await rewriteDataFile(root, "garden_sections.geojson", data["garden_sections.geojson"]);
+  await expectInvalid(root, "missing_area_boundary");
 });

@@ -43,16 +43,6 @@
 
 :global(.visitor-shell):has(.explorer) :global(.visitor-header) {
   flex: none;
-  background: var(--park-ground);
-  color: var(--park-ink);
-  border-color: var(--park-border);
-  backdrop-filter: none;
-}
-:global(.visitor-shell):has(.explorer) :global(.visitor-header__inner) {
-  width: 100%;
-  max-width: 1760px;
-  min-height: 61px;
-  padding-inline: 22px;
 }
 :global(.visitor-main):has(> .explorer) {
   width: 100%;
@@ -265,7 +255,6 @@
 .selectionActions .primary { background: var(--park-action); color: #fff; border-color: var(--park-action); }
 
 @media (max-width: 899px) {
-  :global(.visitor-shell):has(.explorer) :global(.visitor-header__inner) { min-height: 55px; padding-inline: 13px; }
   .explorer,.explorer[data-collapsed="true"] {
     --cemetery-map-height: 100%;
     height: auto;

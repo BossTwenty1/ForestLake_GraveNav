@@ -102,7 +102,7 @@ async function readPlotSelection(client: NonNullable<Awaited<ReturnType<typeof g
   const unavailable = plotMapUnavailable(identity, scope);
   if (unavailable) return { plot, message: unavailable };
 
-  const geography = await getPhaseTwoGeography();
+  const geography = await getPhaseTwoGeography(null, String(lot.area_id));
   const map = focusPublishedStaffPlot(identity, scope, geography);
   const message = geography.state === "ready"
     ? "The published geographic layer has no exact match for this plot."

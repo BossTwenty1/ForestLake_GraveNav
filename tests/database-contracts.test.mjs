@@ -66,12 +66,38 @@ test("database migrations and operational contracts", async (t) => {
     });
     await t.test("burial creation is atomic and double-submission safe", async () => {
       const request = randomUUID();
-      firstBurial = await save("burial_record", null, null, burial(firstLot.id), "save", request);
-      assert.deepEqual(await save("burial_record", null, null, burial(firstLot.id), "save", request), firstBurial);
+      const values = { ...burial(firstLot.id), sex: "female" };
+      firstBurial = await save("burial_record", null, null, values, "save", request);
+      assert.deepEqual(await save("burial_record", null, null, values, "save", request), firstBurial);
       await assert.rejects(save("burial_record", null, null, burial(firstLot.id)), /already has/);
       assert.equal((await db.query("select count(*)::int n from public.deceased")).rows[0].n, 1);
       await assert.rejects(save("burial_record", firstBurial.id, firstBurial.revision, { ...burial(firstLot.id, "Changed"), remains_type: "INVALID" }), /check constraint/);
       assert.equal((await db.query("select display_name from public.deceased")).rows[0].display_name, "Maria Santos");
+    });
+    await t.test("deceased sex is optional, validated, and restored by record recovery", async () => {
+      const values = burial(firstLot.id);
+      const readSex = async () => (await db.query(
+        "select d.sex from public.deceased d join public.burial_record b using (deceased_id) where b.burial_id = $1",
+        [firstBurial.id],
+      )).rows[0].sex;
+      const update = async (patch) => {
+        firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision, { ...values, ...patch });
+      };
+
+      assert.equal(await readSex(), "female");
+      await assert.rejects(update({ sex: "invalid" }), /deceased_sex_check/);
+      await update({ sex: "male" });
+      await update({});
+      assert.equal(await readSex(), "male");
+      await update({ sex: null });
+      assert.equal(await readSex(), null);
+      const history = (await db.query(
+        "select history_id from public.record_history where entity = 'burial_record' and record_id = $1 and after_revision = $2",
+        [firstBurial.id, firstBurial.revision],
+      )).rows[0];
+      firstBurial = await save("burial_record", firstBurial.id, firstBurial.revision,
+        { history_id: history.history_id }, "revert");
+      assert.equal(await readSex(), "male");
     });
     await t.test("ranked name and plot search respects public visibility, filters and pagination", async () => {
       const secondLot = await save("lot", null, null, lot("RPG-002"));
@@ -84,6 +110,7 @@ test("database migrations and operational contracts", async (t) => {
       let result = await search("Santos,   Maria");
       assert.equal(result.items[0].display_name, "Maria Santos");
       assert.equal(result.items[0].match_type, "exact");
+      assert.equal(Object.hasOwn(result.items[0], "sex"), false);
       assert.equal(result.items[0].interment_date, "2020-01-05");
       assert.equal((await search("rpg 001")).items[0].match_type, "exact");
       assert.ok((await search("Maria Santso")).items.some((row) => row.match_type === "similar"));

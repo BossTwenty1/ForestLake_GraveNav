@@ -1,9 +1,9 @@
 "use client";
 
-import { circleMarker, geoJSON } from "leaflet";
+import { circleMarker, divIcon, geoJSON } from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { useEffect, useRef } from "react";
-import { Circle, CircleMarker, GeoJSON, MapContainer, Polyline, ScaleControl, Tooltip, ZoomControl, useMap } from "react-leaflet";
+import { Circle, CircleMarker, GeoJSON, MapContainer, Marker, Polyline, ScaleControl, Tooltip, ZoomControl, useMap } from "react-leaflet";
 import type { PhaseTwoGeography } from "@/lib/phase2-geographic";
 import type { ParkPlace } from "@/lib/park-explorer-features";
 import type { GpsPosition } from "@/lib/navigation-geo";
@@ -16,7 +16,18 @@ function Viewport({ data, position, focusRequest, routeActive, wideNavigation }:
   const map = useMap();
   const latest = useRef(position);
   const lastFocus = useRef(focusRequest);
+  const following = useRef(true);
   useEffect(() => { latest.current = position; }, [position]);
+  useEffect(() => {
+    const pauseFollow = () => { following.current = false; };
+    map.on("dragstart", pauseFollow);
+    return () => { map.off("dragstart", pauseFollow); };
+  }, [map]);
+  useEffect(() => {
+    if (routeActive && following.current && position) {
+      map.panTo([position.latitude, position.longitude], { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches });
+    }
+  }, [map, routeActive, position]);
   useEffect(() => {
     const bounds = data.target ? geoJSON(data.target as GeoJsonObject).getBounds() :
       geoJSON({ type: "FeatureCollection", features: data.layers.boundaries } as GeoJsonObject).getBounds();
@@ -24,12 +35,14 @@ function Viewport({ data, position, focusRequest, routeActive, wideNavigation }:
       const center: [number, number] = [latest.current.latitude, latest.current.longitude];
       if (wideNavigation && lastFocus.current !== focusRequest) {
         lastFocus.current = focusRequest;
+        following.current = true;
         map.panTo(center, { animate: false });
         return;
       }
       bounds.extend(center);
     }
     lastFocus.current = focusRequest;
+    following.current = true;
     if (data.accessPoint) {
       const [lon, lat] = data.accessPoint.geometry.coordinates as number[];
       bounds.extend([lat, lon]);
@@ -69,6 +82,18 @@ export default function PhaseTwoGeographicCanvas({ explorer, data, position = nu
     {route.length > 1 ? <Polyline positions={route.map(([lon, lat]) => [lat, lon])} pathOptions={{ color: "#158851", weight: 5 }} className="gravenav-active-route" /> : null}
     {position ? <>
       <Circle center={[position.latitude, position.longitude]} radius={position.accuracy} pathOptions={{ color: "#285777", weight: 1, fillOpacity: 0.08 }} />
+      {typeof position.heading === "number" && Number.isFinite(position.heading) ? (
+        <Marker
+          position={[position.latitude, position.longitude]}
+          interactive={false}
+          icon={divIcon({
+            className: "gravenav-heading-cone",
+            html: `<div style="width:28px;height:28px;transform:rotate(${Math.round(position.heading)}deg);display:grid;place-items:start center;"><span style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #177f52;margin-top:-2px;"></span></div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+          })}
+        />
+      ) : null}
       <CircleMarker center={[position.latitude, position.longitude]} radius={7} pathOptions={{ color: "#fff", fillColor: "#177f52", weight: 3, fillOpacity: 1 }} className="gravenav-current-position">
         <Tooltip>Your location · ±{Math.round(position.accuracy)} m</Tooltip>
       </CircleMarker>

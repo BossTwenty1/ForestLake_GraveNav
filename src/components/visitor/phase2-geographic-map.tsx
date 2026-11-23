@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveNavigationFrame, type NavigationMemorial } from "./live-navigation-frame";
 import layout from "./map-explorer.module.css";
 import { subscribeToLocation, usablePosition, type GpsPosition } from "@/lib/navigation-geo";
-import { routePhaseTwo, walkingSteps, type PhaseTwoRouteState } from "@/lib/phase2-routing";
+import { PARK_ENTRANCE_MAPS_URL } from "@/lib/phase2-layout-routing";
+import { routePhaseTwo, routePhaseTwoFromEntrance, walkingSteps, type PhaseTwoRouteState } from "@/lib/phase2-routing";
 import type { PhaseTwoGeography, PhaseTwoResult } from "@/lib/phase2-geographic";
 
 const GeographicCanvas = dynamic(() => import("./phase2-geographic-canvas"), {
@@ -29,7 +30,9 @@ export function PhaseTwoGeographicMap({ data, burialId, memorial }: { data: Phas
   const [enabled, setEnabled] = useState(false);
   const [stopped, setStopped] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [previewFromEntrance, setPreviewFromEntrance] = useState(false);
   const preflight = useMemo(() => routePhaseTwo(data, null), [data]);
+  const entranceRoute = useMemo(() => routePhaseTwoFromEntrance(data), [data]);
   const [position, setPosition] = useState<GpsPosition | null>(null);
   const [locationError, setLocationError] = useState("");
   const [serviceError, setServiceError] = useState("");
@@ -143,16 +146,24 @@ export function PhaseTwoGeographicMap({ data, burialId, memorial }: { data: Phas
       service_unavailable: "Route unavailable",
       gps_unavailable: permissionDenied ? "GPS permission required" : "GPS signal unavailable",
     };
-    const detail = displayState === "stopped" ? "Location tracking has ended. Start again when you’re ready." : message;
-    return <LiveNavigationFrame memorial={memorial} state={displayState} status={titles[displayState] ?? "Route unavailable"}
-      message={detail} distance={route?.distanceM ?? null} accuracy={fresh?.accuracy ?? null} steps={route ? walkingSteps(route) : []}
+    const showEntrancePreview = previewFromEntrance && entranceRoute.state === "ready" && state !== "ready" && state !== "arrived";
+    const activeRoute = showEntrancePreview ? entranceRoute : route;
+    const canOfferEntrancePreview = entranceRoute.state === "ready" && state !== "ready" && state !== "arrived";
+    const detail = showEntrancePreview
+      ? "Previewing walking route from the Main Entrance. Live GPS guidance activates once you are inside the park."
+      : displayState === "stopped" ? "Location tracking has ended. Start again when you’re ready." : message;
+    return <LiveNavigationFrame memorial={memorial} state={displayState} status={showEntrancePreview ? "Entrance route preview" : (titles[displayState] ?? "Route unavailable")}
+      message={detail} distance={activeRoute?.distanceM ?? null} accuracy={fresh?.accuracy ?? null} steps={activeRoute ? walkingSteps(activeRoute) : []}
       lotId={data.target?.properties.lotId} onRecenter={() => setFocus(value => value + 1)}
       onStart={!enabled && canGuide ? toggle : undefined} onStop={enabled ? toggle : undefined}
+      entrancePreviewActive={showEntrancePreview}
+      onToggleEntrancePreview={canOfferEntrancePreview ? () => setPreviewFromEntrance(value => !value) : undefined}
+      externalDirectionsUrl={displayState === "outside" || !enabled ? PARK_ENTRANCE_MAPS_URL : undefined}
       retryLabel={serviceError ? "Reload map" : "Try location again"}
       onRetry={serviceError && enabled ? () => window.location.reload() : locationError && enabled ? () => {
         setLocationError(""); setPermissionDenied(false); setCheckedAt(0); setLocationAttempt(value => value + 1);
       } : undefined}
-      map={<GeographicCanvas data={data} position={fresh} route={route?.coordinates ?? []} focusRequest={focus} wideNavigation routeActive={state === "ready"} />} />;
+      map={<GeographicCanvas data={data} position={fresh} route={activeRoute?.coordinates ?? []} focusRequest={focus} wideNavigation routeActive={state === "ready"} />} />;
   }
   return <div className="phase-two-geographic-experience" data-navigation-state={state} data-target-lot={data.target?.properties.lotId ?? ""}
     data-remaining-distance={route?.distanceM ?? ""}>

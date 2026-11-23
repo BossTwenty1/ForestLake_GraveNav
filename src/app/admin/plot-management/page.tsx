@@ -7,8 +7,13 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function AdminPlotManagementRoute({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  const scope = getPhaseTwoScope();
   return <AdminShell active="Plot Management">
-    <PlotManagementCrud initialQueryState={getInitialQueryState(params)} mapAreaId={getPhaseTwoScope()?.areaId} />
+    <PlotManagementCrud
+      initialQueryState={getInitialQueryState(params)}
+      mapAreaId={scope?.areaId}
+      mapAreaIds={scope?.areaIds}
+    />
   </AdminShell>;
 }
 

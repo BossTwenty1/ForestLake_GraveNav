@@ -19,6 +19,7 @@ type PublicRow = {
   px_loc_y: number | null;
   location_verified: boolean;
   coordinate_status?: "pending" | "verified" | "rejected" | null;
+  inscription?: string | null;
 };
 
 // The public view is the allowlisted read boundary. Its optional sample projection
@@ -135,6 +136,9 @@ export function toPublicRecord(row: PublicRow): PublicBurialRecord {
     coordinateStatus,
     locationVerified: coordinateStatus === "verified" && Boolean(location),
     tone: "result-media--lawn",
+    ...("inscription" in row
+      ? { inscription: typeof row.inscription === "string" && row.inscription.trim() ? row.inscription.trim() : null }
+      : {}),
   };
 }
 

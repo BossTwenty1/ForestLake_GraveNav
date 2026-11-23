@@ -66,7 +66,8 @@ export function plotMapUnavailable(plot: StaffPlotMapIdentity, scope: PhaseTwoSc
   if (!scope) {
     return "An approved geographic map area is not configured. Recorded coordinate verification alone does not link this plot to a map.";
   }
-  if (String(plot.areaId) !== scope.areaId) {
+  const allowedAreas = scope.areaIds?.length ? scope.areaIds : [scope.areaId];
+  if (!allowedAreas.includes(String(plot.areaId))) {
     return "This plot is outside the approved geographic map area.";
   }
   return null;

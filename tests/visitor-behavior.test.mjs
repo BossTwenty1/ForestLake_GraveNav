@@ -472,3 +472,210 @@ test("walking steps follow the approved route geometry and disappear when guidan
   assert.deepEqual(walkingSteps({ state: "off_route", coordinates, distanceM: null }), []);
   assert.deepEqual(walkingSteps({ state: "arrived", coordinates, distanceM: 0 }), []);
 });
+
+test("entrance route preview computes shortest reviewed path without requiring live GPS", () => {
+  const { routePhaseTwoFromEntrance } = load("src/lib/phase2-routing.ts", { "./navigation-geo.ts": geo });
+  const data = {
+    releaseId: "rel-1",
+    scopeRevision: 1,
+    target: { id: "plot-1", geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] }, properties: { lotId: "10" } },
+    accessPoint: { id: "ap-1", geometry: { type: "Point", coordinates: [123.001, 13] }, properties: { lotId: "10", nodeId: "n2" } },
+    layers: {
+      boundaries: [], plots: [], access_points: [], walkways: [], landmarks: [],
+      nodes: [
+        { id: "node-1", geometry: { type: "Point", coordinates: [123, 13] }, properties: { nodeId: "n1", nodeType: "main_entrance" } },
+        { id: "node-2", geometry: { type: "Point", coordinates: [123.001, 13] }, properties: { nodeId: "n2", nodeType: "access" } },
+      ],
+      edges: [
+        {
+          id: "edge-1",
+          geometry: { type: "LineString", coordinates: [[123, 13], [123.001, 13]] },
+          properties: { fromNodeId: "n1", toNodeId: "n2", direction: "both", forwardCostM: 108, reverseCostM: 108, walkingAllowed: true, isRestricted: false },
+        },
+      ],
+    },
+  };
+  const route = routePhaseTwoFromEntrance(data);
+  assert.equal(route.state, "ready");
+  assert.equal(route.distanceM, 108);
+  assert.deepEqual(route.coordinates, [[123, 13], [123.001, 13]]);
+});
+
+test("park layout walkway router builds a single path from entrance landmark to target plot", () => {
+  const planning = load("src/lib/phase2-planning.ts", { "./phase2-cad-details": {}, "./phase2-plot-coordinates": {} });
+  const layoutRouter = load("src/lib/phase2-layout-routing.ts", {
+    "./park-details": { PARK_NAME: "Forest Lake Memorial Park - Legazpi", PARK_ADDRESS: "Legazpi City" },
+    "./phase2-planning": planning,
+  });
+  const bundle = {
+    data: {
+      layers: {
+        roads: [{ id: "roads:1", shape: { kind: "line", positions: [[0, 0], [0, 20], [20, 20]] } }],
+        paths: [{ id: "paths:1", shape: { kind: "line", positions: [[20, 20], [20, 40]] } }],
+      },
+    },
+    places: { landmarks: [{ id: "185B", name: "Guard House", kind: "facility", cadXY: [0, 0] }] },
+    details: { labels: [] },
+  };
+  const graph = layoutRouter.buildLayoutWalkwayGraph(bundle);
+  const starts = layoutRouter.layoutStartPoints(bundle);
+  assert.equal(starts[0].label, "Main Entrance (Guard House)");
+  const route = layoutRouter.routeOnParkLayout(graph, starts[0], { id: "lawn:1", bounds: [21, 39, 23, 41] });
+  assert.ok(route);
+  assert.ok(route.path.length >= 2);
+  assert.equal(route.approach.length, 2);
+  assert.ok(route.steps.some(step => /Guard House/.test(step.instruction)));
+  assert.ok(route.steps.at(-1).instruction.includes("check the grave marker"));
+});
+
+test("weighted A* shortest path avoids steep slope protection zones, takes flat shortcuts, and honors paved mode", () => {
+  const planning = load("src/lib/phase2-planning.ts", { "./phase2-cad-details": {}, "./phase2-plot-coordinates": {} });
+  const layoutRouter = load("src/lib/phase2-layout-routing.ts", {
+    "./park-details": { PARK_NAME: "Forest Lake Memorial Park - Legazpi", PARK_ADDRESS: "Legazpi City" },
+    "./phase2-planning": planning,
+  });
+  const boundary = {
+    id: "boundary:1",
+    shape: { kind: "polygon", positions: [[[0, 0], [100, 0], [100, 100], [0, 100], [0, 0]]] },
+  };
+  // Steep slope wall blocking the center (x=40..60, y=0..65), leaving flat ground above y=65.
+  const slopeZone = {
+    id: "context:slope1",
+    properties: { effective_layer: "[SDP] Slope Protection" },
+    shape: { kind: "polygon", positions: [[[40, 0], [60, 0], [60, 65], [40, 65], [40, 0]]] },
+  };
+  // Paved U-shaped road going all the way around y=90.
+  const bundle = {
+    data: {
+      bounds: [0, 0, 100, 100],
+      layers: {
+        boundary: [boundary],
+        roads: [
+          { id: "roads:1", shape: { kind: "line", positions: [[10, 20], [10, 90], [90, 90], [90, 20]] } },
+        ],
+        paths: [],
+        blocks: [],
+        context: [slopeZone],
+      },
+    },
+    places: { landmarks: [{ id: "185B", name: "Guard House", kind: "facility", cadXY: [10, 20] }] },
+    details: { labels: [] },
+  };
+
+  const graph = layoutRouter.buildLayoutWalkwayGraph(bundle);
+  const start = { id: "start", label: "Start", position: [10, 20] };
+  const target = { id: "lawn:99", bounds: [86, 20, 90, 24] };
+
+  const shortest = layoutRouter.routeOnParkLayout(graph, start, target, { mode: "shortest" });
+  const paved = layoutRouter.routeOnParkLayout(graph, start, target, { mode: "paved" });
+  assert.ok(shortest && paved);
+  assert.equal(shortest.mode, "shortest");
+  assert.equal(paved.mode, "paved");
+
+  // Shortest mode should cut across the flat ground above y=65 instead of detouring all the way to y=90.
+  assert.ok(shortest.distanceMeters < paved.distanceMeters, `expected shortest (${shortest.distanceMeters}m) < paved (${paved.distanceMeters}m)`);
+
+  // Neither mode may enter the steep slope protection rectangle [40..60, 0..65].
+  for (const route of [shortest, paved]) {
+    for (const [x, y] of route.path) {
+      assert.equal(x > 40 && x < 60 && y > 0 && y < 65, false, `Point [${x}, ${y}] entered steep slope zone`);
+    }
+  }
+
+  // When already close on flat, obstacle-free ground (< 40m), shortest mode takes a direct local approach.
+  const nearbyStart = { id: "live-gps", label: "Your current location", position: [74, 22] };
+  const nearbyRoute = layoutRouter.routeOnParkLayout(graph, nearbyStart, target, { mode: "shortest" });
+  assert.ok(nearbyRoute);
+  assert.ok(nearbyRoute.distanceMeters <= 16, `expected direct nearby walk <= 16m, got ${nearbyRoute.distanceMeters}m`);
+});
+
+test("thin 1.5m retaining wall between parallel road and upper terrace cannot be climbed across", () => {
+  const planning = load("src/lib/phase2-planning.ts", { "./phase2-cad-details": {}, "./phase2-plot-coordinates": {} });
+  const layoutRouter = load("src/lib/phase2-layout-routing.ts", {
+    "./park-details": { PARK_NAME: "Forest Lake Memorial Park - Legazpi", PARK_ADDRESS: "Legazpi City" },
+    "./phase2-planning": planning,
+  });
+  const boundary = {
+    id: "boundary:1",
+    shape: { kind: "polygon", positions: [[[0, 0], [40, 0], [40, 50], [0, 50], [0, 0]]] },
+  };
+  // Thin 1.5m retaining wall along x=10.5..12 from y=0..38; only open at y > 38.
+  const retainingWall = {
+    id: "context:wall1",
+    properties: { effective_layer: "[SDP] Slope Protection" },
+    shape: { kind: "polygon", positions: [[[10.5, 0], [12, 0], [12, 38], [10.5, 38], [10.5, 0]]] },
+  };
+  const bundle = {
+    data: {
+      bounds: [0, 0, 40, 50],
+      layers: {
+        boundary: [boundary],
+        // Road on lower side (x=10) wrapping around the open north end (y=42) into upper terrace (x=13).
+        roads: [
+          { id: "roads:1", shape: { kind: "line", positions: [[10, 10], [10, 42], [13, 42]] } },
+        ],
+        paths: [
+          { id: "paths:1", shape: { kind: "line", positions: [[13, 42], [13, 10]] } },
+        ],
+        blocks: [],
+        context: [retainingWall],
+      },
+    },
+    places: { landmarks: [] },
+    details: { labels: [] },
+  };
+  const graph = layoutRouter.buildLayoutWalkwayGraph(bundle);
+  const start = { id: "lower-road", label: "Lower Road", position: [10, 10] };
+  const upperPlot = { id: "lawn:upper", bounds: [14, 9, 16, 11] };
+
+  for (const mode of ["shortest", "paved"]) {
+    const route = layoutRouter.routeOnParkLayout(graph, start, upperPlot, { mode });
+    assert.ok(route, `route should exist in ${mode} mode`);
+    // Must walk up around y >= 38 instead of climbing directly across the 1.5m wall at y=10!
+    assert.ok(route.distanceMeters >= 55, `route in ${mode} mode climbed retaining wall (${route.distanceMeters}m)`);
+    assert.ok(route.path.some(([, y]) => y >= 38), `route in ${mode} mode did not go around retaining wall end`);
+  }
+});
+
+test("empty steep hillside embankment without lawn plots forces routes onto the graded road", () => {
+  const planning = load("src/lib/phase2-planning.ts", { "./phase2-cad-details": {}, "./phase2-plot-coordinates": {} });
+  const layoutRouter = load("src/lib/phase2-layout-routing.ts", {
+    "./park-details": { PARK_NAME: "Forest Lake Memorial Park - Legazpi", PARK_ADDRESS: "Legazpi City" },
+    "./phase2-planning": planning,
+  });
+  const boundary = {
+    id: "boundary:1",
+    shape: { kind: "polygon", positions: [[[0, 0], [100, 0], [100, 100], [0, 100], [0, 0]]] },
+  };
+  // Lawn plots only on lower terrace (y=10..24) and upper terrace (y=74..88).
+  // Middle strip y=25..73 is an empty steep grassy hillside with NO lawn plots!
+  const lawn = [
+    { id: "lawn:low1", bounds: [10, 10, 50, 24] },
+    { id: "lawn:high1", bounds: [10, 74, 50, 88] },
+  ];
+  const bundle = {
+    data: {
+      bounds: [0, 0, 100, 100],
+      layers: {
+        boundary: [boundary],
+        lawn,
+        // Graded S-bend road wraps around the east side (x=90).
+        roads: [
+          { id: "roads:1", shape: { kind: "line", positions: [[20, 20], [90, 20], [90, 80], [20, 80]] } },
+        ],
+        paths: [],
+        blocks: [],
+        context: [],
+      },
+    },
+    places: { landmarks: [] },
+    details: { labels: [] },
+  };
+  const graph = layoutRouter.buildLayoutWalkwayGraph(bundle);
+  const start = { id: "low", label: "Lower Terrace", position: [20, 20] };
+  const target = { id: "lawn:high1", bounds: [18, 78, 22, 82] };
+  const route = layoutRouter.routeOnParkLayout(graph, start, target, { mode: "shortest" });
+  assert.ok(route);
+  // Must follow the graded east road (x >= 80) instead of climbing straight up x=20 across the steep empty hillside!
+  assert.ok(route.path.some(([x]) => x >= 80), `route climbed steep hillside instead of taking east road: ${JSON.stringify(route.path)}`);
+});

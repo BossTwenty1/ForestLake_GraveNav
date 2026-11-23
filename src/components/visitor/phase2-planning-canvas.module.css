@@ -21,3 +21,130 @@
   font: 600 10px/1.3 Inter, "Segoe UI", sans-serif;
   box-shadow: 0 2px 4px rgb(24 48 27 / 10%);
 }
+
+.gpsPulseWrap {
+  background: transparent;
+  border: 0;
+}
+
+.gpsPulseRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgb(37 99 235 / 26%);
+  animation: gpsPulse 2s ease-out infinite;
+}
+
+.gpsPulseDot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2.5px solid #ffffff;
+  background: #2563eb;
+  box-shadow: 0 2px 6px rgb(30 64 175 / 45%);
+  transform: translate(-50%, -50%);
+}
+
+@keyframes gpsPulse {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.gpsCalloutTooltip {
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 5px 10px;
+  font: 600 11px/1.25 Inter, "Segoe UI", sans-serif;
+  box-shadow: 0 6px 16px rgb(15 23 42 / 16%);
+}
+
+.gpsCalloutTooltip::before {
+  border-top-color: #ffffff;
+}
+
+.gpsCalloutInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gpsCalloutArrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid #2563eb;
+  transform: rotate(35deg);
+}
+
+.gpsCalloutMeta {
+  display: block;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.destinationPinWrap {
+  background: transparent;
+  border: 0;
+}
+
+.destinationPin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  background: #14532d;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 4px 10px rgb(15 23 42 / 28%);
+  transform: rotate(-45deg);
+}
+
+.destinationPinCore {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.destinationTooltip {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 10px;
+  font: 600 11.5px/1.3 Inter, "Segoe UI", sans-serif;
+  box-shadow: 0 6px 16px rgb(15 23 42 / 16%);
+}
+
+.destinationTooltip::before {
+  border-right-color: #ffffff;
+}
+
+.destinationTooltipRef {
+  display: block;
+  margin-top: 1px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gpsPulseRing {
+    animation: none;
+  }
+}

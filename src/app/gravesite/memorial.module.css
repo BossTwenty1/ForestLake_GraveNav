@@ -43,12 +43,7 @@
   padding: 12px 16px 30px;
   color: var(--memorial-ink);
 }
-.shell.shell :global(.visitor-header),
 .shell.shell :global(.visitor-bottom-nav) { background: var(--memorial-canvas); border-color: var(--memorial-edge); }
-.shell.shell :global(.visitor-header__inner) { width: 100%; max-width: 1440px; min-height: 64px; padding-inline: 16px; }
-.shell.shell :global(.brand-name) { color: var(--memorial-ink); }
-.shell.shell :global(.brand-subtitle) { color: var(--memorial-muted); }
-.shell.shell :global(.visitor-header__actions > *) { border-color: transparent; background: transparent; color: var(--memorial-muted); }
 .shell.shell :global(.visitor-bottom-nav .visitor-nav-link) { color: var(--memorial-muted); }
 .shell.shell :global(.visitor-bottom-nav .visitor-nav-link--active) { color: var(--memorial-accent); }
 .shell.shell :global(.public-back-link) {
@@ -111,7 +106,13 @@
   font-weight: 620;
   line-height: 1.3;
 }
-.mapAction { background: var(--memorial-green); color: var(--memorial-on-green); }
+.mapAction {
+  min-height: 48px;
+  background: var(--memorial-green);
+  color: var(--memorial-on-green);
+  font-size: 14px;
+  font-weight: 700;
+}
 .mapAction:hover { filter: brightness(1.14); }
 .personalActions { display: grid; min-width: 0; }
 .actionRow { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
@@ -138,7 +139,32 @@
 .sectionTitle h2 { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .sectionTitle svg { flex: none; color: var(--memorial-accent); }
 .sectionTitle > span { color: var(--memorial-muted); font-size: 12px; flex: none; }
-.remembering .timelineTitle { margin-top: 12px; color: var(--memorial-muted); font-size: 12px; font-weight: 650; }
+.inscription {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--memorial-edge);
+  border-radius: 10px;
+  background: var(--memorial-tile);
+}
+.inscriptionMark {
+  display: inline-flex;
+  padding-top: 2px;
+  color: var(--memorial-muted);
+  opacity: 0.72;
+}
+.inscription p {
+  margin: 0;
+  color: var(--memorial-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.62;
+}
+.remembering .timelineTitle { margin-top: 14px; color: var(--memorial-muted); font-size: 12px; font-weight: 650; }
 .remembering .timeline { display: grid; gap: 4px; margin-top: 8px; }
 .timeline > div {
   display: grid;
@@ -245,6 +271,17 @@
 .recovery div { display: flex; flex-wrap: wrap; gap: 12px; }
 
 @media (max-width: 899px) {
+  .hero {
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+  }
+  .heroPhoto { aspect-ratio: 1; align-self: start; border-radius: 8px; }
+  .heroPhoto .photoPlaceholder { min-height: 100%; gap: 4px; font-size: 10px; }
+  .heroPhoto .photoPlaceholder svg { width: 22px; height: 22px; }
+  .identity { padding: 0; overflow-wrap: anywhere; }
+  .heroActions { grid-column: 1 / -1; padding: 0; }
   .shell.shell .location :global(.profile-location-card) { padding: 0; border: 0; background: transparent; }
   .shell .location :is(:global(.memorial-plot-information), :global(.memorial-map-overview)) {
     padding: 13px;
@@ -262,8 +299,6 @@
 
 @media (min-width: 900px) {
   .shell.shell :global(.visitor-main) { padding: 14px 32px 0; }
-  .shell.shell :global(.visitor-header__inner) { padding-inline: 32px; }
-  .shell.shell :global(.visitor-header__help) { order: -1; }
   .shell.shell :global(.public-back-link) { margin-bottom: 12px; }
   .content { gap: 24px; }
   .hero {
@@ -281,7 +316,7 @@
   .shell.shell :global(.visitor-main) h2 { font-size: 22px; }
   .identity .lifeDates { font-size: 16px; }
   .identity .place { font-size: 14px; }
-  .heroActions { grid-template-columns: auto auto; align-items: start; gap: 8px; padding: 0; }
+  .heroActions { gap: 8px; padding: 0; }
   .mapAction, .actionRow > button { padding-inline: 13px; }
   :global(html[data-theme="light"]) .actionRow button { background: var(--memorial-card); border-color: var(--memorial-edge); }
   :global(html[data-theme="light"]) .actionRow button:hover,
@@ -298,6 +333,8 @@
     gap: 24px 28px;
   }
   .remembering, .shared, .gallery { padding: 26px 30px; }
+  .inscription { margin-top: 16px; padding: 18px 22px; gap: 12px; }
+  .inscription p { font-size: 15.5px; line-height: 1.66; }
   .timelineTitle { margin-top: 17px; font-size: 13px; }
   .remembering .timeline { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 13px; }
   .timeline > div { background: var(--memorial-tile); align-content: center; grid-template-columns: auto minmax(0,1fr); gap: 0 8px; min-height: 76px; padding: 10px 12px; }

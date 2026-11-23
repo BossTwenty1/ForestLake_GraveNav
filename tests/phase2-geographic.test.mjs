@@ -105,3 +105,66 @@ test("Legacy geographic links use the main map and the adapter has no Phase 1 GP
   const adapter=await readFile(new URL("../src/lib/phase2-geographic.ts",import.meta.url),"utf8");
   assert.doesNotMatch(adapter,/phase1|nearPlot|nearestNode|mock-data|CRS.Simple/);
 });
+
+test("Multi-area Phase 2 scope parses area lists strictly and resolves records across approved areas", async () => {
+  assert.deepEqual(phaseTwoScope("1", undefined, "2, 3, 4"), { siteId: "1", areaId: "2", areaIds: ["2", "3", "4"] });
+  assert.deepEqual(phaseTwoScope("1", "2", "3,2,4"), { siteId: "1", areaId: "2", areaIds: ["2", "3", "4"] });
+  assert.equal(phaseTwoScope("1", undefined, "2,bad"), null);
+  assert.equal(phaseTwoScope("1", undefined, ""), null);
+
+  const multiScope = phaseTwoScope("1", undefined, "2,3");
+  const releaseB = "10000000-0000-4000-8000-000000000002";
+  const area2Data = {
+    boundaries: [feature("b2", polygon, { kind: "area", areaId: "2" }), feature("b3", polygon, { kind: "area", areaId: "3" })],
+    plots: [
+      feature("p2", polygon, { lotId: "3", areaId: "2", lotCode: "BPG-1" }),
+      feature("p3", polygon, { lotId: "30", areaId: "3", lotCode: "MPG-30" }),
+    ],
+    access_points: [feature("a3", point, { lotId: "30", areaId: "3", nodeId: "40" })],
+    nodes: [feature("n40", point, { nodeId: "40" })],
+    edges: [], walkways: [], landmarks: [],
+  };
+  const calls = [];
+  const reader = {
+    async layer(args) {
+      calls.push(args);
+      if (args.areaId === "2") {
+        return { schemaVersion: 1, releaseId: null, scopeRevision: 0, layer: args.layer, page: 1, pageSize: 200, total: 0, totalPages: 0, features: [] };
+      }
+      const rows = area2Data[args.layer];
+      return {
+        schemaVersion: 1, releaseId: releaseB, scopeRevision: 2, layer: args.layer, page: args.page, pageSize: 200,
+        total: rows.length, totalPages: Math.ceil(rows.length / 200), features: rows,
+      };
+    },
+    async burial(id) {
+      if (id === "30") {
+        return { burialId: "30", lotId: "30", lotCode: "MPG-30", areaId: "3", releaseId: releaseB,
+          geometryReady: true, routingReady: true, reason: null, plotGeometry: polygon, accessPoint: point };
+      }
+      return { burialId: id, lotId: "99", lotCode: "FOREIGN", areaId: "9", releaseId: releaseB,
+        geometryReady: true, routingReady: true, reason: null, plotGeometry: polygon, accessPoint: point };
+    },
+  };
+
+  // Dynamic target resolution resolves area 3 automatically even when area 2 is unpublished.
+  const record30 = { id: "30", plot: "MPG-30", locationVerified: true, coordinateStatus: "verified" };
+  const resolved = await loadPhaseTwoGeography(reader, multiScope, record30);
+  assert.equal(resolved.state, "ready");
+  assert.equal(resolved.data.areaId, "3");
+  assert.equal(resolved.data.target.id, "p3");
+  assert.equal(resolved.data.accessPoint.id, "a3");
+
+  // Overview browse falls through to the first published area (area 3) in multi-area scope.
+  const overview = await loadPhaseTwoGeography(reader, multiScope, null);
+  assert.equal(overview.state, "ready");
+  assert.equal(overview.data.areaId, "3");
+
+  // Requested area explicitly outside configured scope is rejected.
+  const foreignRequest = await loadPhaseTwoGeography(reader, multiScope, null, "9");
+  assert.equal(foreignRequest.state, "unavailable");
+
+  // Record in an unapproved area (area 9) is still rejected.
+  const foreignRecord = await loadPhaseTwoGeography(reader, multiScope, { id: "99", plot: "FOREIGN", locationVerified: true, coordinateStatus: "verified" });
+  assert.equal(foreignRecord.state, "unavailable");
+});

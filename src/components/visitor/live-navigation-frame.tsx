@@ -6,7 +6,7 @@ import styles from "./live-navigation.module.css";
 
 export type NavigationMemorial = { name: string; dates: string; reference: string; profileHref: string; parkHref: string };
 
-export function LiveNavigationFrame({ memorial, map, state, status, message, distance, accuracy, steps, onStart, onStop, onRetry, retryLabel, onRecenter, lotId }: {
+export function LiveNavigationFrame({ memorial, map, state, status, message, distance, accuracy, steps, onStart, onStop, onRetry, retryLabel, onRecenter, lotId, entrancePreviewActive, onToggleEntrancePreview, externalDirectionsUrl }: {
   memorial: NavigationMemorial;
   map: ReactNode;
   state: string;
@@ -21,6 +21,9 @@ export function LiveNavigationFrame({ memorial, map, state, status, message, dis
   retryLabel?: string;
   onRecenter: () => void;
   lotId?: unknown;
+  entrancePreviewActive?: boolean;
+  onToggleEntrancePreview?: () => void;
+  externalDirectionsUrl?: string;
 }) {
   const active = state === "ready";
   const firstStep = steps[0];
@@ -31,6 +34,8 @@ export function LiveNavigationFrame({ memorial, map, state, status, message, dis
       <span className={styles.identityIcon}><Icon name="location" size={22} /></span>
       <div><h1>{memorial.name}</h1><p>{memorial.reference}{memorial.dates ? <> · {memorial.dates}</> : null}</p></div>
       <span className={styles.badge} data-active={active}><i />{active ? "GPS active" : status}</span>
+      {onStart ? <button type="button" className={styles.start + " " + styles.primaryAction} onClick={onStart}><Icon name="walk" size={18} />Start Navigation</button> : null}
+      {onStop ? <button type="button" className={styles.stop + " " + styles.primaryAction} onClick={onStop}><Icon name="close" size={18} />Stop Navigation</button> : null}
     </header>
     <section className={styles.map} aria-label="Interactive gravesite map">
       {map}
@@ -53,8 +58,12 @@ export function LiveNavigationFrame({ memorial, map, state, status, message, dis
         <summary>View route steps<Icon name="chevronDown" size={17} /></summary>
         <ol>{steps.map((step, index) => <li key={index}><span>{step.instruction}</span>{step.distanceM !== null ? <strong>{Math.round(step.distanceM)} m</strong> : null}</li>)}</ol>
       </details> : null}
-      {onStart ? <button type="button" className={styles.start} onClick={onStart}><Icon name="walk" size={18} />Start Navigation</button> : null}
-      {onStop ? <button type="button" className={styles.stop} onClick={onStop}><Icon name="close" size={18} />Stop Navigation</button> : null}
+      {onToggleEntrancePreview ? <button type="button" className={styles.secondary} onClick={onToggleEntrancePreview}>
+        <Icon name="map" size={16} />{entrancePreviewActive ? "Hide Entrance Route Preview" : "Preview Route from Entrance"}
+      </button> : null}
+      {externalDirectionsUrl ? <a className={styles.secondary} href={externalDirectionsUrl} rel="noopener noreferrer" target="_blank">
+        <Icon name="navigation" size={16} />Directions to Park Entrance
+      </a> : null}
       {onRetry ? <button type="button" className={styles.secondary} onClick={onRetry}>{retryLabel}</button> : null}
       <div className={styles.links}>
         <Link href={memorial.profileHref}>Memorial Profile</Link>

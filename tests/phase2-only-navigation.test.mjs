@@ -68,7 +68,7 @@ test("Navigation cannot fall back to the retired network", async () => {
 });
 
 test("Missing scope, foreign areas and read failures never authorize an old map", async () => {
-  const saved = [process.env.GRAVENAV_PHASE2_SITE_ID, process.env.GRAVENAV_PHASE2_AREA_ID];
+  const saved = [process.env.GRAVENAV_PHASE2_SITE_ID, process.env.GRAVENAV_PHASE2_AREA_ID, process.env.GRAVENAV_PHASE2_AREA_IDS];
   const record = { id: "17", plot: "TEST" };
   let association = { burialId: "17", areaId: "2", lotCode: "TEST", geometryReady: true };
   let fail = false;
@@ -78,11 +78,18 @@ test("Missing scope, foreign areas and read failures never authorize an old map"
     "@/lib/public-navigation": { canNavigateToPublicRecord: record => !record.missing },
     "./gis-data": { getPublicBurialGis: async () => { if (fail) throw Error("offline"); return association; } },
     "@/lib/phase2-planning": { planningDataSha256: "a".repeat(64) },
-    "@/lib/phase2-geographic": { phaseTwoScope: (siteId, areaId) => siteId && areaId ? { siteId, areaId } : null },
+    "@/lib/phase2-geographic": {
+      phaseTwoScope: (siteId, areaId, areaIds) => {
+        if (!siteId) return null;
+        const list = [...new Set([areaId, ...(typeof areaIds === "string" ? areaIds.split(",").map(item => item.trim()) : [])].filter(Boolean))];
+        return list.length ? { siteId, areaId: list[0], areaIds: list } : null;
+      },
+    },
   });
   try {
     delete process.env.GRAVENAV_PHASE2_SITE_ID;
     delete process.env.GRAVENAV_PHASE2_AREA_ID;
+    delete process.env.GRAVENAV_PHASE2_AREA_IDS;
     assert.equal(await getBurialMapScope(record), "unavailable");
     process.env.GRAVENAV_PHASE2_SITE_ID = "1";
     process.env.GRAVENAV_PHASE2_AREA_ID = "2";
@@ -93,13 +100,22 @@ test("Missing scope, foreign areas and read failures never authorize an old map"
     assert.equal(await getBurialMapScope(record), "unavailable");
     association = { ...association, geometryReady: true, areaId: "3" };
     assert.equal(await getBurialMapScope(record), "unavailable");
+    process.env.GRAVENAV_PHASE2_AREA_IDS = "2,3,4";
+    assert.equal(await getBurialMapScope(record), "phase2");
+    association = { ...association, areaId: "9" };
+    assert.equal(await getBurialMapScope(record), "unavailable");
+    delete process.env.GRAVENAV_PHASE2_AREA_IDS;
     association = { ...association, burialId: "18", areaId: "2" };
     assert.equal(await getBurialMapScope(record), "unavailable");
     association.burialId = "17";
     fail = true;
     assert.equal(await getBurialMapScope(record), "unavailable");
   } finally {
-    for (const [key, value] of [["GRAVENAV_PHASE2_SITE_ID", saved[0]], ["GRAVENAV_PHASE2_AREA_ID", saved[1]]]) {
+    for (const [key, value] of [
+      ["GRAVENAV_PHASE2_SITE_ID", saved[0]],
+      ["GRAVENAV_PHASE2_AREA_ID", saved[1]],
+      ["GRAVENAV_PHASE2_AREA_IDS", saved[2]],
+    ]) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
   }

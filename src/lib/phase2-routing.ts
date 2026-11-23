@@ -15,19 +15,39 @@ export type PhaseTwoRoute = { state: PhaseTwoRouteState; coordinates: Point[]; d
 type Arc = { to: string; cost: number; coordinates: Point[] };
 type Edge = { from: string; to: string; forward: number | null; reverse: number | null; coordinates: Point[] };
 
+function parseSinglePolicy(value: unknown, data: Pick<PhaseTwoGeography, "releaseId" | "scopeRevision">): PhaseTwoNavigationPolicy | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.releaseId !== data.releaseId || candidate.scopeRevision !== data.scopeRevision ||
+      typeof candidate.reviewReference !== "string" || !candidate.reviewReference.trim() || candidate.reviewReference.length > 250) return null;
+  for (const key of ["maxAccuracyM", "maxOffRouteM", "arrivalDistanceM", "maxFixAgeMs"]) {
+    if (typeof candidate[key] !== "number" || !Number.isFinite(candidate[key]) || (candidate[key] as number) <= 0) return null;
+  }
+  // A reviewed policy can tighten the existing GPS freshness ceiling, never extend it.
+  if ((candidate.maxFixAgeMs as number) > 30000) return null;
+  return {
+    releaseId: candidate.releaseId as string,
+    scopeRevision: candidate.scopeRevision as number,
+    maxAccuracyM: candidate.maxAccuracyM as number,
+    maxOffRouteM: candidate.maxOffRouteM as number,
+    arrivalDistanceM: candidate.arrivalDistanceM as number,
+    maxFixAgeMs: candidate.maxFixAgeMs as number,
+  };
+}
+
 export function readNavigationPolicy(raw: string | undefined, data: Pick<PhaseTwoGeography, "releaseId" | "scopeRevision">): PhaseTwoNavigationPolicy | null {
   try {
     const value = JSON.parse(raw || "null");
-    if (!value || value.releaseId !== data.releaseId || value.scopeRevision !== data.scopeRevision ||
-        typeof value.reviewReference !== "string" || !value.reviewReference.trim() || value.reviewReference.length > 250) return null;
-    for (const key of ["maxAccuracyM", "maxOffRouteM", "arrivalDistanceM", "maxFixAgeMs"]) {
-      if (typeof value[key] !== "number" || !Number.isFinite(value[key]) || value[key] <= 0) return null;
+    if (Array.isArray(value)) {
+      const matches = value.filter(
+        entry => entry && typeof entry === "object" && !Array.isArray(entry) &&
+          (entry as Record<string, unknown>).releaseId === data.releaseId &&
+          (entry as Record<string, unknown>).scopeRevision === data.scopeRevision,
+      );
+      if (matches.length !== 1) return null;
+      return parseSinglePolicy(matches[0], data);
     }
-    // A reviewed policy can tighten the existing GPS freshness ceiling, never extend it.
-    if (value.maxFixAgeMs > 30000) return null;
-    return { releaseId: value.releaseId, scopeRevision: value.scopeRevision,
-      maxAccuracyM: value.maxAccuracyM, maxOffRouteM: value.maxOffRouteM,
-      arrivalDistanceM: value.arrivalDistanceM, maxFixAgeMs: value.maxFixAgeMs };
+    return parseSinglePolicy(value, data);
   } catch { return null; }
 }
 const empty = (state: PhaseTwoRouteState): PhaseTwoRoute => ({ state, coordinates: [], distanceM: null });
@@ -164,6 +184,52 @@ export function routePhaseTwo(data: PhaseTwoGeography, fix: GpsPosition | null, 
   const arrival = distanceM <= policy.arrivalDistanceM &&
     distanceMeters(fix, location(network.nodes.get(targetId)!)) + fix.accuracy <= policy.arrivalDistanceM;
   return { state: arrival ? "arrived" : "ready", coordinates: unique(coordinates), distanceM };
+}
+
+export function routePhaseTwoFromEntrance(data: PhaseTwoGeography): PhaseTwoRoute {
+  if (!data.target || !data.accessPoint || data.target.properties.lotId !== data.accessPoint.properties.lotId) {
+    return empty("no_destination");
+  }
+  const network = graph(data);
+  const targetId = data.accessPoint.properties.nodeId;
+  if (!network || typeof targetId !== "string" || !network.nodes.has(targetId) ||
+      !point(data.accessPoint.geometry.coordinates) || !same(network.nodes.get(targetId)!, data.accessPoint.geometry.coordinates)) {
+    return empty("no_network");
+  }
+  const entranceFeature =
+    data.layers.nodes.find((feature) => {
+      const kind = String(feature.properties.nodeType ?? feature.properties.node_type ?? "").toLowerCase();
+      return kind === "main_entrance" || kind === "entrance";
+    }) ?? data.layers.nodes[0];
+  const startId = entranceFeature?.properties.nodeId;
+  if (typeof startId !== "string" || !network.nodes.has(startId)) return empty("no_network");
+  if (startId === targetId) return { state: "ready", coordinates: [network.nodes.get(targetId)!], distanceM: 0 };
+
+  const distances = new Map<string, number>([[startId, 0]]);
+  const paths = new Map<string, Point[]>([[startId, [network.nodes.get(startId)!]]]);
+  const pending = new Set(network.nodes.keys());
+  while (pending.size) {
+    let current: string | null = null;
+    for (const id of pending) {
+      if (Number.isFinite(distances.get(id)) && (current === null || distances.get(id)! < distances.get(current)!)) {
+        current = id;
+      }
+    }
+    if (current === null) break;
+    pending.delete(current);
+    if (current === targetId) break;
+    for (const arc of network.adjacency.get(current) || []) {
+      const cost = distances.get(current)! + arc.cost;
+      if (pending.has(arc.to) && cost < (distances.get(arc.to) ?? Infinity)) {
+        distances.set(arc.to, cost);
+        paths.set(arc.to, [...paths.get(current)!, ...arc.coordinates.slice(1)]);
+      }
+    }
+  }
+  const coordinates = paths.get(targetId);
+  const distanceM = distances.get(targetId);
+  if (!coordinates || distanceM === undefined) return empty("unreachable");
+  return { state: "ready", coordinates: unique(coordinates), distanceM };
 }
 
 export type WalkingStep = { instruction: string; distanceM: number | null };

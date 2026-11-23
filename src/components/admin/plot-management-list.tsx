@@ -25,6 +25,7 @@ type Props = {
   busy: boolean;
   canAdmin: boolean;
   mapAreaId?: string;
+  mapAreaIds?: string[];
   queryState: PlotManagementQuery;
   onAdd: () => void;
   onEdit: (plot: PlotManagementItem) => void;
@@ -33,9 +34,10 @@ type Props = {
   onRetry: () => void;
 };
 
-export function PlotManagementList({ plots, total, summary, areas, loading, error, busy, canAdmin, mapAreaId, queryState, onAdd, onEdit, onDelete, onQueryStateChange, onRetry }: Props) {
+export function PlotManagementList({ plots, total, summary, areas, loading, error, busy, canAdmin, mapAreaId, mapAreaIds, queryState, onAdd, onEdit, onDelete, onQueryStateChange, onRetry }: Props) {
   const filterCount = getFilterCount(queryState);
   const pageCount = Math.max(1, Math.ceil(total / queryState.pageSize));
+  const allowedMapAreas = mapAreaIds?.length ? mapAreaIds : mapAreaId ? [mapAreaId] : [];
 
   useEffect(() => {
     const params = plotFilterParams(queryState, new URLSearchParams(window.location.search));
@@ -43,7 +45,7 @@ export function PlotManagementList({ plots, total, summary, areas, loading, erro
   }, [queryState]);
 
   const mapLink: PlotMapLink = (plot) => {
-    const canCheckOutline = mapAreaId === String(plot.areaId)
+    const canCheckOutline = allowedMapAreas.includes(String(plot.areaId))
       && plot.coordinateState === "verified"
       && !isSyntheticPlot(plot.lotCode);
     return { href: staffPlotMapHref(plot.lotId, queryState), label: canCheckOutline ? "View on Map" : "Map availability" };

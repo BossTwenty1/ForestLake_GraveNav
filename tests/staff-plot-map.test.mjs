@@ -79,3 +79,13 @@ test("An adjacent, unapproved, mismatched or ambiguous outline is never selected
   }
 });
 
+test("Multi-area Phase 2 scope accepts plots in any configured approved area and still rejects foreign areas", () => {
+  const multiScope = { siteId: "1", areaId: "2", areaIds: ["2", "3", "4"] };
+  const plotInArea3 = { lotId: 30, lotCode: "AREA3-LOT", areaId: 3, coordinatesVerified: true };
+  const target3 = { type: "Feature", id: "outline-3", geometry, properties: { lotId: "30", lotCode: "AREA3-LOT", areaId: "3" } };
+  const multiGeo = { ...geography, data: { ...geography.data, layers: { ...geography.data.layers, plots: [target, target3] } } };
+  assert.equal(plotMapUnavailable(plotInArea3, multiScope), null);
+  assert.equal(focusPublishedStaffPlot(plotInArea3, multiScope, multiGeo)?.target, target3);
+  assert.match(plotMapUnavailable({ ...plotInArea3, areaId: 9 }, multiScope), /outside the approved/);
+});
+

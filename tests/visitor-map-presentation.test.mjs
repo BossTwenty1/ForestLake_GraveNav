@@ -21,20 +21,39 @@ const planning = load("src/lib/phase2-planning.ts", { "./phase2-cad-details": {}
 const presentation = load("src/lib/visitor-presentation.ts", {
   "./synthetic-plots": load("src/lib/synthetic-plots.ts", {}),
 });
-const candidate = { id: "lawn:1", properties: { instance_path: "TEST/1" }, review: { overlapReviewFids: [2] } };
-const bundle = { data: { layers: { lawn: [candidate], estates: [] } }, coordinates: { entries: { "lawn:1": {} } }, details: { labels: [] },
-  places: { landmarks: [{ id: "TEST", name: "NEW MPH (CAD name)", cadXY: [1, 2] }, { id: "TEST2", name: "Standard Gazebo", cadXY: [3, 4] }] } };
-function render(props = {}, selected = null) {
+const navGeo = load("src/lib/navigation-geo.ts", {});
+const gpsBridge = load("src/lib/phase2-gps-bridge.ts", {
+  "./navigation-geo": navGeo,
+  "./phase2-planning": planning,
+});
+const candidate = { id: "lawn:1", bounds: [100, 100, 102, 103], properties: { instance_path: "TEST/1" }, review: { overlapReviewFids: [2] } };
+const bundle = {
+  data: { bounds: [0, 0, 300, 260], layers: { lawn: [candidate], estates: [] } }, coordinates: { entries: { "lawn:1": {} } }, details: { labels: [] },
+  places: { landmarks: [{ id: "TEST", name: "NEW MPH (CAD name)", cadXY: [1, 2] }, { id: "TEST2", name: "Standard Gazebo", cadXY: [3, 4] }] }
+};
+function render(props = {}, selected = null, extraDeps = {}) {
   let state = 0;
   const { MapExplorer } = load("src/components/visitor/map-explorer.tsx", {
     "@/lib/park-details": parkDetails,
     "@/lib/visitor-presentation": presentation,
+    "@/lib/navigation-geo": navGeo,
+    "@/lib/phase2-gps-bridge": gpsBridge,
     "react/jsx-runtime": jsx,
-    react: { useState: initial => [state++ === 0 ? bundle : state === 6 ? selected : initial, () => {}],
-      useRef: initial => ({ current: initial }), useEffect: () => {}, useCallback: fn => fn },
+    react: {
+      useState: initial => [state++ === 0 ? bundle : state === 6 ? selected : initial, () => { }],
+      useRef: initial => ({ current: initial }), useEffect: () => { }, useCallback: fn => fn, useMemo: fn => fn()
+    },
     "next/dynamic": { __esModule: true, default: () => p => jsx.jsx("div", { "data-review-mode": p.reviewMode, "data-paths": p.visible.paths }) },
     "next/link": { __esModule: true, default: ({ prefetch, children, ...props }) => { void prefetch; return jsx.jsx("a", { ...props, children }); } }, "@/components/ui/icons": { Icon: () => null },
     "./map-explorer.module.css": { __esModule: true, default: { experience: "visitor-map", searchPanel: "search-panel" } },
+    "@/lib/phase2-layout-routing": {
+      buildLayoutWalkwayGraph: () => ({ nodes: [], adj: [] }),
+      formatRouteDistance: meters => `Approx. ${Math.round(meters)} m`,
+      layoutStartPoints: () => [],
+      PARK_ENTRANCE_MAPS_URL: "https://www.google.com/maps",
+      routeOnParkLayout: () => null,
+      ...extraDeps.routing,
+    },
     "@/lib/phase2-planning": planning, "./phase2-geographic-map": { PhaseTwoGeographicMap: ({ burialId, memorial }) => jsx.jsx("div", { "data-geographic": true, "data-burial": burialId, "data-profile": memorial?.profileHref, "data-park": memorial?.parkHref }) },
     "./plot-coordinate-details": { PlotCoordinateDetails: () => jsx.jsx("div", { "data-coordinate-details": true, children: "CAD coordinate reference" }) },
   });
@@ -77,9 +96,11 @@ test("Mobile search expands for results and selected memorials retain their iden
   assert.match(render({ query: "Test only" }), /class="search-panel" open=""/);
   const memorial = { id: "17", name: "Test memorial", plotLabel: "Test plot", section: "Test garden", plot: "T-1" };
   const geography = { data: { releaseId: "test-release", scopeRevision: 1, target: {}, accessPoint: {}, navigationPolicy: {} } };
-  const available = render({ view: "geographic", destination: memorial, geography, requestedId: "17",
+  const available = render({
+    view: "geographic", destination: memorial, geography, requestedId: "17",
     query: "Test", section: "Test garden", page: 2, total: 69, gardenListUnavailable: true,
-    returnTo: "/results?query=Test" });
+    returnTo: "/results?query=Test"
+  });
   assert.match(available, /data-geographic="true" data-burial="17"/);
   assert.match(available, /data-profile="\/gravesite\?id=17&amp;returnTo=%2Fresults%3Fquery%3DTest"/);
   assert.match(available, /view=planning&amp;id=17&amp;returnTo=%2Fresults%3Fquery%3DTest/);
@@ -128,6 +149,66 @@ test("park directory groups exact source anchors and keeps unreviewed geographic
   const boundary = { id: "verified-area", properties: { kind: "area" } };
   const path = { id: "accepted", properties: { walkingAllowed: true } };
   const landmark = { id: "named", properties: { label: "Park office" } };
-  const published = publishedPlaces({ layers: { boundaries: [boundary], walkways: [path, { id: "restricted", properties: { walkingAllowed: false } }], landmarks: [landmark] }});
+  const published = publishedPlaces({ layers: { boundaries: [boundary], walkways: [path, { id: "restricted", properties: { walkingAllowed: false } }], landmarks: [landmark] } });
   assert.deepEqual(published.map(({ geographic }) => geographic.id), ["verified-area", "named", "accepted"]);
+});
+
+test("GPS bridge round-trips park coordinates and classifies inside, weak, outside, and stale fixes", () => {
+  const sampleCad = [145.5, 112.25];
+  const wgs = gpsBridge.parkLayoutToWgs84(sampleCad);
+  const back = gpsBridge.wgs84ToParkLayout(wgs.latitude, wgs.longitude);
+  assert.ok(Math.abs(back[0] - sampleCad[0]) < 1e-4);
+  assert.ok(Math.abs(back[1] - sampleCad[1]) < 1e-4);
+
+  const now = Date.now();
+  const bounds = [0, -40, 296, 258];
+  const inside = gpsBridge.classifyParkGps({ ...wgs, accuracy: 6, timestamp: now }, bounds, now);
+  assert.equal(inside.status, "inside");
+  assert.equal(inside.weakSignal, false);
+
+  const weak = gpsBridge.classifyParkGps({ ...wgs, accuracy: 24, timestamp: now }, bounds, now);
+  assert.equal(weak.status, "inside");
+  assert.equal(weak.weakSignal, true);
+
+  const outside = gpsBridge.classifyParkGps({ latitude: 13.15, longitude: 123.76, accuracy: 8, timestamp: now }, bounds, now);
+  assert.equal(outside.status, "outside");
+  assert.ok(outside.distanceMeters > 1000);
+
+  const stale = gpsBridge.classifyParkGps({ ...wgs, accuracy: 6, timestamp: now - 60000 }, bounds, now);
+  assert.equal(stale.status, "stale");
+});
+
+test("Gravesite guide renders two-mode chooser and floating Route Preview card when assigned plot is active", () => {
+  const memorial = { id: "6", name: "Fernando Kuwento", plotLabel: "BPG-A · Block 1 · Lot 9", section: "Butterfly Palm Garden", plot: "BPG-A · Block 1 · Lot 9" };
+  const html = render(
+    { view: "planning", destination: memorial, planningPlot: "lawn:1", requestedId: "6" },
+    candidate,
+    {
+      routing: {
+        layoutStartPoints: () => [
+          { id: "entrance", label: "Main Entrance (Guard House)", position: [120, 220] },
+          { id: "gazebo", label: "Gazebo", position: [140, 40] },
+        ],
+        routeOnParkLayout: () => ({
+          start: { id: "entrance", label: "Main Entrance (Guard House)", position: [120, 220] },
+          path: [[120, 220], [100, 100]],
+          approach: [[100, 100], [101, 101]],
+          steps: [{ instruction: "Start from Main Entrance and follow the park pathway", kind: "start" }],
+          distanceMeters: 180,
+          estimatedMinutes: 3,
+        }),
+      },
+    },
+  );
+  assert.match(html, /Guide to Fernando Kuwento/);
+  assert.match(html, /Find Route to Gravesite/);
+  assert.match(html, /Use My Current Location/);
+  assert.match(html, /Recommended/);
+  assert.match(html, /Choose a Starting Point/);
+  assert.match(html, /Route Preview/);
+  assert.match(html, /Approx\. 180 m/);
+  assert.match(html, /Start Guidance/);
+  assert.match(html, /Paved \/ Accessible/);
+  assert.match(html, /Route to gravesite/);
+  assert.doesNotMatch(html.replace(/<[^>]+>/g, " "), /CAD|candidate|planning reference|unverified|concept|Illustrative/i);
 });
