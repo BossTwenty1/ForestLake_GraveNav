@@ -39,7 +39,7 @@ export default async function HomePage() {
         <HeroBackgroundVideo
           className={styles.heroVideo}
           poster="/homepage/park-hero-poster.jpg"
-          src="/homepage/park-hero.mp4"
+          src="/homepage/park-hero-showcase-web.mp4"
         />
         <div className={styles.context}>
           <div className={styles.container}>
