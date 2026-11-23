@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "./database.types";
 import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, GraveType, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
 
-const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
+const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,inscription,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
 const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_display";
 const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,legacy_location_code,legacy_pa_number,status,length_m,width_m,px_loc_x,px_loc_y,location_geom,coordinate_accuracy_m,coordinate_status,coordinate_verified,coordinate_rejection_reason,updated_at,deleted_at";
 const OWNER_COLUMNS = "revision,lot_owner_id,first_name,middle_name,last_name,suffix,aliases,address,representative_name,representative_contact,representative_relation";
@@ -95,14 +95,12 @@ export async function getAdminRecordsPage(
 ): Promise<PageResult<AdminRecord>> {
   const client = requireClient();
   const { from, to } = pageRange(options);
-  function readRecords<Columns extends string>(columns: Columns) {
-    let query = client.from("burial_record").select(columns, { count: "exact" }).is("deleted_at", null);
-    if (options.recordId !== undefined) query = query.eq("burial_id", options.recordId);
-    return query.order("updated_at", { ascending: false }).order("burial_id", { ascending: false }).range(from, to);
-  }
-  const initial = await readRecords(`${RECORD_COLUMNS},inscription` as const);
-  const { data: records, error, count } = initial.error?.code === "42703"
-    ? await readRecords(RECORD_COLUMNS) : initial;
+  let query = client.from("burial_record").select(RECORD_COLUMNS, { count: "exact" })
+    .is("deleted_at", null);
+  if (options.recordId !== undefined) query = query.eq("burial_id", options.recordId);
+  const { data: records, error, count } = await query
+    .order("updated_at", { ascending: false }).order("burial_id", { ascending: false })
+    .range(from, to);
   if (error) throw error;
   if (!records?.length) return { items: [], hasMore: false, total: count };
 
@@ -147,8 +145,7 @@ export async function getAdminRecordsPage(
       serviceProvider: record.service_provider || null,
       recordSource: record.record_source || null,
       qualityNotes: record.quality_notes || null,
-      inscription: "inscription" in record && (typeof record.inscription === "string" || record.inscription === null)
-        ? record.inscription : undefined,
+      inscription: record.inscription || null,
       updatedAt: record.updated_at,
       location: parsePoint(lot?.location_geom),
       pixelLocation: lot?.px_loc_x !== null && lot?.px_loc_x !== undefined && lot?.px_loc_y !== null && lot?.px_loc_y !== undefined ? { x: lot.px_loc_x, y: lot.px_loc_y } : null,
@@ -157,18 +154,6 @@ export async function getAdminRecordsPage(
     } satisfies AdminRecord;
   });
   return { items, hasMore: hasMore(from, items.length, count), total: count };
-}
-
-export async function getOptionalBurialFields() {
-  const client = requireClient();
-  const [person, burial] = await Promise.all([
-    client.from("deceased").select("sex").limit(0),
-    client.from("burial_record").select("inscription").limit(0),
-  ]);
-  for (const result of [person, burial]) {
-    if (result.error && result.error.code !== "42703") throw result.error;
-  }
-  return { sex: !person.error, inscription: !burial.error };
 }
 
 export async function getAvailableBurialPlots() {
@@ -545,6 +530,27 @@ export async function getAdminPhotos(options: PageOptions & { status?: AdminPhot
   return { items, hasMore: hasMore(from, items.length, count), total: count } satisfies PageResult<AdminPhoto>;
 }
 
+
+export async function getBurialPhotos(burialId: number): Promise<AdminPhoto[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("photo")
+    .select(PHOTO_COLUMNS)
+    .eq("burial_id", burialId)
+    .order("photo_id", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((photo) => ({
+    revision: photo.revision,
+    photoId: photo.photo_id,
+    burialId: photo.burial_id,
+    fileName: photo.file_name,
+    caption: photo.caption,
+    capturedAt: photo.captured_at,
+    approvalStatus: photo.approval_status,
+    publicDisplay: Boolean(photo.public_display),
+    createdAt: photo.created_at,
+  })) as AdminPhoto[];
+}
 
 export async function updatePhotoReview(photoId: number, approvalStatus: AdminPhoto["approvalStatus"], revision: number) {
   return saveStaffRecord("photo", photoId, revision, { status: approvalStatus }, "review");
