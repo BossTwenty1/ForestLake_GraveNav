@@ -208,6 +208,9 @@ test("Gravesite guide renders two-mode chooser and floating Route Preview card w
   assert.match(html, /Route Preview/);
   assert.match(html, /Approx\. 180 m/);
   assert.match(html, /Start Guidance/);
+  assert.match(html, /Minimize route preview/);
+  assert.match(html, /Clear route/);
+  assert.match(html, /Full screen/);
   assert.match(html, /Paved \/ Accessible/);
   assert.match(html, /Route to gravesite/);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, " "), /CAD|candidate|planning reference|unverified|concept|Illustrative/i);

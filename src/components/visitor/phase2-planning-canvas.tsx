@@ -20,6 +20,7 @@ export interface PlanningMapActions {
   place: (position: [number, number]) => void;
   focusPlaces: (positions: [number, number][]) => void;
   fitRoute?: (positions: [number, number][]) => void;
+  invalidateSize?: () => void;
 }
 export interface PlanningRouteOverlay {
   path: [number, number][];
@@ -168,6 +169,7 @@ function PlanningLayers(props: PlanningMapProps) {
           animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         });
       },
+      invalidateSize: () => map.invalidateSize({ animate: false }),
     });
     if (focusOnLoad) map.fitBounds(mapBounds(focusOnLoad.bounds), { padding: [70, 70], maxZoom: 5.5, animate: false });
     else reset();
