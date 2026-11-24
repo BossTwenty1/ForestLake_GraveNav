@@ -263,6 +263,7 @@ p.memorialStatus {
 .experience :global(.map-search-form) {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+  align-items: end;
 }
 
 .experience :global(.map-search-form > label:first-of-type) {
@@ -271,13 +272,20 @@ p.memorialStatus {
 
 .experience :global(.map-search-form .button) {
   grid-column: 2;
+  align-self: end;
+  height: 44px;
   min-height: 44px;
-  padding-inline: 12px;
+  padding-inline: 14px;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .experience :global(.map-search-control) {
   min-width: 0;
+  height: 44px;
+  min-height: 44px;
   border-color: var(--map-field-border);
+  border-radius: 10px;
 }
 
 .experience :global(.map-search-control):hover {
@@ -294,17 +302,38 @@ p.memorialStatus {
 .experience :global(.map-search-control input),
 .experience :global(.map-search-control select) {
   min-width: 0;
-  min-height: 44px;
+  height: 42px;
+  min-height: 42px;
 }
 
 .experience :global(.map-record-list) {
   grid-template-columns: 1fr;
-  max-height: 240px;
+  max-height: 268px;
   overflow-y: auto;
+  margin-top: 10px;
+  padding: 2px 2px 4px;
 }
 
 .experience :global(.map-record-option) {
-  min-height: 48px;
+  min-height: 54px;
+}
+
+.experience :global(.map-pagination) {
+  margin-top: 10px;
+  margin-bottom: 0;
+  padding: 9px 12px;
+  min-height: 42px;
+}
+
+.experience :global(.map-pagination > :last-child) {
+  justify-self: end;
+}
+
+.amenitiesPanel {
+  padding: 10px 12px;
+  border: 1px solid var(--visitor-border);
+  border-radius: 12px;
+  background: var(--visitor-surface);
 }
 
 .experience :global(.map-panel-heading h2) {

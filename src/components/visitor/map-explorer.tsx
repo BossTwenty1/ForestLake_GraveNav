@@ -994,8 +994,8 @@ export function MapExplorer({
         </section>
         </details>
 
-            {view === "planning" ? <section className="map-record-panel">
-              {staffTools ? <><details><summary>Find a CAD candidate</summary>          <div className="map-panel-heading"><div><p>Find a plot</p><h2>CAD plot reference</h2></div><Icon name="search" size={21} /></div>
+            {view === "planning" ? (staffTools ? <section className="map-record-panel">
+              <details><summary>Find a CAD candidate</summary>          <div className="map-panel-heading"><div><p>Find a plot</p><h2>CAD plot reference</h2></div><Icon name="search" size={21} /></div>
                 <form className="map-search-form phase-two-candidate-search" onSubmit={search}>
                   <label><span>CAD reference or candidate ID</span><span className="map-search-control">
                     <Icon name="search" size={18} /><input aria-label="CAD reference or candidate ID" autoComplete="off"
@@ -1023,14 +1023,29 @@ export function MapExplorer({
                     <label><input type="checkbox" checked={visible.overlaps} onChange={() => toggle("overlaps")} />Overlap review</label>
                   </div>
                 </details>
-              </> : null}
               <details><summary>Gardens &amp; amenities</summary><div className="phase-two-layer-options">
                 {bundle?.places.landmarks.map(place => <button key={place.id} type="button" className="button button--secondary"
-                  onClick={() => { setShowPlaces(true); actions.current?.place(place.cadXY); }}>{landmarkName(place.name)}{staffTools ? " · CAD " + place.id : ""}</button>)}
+                  onClick={() => { setShowPlaces(true); actions.current?.place(place.cadXY); }}>{landmarkName(place.name)} · CAD {place.id}</button>)}
                 {mapAmenities.map(place => place ? <button key={place.id} type="button" className="button button--secondary"
                   onClick={() => { setShowPlaces(true); actions.current?.place(place.cadXY); }}>{place.name}</button> : null)}
               </div></details>
-            </section> : null}
+            </section> : (
+              <details className={layout.nestedSearch}>
+                <summary>
+                  <Icon name="tree" size={16} />
+                  Gardens &amp; amenities
+                  <Icon name="chevronDown" className={layout.panelChevron} size={16} />
+                </summary>
+                <div className={layout.amenitiesPanel}>
+                  <div className="phase-two-layer-options">
+                    {bundle?.places.landmarks.map(place => <button key={place.id} type="button" className="button button--secondary"
+                      onClick={() => { setShowPlaces(true); actions.current?.place(place.cadXY); }}>{landmarkName(place.name)}</button>)}
+                    {mapAmenities.map(place => place ? <button key={place.id} type="button" className="button button--secondary"
+                      onClick={() => { setShowPlaces(true); actions.current?.place(place.cadXY); }}>{place.name}</button> : null)}
+                  </div>
+                </div>
+              </details>
+            )) : null}
           </div>
         </details>
       </aside>

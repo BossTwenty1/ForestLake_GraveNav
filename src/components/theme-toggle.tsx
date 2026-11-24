@@ -18,7 +18,7 @@ function storedTheme(): Theme | null {
 }
 
 function resolveTheme(): Theme {
-  return storedTheme() ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  return storedTheme() ?? "light";
 }
 
 function applyTheme(theme: Theme, persist: boolean) {
@@ -42,25 +42,16 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
       applyTheme(current, false);
       setTheme(current);
     };
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const syncSystemTheme = () => {
-      if (storedTheme()) return;
-      const next = media.matches ? "dark" : "light";
-      applyTheme(next, false);
-      setTheme(next);
-    };
     const syncStoredTheme = (event: StorageEvent) => {
       if (event.key !== STORAGE_KEY) return;
-      const next = event.newValue === "light" || event.newValue === "dark" ? event.newValue : media.matches ? "dark" : "light";
+      const next: Theme = event.newValue === "dark" ? "dark" : "light";
       applyTheme(next, false);
       setTheme(next);
     };
 
     syncTheme();
-    media.addEventListener("change", syncSystemTheme);
     window.addEventListener("storage", syncStoredTheme);
     return () => {
-      media.removeEventListener("change", syncSystemTheme);
       window.removeEventListener("storage", syncStoredTheme);
     };
   }, []);
@@ -71,17 +62,49 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   }
 
   if (compact) {
-    const activeTheme = theme ?? "dark";
-    const nextTheme: Theme = activeTheme === "dark" ? "light" : "dark";
+    const activeTheme: Theme = theme ?? "light";
+    const isDark = activeTheme === "dark";
+    const nextTheme: Theme = isDark ? "light" : "dark";
     return (
       <button
+        aria-checked={isDark}
         aria-label={`Switch to ${nextTheme} mode`}
-        className="theme-toggle-button"
+        className={cn(
+          "theme-toggle-button",
+          isDark ? "theme-toggle-button--dark" : "theme-toggle-button--light",
+        )}
         onClick={() => chooseTheme(nextTheme)}
+        role="switch"
         title={`Switch to ${nextTheme} mode`}
         type="button"
       >
-        <Icon name={activeTheme === "dark" ? "moon" : "sun"} size={17} />
+        <span aria-hidden="true" className="theme-toggle-button__label">
+          {isDark ? "DARK" : "LIGHT"}
+        </span>
+        <span aria-hidden="true" className="theme-toggle-button__thumb">
+          <svg
+            className="theme-toggle-button__icon theme-toggle-button__icon--moon"
+            fill="currentColor"
+            height="21"
+            viewBox="0 0 24 24"
+            width="21"
+          >
+            <path d="M20.2 15.1A8.5 8.5 0 0 1 8.9 3.8a8.5 8.5 0 1 0 11.3 11.3Z" />
+          </svg>
+          <svg
+            className="theme-toggle-button__icon theme-toggle-button__icon--sun"
+            fill="none"
+            height="22"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="2.1"
+            viewBox="0 0 24 24"
+            width="22"
+          >
+            <circle cx="12" cy="12" fill="currentColor" r="4.2" stroke="none" />
+            <path d="M12 2.4v2.1M12 19.5v2.1M4.9 4.9l1.5 1.5M17.6 17.6l1.5 1.5M2.4 12h2.1M19.5 12h2.1M4.9 19.1l1.5-1.5M17.6 6.4l1.5-1.5" />
+          </svg>
+        </span>
       </button>
     );
   }
