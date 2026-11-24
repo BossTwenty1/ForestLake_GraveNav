@@ -2,7 +2,7 @@ import { getBurialMapScope, getCapstonePlanningPlot } from "@/lib/supabase/phase
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { safeResultsReturnTo } from "@/lib/visitor-presentation";
-import { getPublicMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
+import { getMemorialGallerySlots, getPublicMemorialPhotos, splitMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
 import { PublicMemorialProfile } from "./public-memorial-profile";
 import styles from "./memorial.module.css";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
@@ -30,12 +30,23 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
   }
   if (!record) redirect("/record-not-found?" + new URLSearchParams({ returnTo }));
 
-  const [mapScope, planningPlot, shared, photos] = await Promise.all([
-    getBurialMapScope(record), getCapstonePlanningPlot(record.id), getPublicSharedPlotBurials(record.id), getPublicMemorialPhotos(record.id).catch(() => []),
+  const [mapScope, planningPlot, shared, photos, rawSlots] = await Promise.all([
+    getBurialMapScope(record),
+    getCapstonePlanningPlot(record.id),
+    getPublicSharedPlotBurials(record.id),
+    getPublicMemorialPhotos(record.id).catch(() => []),
+    getMemorialGallerySlots(record.id).catch(() => null),
   ]);
+  const tributeCount = splitMemorialPhotos(photos).tributes.length;
+  const gallerySlots = rawSlots ?? {
+    approved: tributeCount,
+    pending: 0,
+    maxSlots: 5,
+    remaining: Math.max(0, 5 - tributeCount),
+  };
 
   return <VisitorShell backHref={returnTo} backLabel="Back to Search Results" batchOne wide className={styles.shell} helpHref="#gravesite-details">
-    <PublicMemorialProfile record={record} mapScope={mapScope === "unavailable" && planningPlot ? "planning" : mapScope} planningPlot={planningPlot} shared={shared} photos={photos} returnTo={returnTo} />
+    <PublicMemorialProfile record={record} mapScope={mapScope === "unavailable" && planningPlot ? "planning" : mapScope} planningPlot={planningPlot} shared={shared} photos={photos} gallerySlots={gallerySlots} returnTo={returnTo} />
   </VisitorShell>;
 }
 

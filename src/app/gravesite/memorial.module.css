@@ -260,9 +260,168 @@
 .photoDialog::backdrop { background: var(--memorial-overlay); }
 .closePhoto { display: grid; place-content: center; width: 44px; height: 44px; margin: 0 0 8px auto; border: 1px solid var(--memorial-line); border-radius: 8px; background: var(--memorial-tile); color: var(--memorial-ink); }
 .photoDialog figure { margin: 0; }
-.photoDialog figcaption { margin-top: 8px; text-align: center; color: var(--memorial-muted); }
+.photoDialog figcaption { display: grid; gap: 4px; margin-top: 10px; text-align: center; color: var(--memorial-ink); font-size: 14px; }
+.photoAttribution { color: var(--memorial-muted); font-size: 12px; font-weight: 600; }
 .enlargedPhoto { position: relative; height: min(64dvh, 760px); border-radius: 7px; background: var(--memorial-canvas); overflow: hidden; }
 .enlargedPhoto img { object-fit: contain; }
+
+.uploadBox {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--memorial-edge);
+  display: grid;
+  gap: 10px;
+}
+.uploadIntroRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: var(--memorial-tile);
+}
+.uploadIntroCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+.uploadIntroCopy strong { font-size: 13.5px; color: var(--memorial-ink); }
+.uploadIntroCopy span { font-size: 12px; color: var(--memorial-muted); line-height: 1.4; }
+.uploadTrigger,
+.uploadSubmit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--memorial-accent);
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.uploadTrigger:hover,
+.uploadSubmit:hover:not(:disabled) { filter: brightness(1.08); }
+.uploadSubmit:disabled { opacity: 0.55; cursor: not-allowed; }
+.uploadForm {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  border-radius: 10px;
+  border: 1px solid var(--memorial-line);
+  background: var(--memorial-tile);
+}
+.uploadFormHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.uploadFormHead strong { font-size: 14px; color: var(--memorial-ink); }
+.uploadCancel {
+  padding: 4px 10px;
+  border: 1px solid var(--memorial-line);
+  border-radius: 7px;
+  background: var(--memorial-card);
+  color: var(--memorial-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.uploadCancel:hover { color: var(--memorial-ink); }
+.uploadHint { margin: 0; font-size: 12px; color: var(--memorial-muted); line-height: 1.45; }
+.uploadFieldRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.uploadField { display: grid; gap: 5px; min-width: 0; }
+.uploadField > span { font-size: 12px; font-weight: 650; color: var(--memorial-ink); }
+.uploadField input[type="text"],
+.uploadField select,
+.uploadField input[type="file"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--memorial-line);
+  border-radius: 8px;
+  background: var(--memorial-card);
+  color: var(--memorial-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.uploadPreview {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--memorial-line);
+  background: var(--memorial-card);
+}
+.uploadPreview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.uploadConsent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+  color: var(--memorial-muted);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.uploadConsent input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--memorial-accent); }
+.uploadActions { display: flex; justify-content: flex-end; }
+.uploadSuccess {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--memorial-good);
+  color: var(--memorial-accent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.uploadError {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+:global(html[data-theme="dark"]) .uploadError { color: #fca5a5; background: rgba(220, 38, 38, 0.16); }
+.uploadLimitNote {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--memorial-tile);
+  color: var(--memorial-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.uploadLimitNote svg { flex: none; color: var(--memorial-accent); }
+.honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .uploadFieldRow { grid-template-columns: 1fr; }
+}
 
 .footer { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 6px; padding: 16px 6px; color: var(--memorial-muted); font-size: 12px; }
 .footer svg { flex: none; color: var(--memorial-accent); }
