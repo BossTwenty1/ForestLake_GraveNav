@@ -11,6 +11,7 @@ import type { PublicBurialRecord } from "@/lib/supabase/types";
 import { memorialMapHref, visitorPlotDetails, type GravesiteMapScope } from "@/lib/visitor-presentation";
 import { MemorialActions } from "./memorial-actions";
 import { MemorialGallery, MemorialPhoto } from "./memorial-gallery";
+import { VisitorPortraitRequest } from "./visitor-portrait-request";
 import styles from "./memorial.module.css";
 
 function recordedDate(value: string | null) {
@@ -43,7 +44,12 @@ export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, 
   return (
     <article className={styles.content} aria-labelledby="memorial-name">
       <section className={styles.hero} aria-labelledby="memorial-name">
-        <div className={styles.heroPhoto}><MemorialPhoto name={record.name} photo={portrait} priority /></div>
+        <div className={styles.heroPhotoCol}>
+          <div className={styles.heroPhoto}><MemorialPhoto name={record.name} photo={portrait} priority /></div>
+          {!portrait && gallerySlots ? (
+            <VisitorPortraitRequest burialId={record.id} name={record.name} initialSlots={gallerySlots} />
+          ) : null}
+        </div>
         <div className={styles.identity}>
           <p className={styles.recordContext}>Memorial record{plot.garden !== "Not recorded" ? <> · <span>{plot.garden}</span></> : null}</p>
           <h1 id="memorial-name">{record.name}</h1>

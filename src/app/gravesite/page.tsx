@@ -37,12 +37,17 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
     getPublicMemorialPhotos(record.id).catch(() => []),
     getMemorialGallerySlots(record.id).catch(() => null),
   ]);
-  const tributeCount = splitMemorialPhotos(photos).tributes.length;
+  const split = splitMemorialPhotos(photos);
+  const tributeCount = split.tributes.length;
+  const hasPortrait = Boolean(split.portrait);
   const gallerySlots = rawSlots ?? {
     approved: tributeCount,
     pending: 0,
     maxSlots: 5,
     remaining: Math.max(0, 5 - tributeCount),
+    portraitApproved: hasPortrait ? 1 : 0,
+    portraitPending: 0,
+    canSubmitPortrait: !hasPortrait,
   };
 
   return <VisitorShell backHref={returnTo} backLabel="Back to Search Results" batchOne wide className={styles.shell} helpHref="#gravesite-details">

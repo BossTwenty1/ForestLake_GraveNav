@@ -169,11 +169,26 @@ export function inspectAndSanitizeImage(bytes: Uint8Array): SanitizedImageResult
 }
 
 export function sanitizeVisitorSubmissionFields(input: {
+  kind?: string;
   name: string;
   relation: string;
   caption?: string;
-}): { ok: true; name: string; relation: VisitorRelation; caption: string | null } | { ok: false; error: string } {
+  contact?: string;
+}):
+  | {
+      ok: true;
+      kind: "tribute" | "portrait";
+      name: string;
+      relation: VisitorRelation;
+      caption: string | null;
+      contact: string | null;
+    }
+  | { ok: false; error: string } {
   const cleanText = (value: string) => value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  const kindRaw = (input.kind ?? "tribute").trim();
+  if (kindRaw !== "tribute" && kindRaw !== "portrait") {
+    return { ok: false, error: "Unsupported photo submission type." };
+  }
   const name = cleanText(input.name);
   if (name.length < 2 || name.length > 80) {
     return { ok: false, error: "Please enter your name (2 to 80 characters)." };
@@ -186,7 +201,22 @@ export function sanitizeVisitorSubmissionFields(input: {
   if (rawCaption.length > 160) {
     return { ok: false, error: "Captions must be 160 characters or fewer." };
   }
-  return { ok: true, name, relation, caption: rawCaption || null };
+  const rawContact = cleanText(input.contact ?? "");
+  if (kindRaw === "portrait") {
+    if (rawContact.length < 5 || rawContact.length > 120) {
+      return { ok: false, error: "Please enter a phone number or email address so cemetery staff can verify this profile portrait." };
+    }
+  } else if (rawContact.length > 120) {
+    return { ok: false, error: "Contact details must be 120 characters or fewer." };
+  }
+  return {
+    ok: true,
+    kind: kindRaw,
+    name,
+    relation,
+    caption: rawCaption || null,
+    contact: rawContact || null,
+  };
 }
 
 type RateEntry = { timestamps: number[] };

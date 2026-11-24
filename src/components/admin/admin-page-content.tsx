@@ -21,7 +21,16 @@ export function AdminCemeteryMapPage({ hasPlanningMap = false }: { hasPlanningMa
   return <AdminPageFrame title="Cemetery Map" description="Explore the Phase 2 landscape and review CAD planning candidates."><AdminCemeteryMap hasPlanningMap={hasPlanningMap} /></AdminPageFrame>;
 }
 
-export function AdminPhotosPage() { return <AdminPageFrame title="Photos" description="Upload optional cemetery photos into private Supabase Storage for administrator review."><AdminPhotoUploader /></AdminPageFrame>; }
+export function AdminPhotosPage() {
+  return (
+    <AdminPageFrame
+      title="Photo Moderation & Gallery"
+      description="Review visitor remembrance submissions and manage memorial portraits before public display."
+    >
+      <AdminPhotoUploader />
+    </AdminPageFrame>
+  );
+}
 
 export function AdminAuditLogPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);

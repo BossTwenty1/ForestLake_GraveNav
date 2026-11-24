@@ -62,9 +62,11 @@ export async function POST(request: Request) {
   }
 
   const fields = sanitizeVisitorSubmissionFields({
+    kind: String(formData.get("kind") ?? "tribute"),
     name: String(formData.get("name") ?? ""),
     relation: String(formData.get("relation") ?? ""),
     caption: String(formData.get("caption") ?? ""),
+    contact: String(formData.get("contact") ?? ""),
   });
   if (!fields.ok) {
     return NextResponse.json({ error: fields.error }, { status: 400 });
@@ -102,12 +104,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This memorial record could not be found." }, { status: 404 });
   }
 
-  // Enforce max 5 active (approved + pending) visitor gallery slots per memorial.
-  const { data: existingTributes, error: countError } = await supabase
+  // Load active photo counts for this memorial.
+  const { data: existingPhotos, error: countError } = await supabase
     .from("photo")
-    .select("approval_status,public_display")
+    .select("photo_kind,approval_status,public_display")
     .eq("burial_id", burialId)
-    .eq("photo_kind", "tribute")
     .in("approval_status", ["pending", "approved"]);
 
   if (countError) {
@@ -122,26 +123,48 @@ export async function POST(request: Request) {
     );
   }
 
-  const approvedCount = (existingTributes ?? []).filter(row => row.approval_status === "approved" && row.public_display).length;
-  const pendingCount = (existingTributes ?? []).filter(row => row.approval_status === "pending").length;
-  if (approvedCount + pendingCount >= MAX_TRIBUTE_PHOTOS_PER_MEMORIAL) {
+  const rows = existingPhotos ?? [];
+  const approvedTributes = rows.filter(r => r.photo_kind === "tribute" && r.approval_status === "approved" && r.public_display).length;
+  const pendingTributes = rows.filter(r => r.photo_kind === "tribute" && r.approval_status === "pending").length;
+  const portraitApproved = rows.filter(r => r.photo_kind === "portrait" && r.approval_status === "approved" && r.public_display).length;
+  const portraitPending = rows.filter(r => r.photo_kind === "portrait" && r.approval_status === "pending").length;
+
+  const buildSlots = (nextPendingTributes: number, nextPortraitPending: number) => ({
+    approved: approvedTributes,
+    pending: nextPendingTributes,
+    maxSlots: MAX_TRIBUTE_PHOTOS_PER_MEMORIAL,
+    remaining: Math.max(0, MAX_TRIBUTE_PHOTOS_PER_MEMORIAL - (approvedTributes + nextPendingTributes)),
+    portraitApproved,
+    portraitPending: nextPortraitPending,
+    canSubmitPortrait: (portraitApproved + nextPortraitPending) === 0,
+  });
+
+  if (fields.kind === "portrait") {
+    if (portraitApproved + portraitPending >= 1) {
+      return NextResponse.json(
+        {
+          error: portraitApproved >= 1
+            ? "This memorial already has a profile portrait."
+            : "A profile portrait for this memorial is already awaiting administrator review.",
+          slots: buildSlots(pendingTributes, portraitPending),
+        },
+        { status: 409 },
+      );
+    }
+  } else if (approvedTributes + pendingTributes >= MAX_TRIBUTE_PHOTOS_PER_MEMORIAL) {
     return NextResponse.json(
       {
-        error: approvedCount >= MAX_TRIBUTE_PHOTOS_PER_MEMORIAL
+        error: approvedTributes >= MAX_TRIBUTE_PHOTOS_PER_MEMORIAL
           ? "This memorial gallery has reached its 5-photo limit."
           : "All 5 gallery slots for this memorial are currently filled or awaiting administrator review.",
-        slots: {
-          approved: approvedCount,
-          pending: pendingCount,
-          maxSlots: MAX_TRIBUTE_PHOTOS_PER_MEMORIAL,
-          remaining: 0,
-        },
+        slots: buildSlots(pendingTributes, portraitPending),
       },
       { status: 409 },
     );
   }
 
-  const fileName = `tribute-${randomUUID()}.${sanitized.extension}`;
+  const prefix = fields.kind === "portrait" ? "visitor-portrait" : "tribute";
+  const fileName = `${prefix}-${randomUUID()}.${sanitized.extension}`;
   const storagePath = `burial/${burialId}/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
@@ -167,35 +190,38 @@ export async function POST(request: Request) {
     captured_at: null,
     approval_status: "pending",
     public_display: false,
-    photo_kind: "tribute",
+    photo_kind: fields.kind,
     submitted_by_name: fields.name,
     submitted_by_relation: fields.relation,
+    submitted_by_contact: fields.contact,
   });
 
   if (insertError) {
     await supabase.storage.from(bucket).remove([storagePath]);
-    const limitReached = insertError.message?.includes("5-photo limit");
+    const msg = insertError.message || "";
+    const limitReached = msg.includes("5-photo limit") || msg.includes("already has a profile portrait");
     return NextResponse.json(
       {
-        error: limitReached
-          ? "This memorial gallery has reached its 5-photo limit."
-          : "Your submission could not be recorded. Please try again.",
+        error: msg.includes("already has a profile portrait")
+          ? "This memorial already has a profile portrait or a portrait awaiting review."
+          : msg.includes("5-photo limit")
+            ? "This memorial gallery has reached its 5-photo limit."
+            : "Your submission could not be recorded. Please try again.",
       },
       { status: limitReached ? 409 : 500 },
     );
   }
 
-  const nextPending = pendingCount + 1;
+  const nextPendingTributes = fields.kind === "tribute" ? pendingTributes + 1 : pendingTributes;
+  const nextPortraitPending = fields.kind === "portrait" ? portraitPending + 1 : portraitPending;
+
   return NextResponse.json(
     {
       ok: true,
-      message: "Thank you — your photo has been submitted for administrator review. It will appear in this gallery once approved.",
-      slots: {
-        approved: approvedCount,
-        pending: nextPending,
-        maxSlots: MAX_TRIBUTE_PHOTOS_PER_MEMORIAL,
-        remaining: Math.max(0, MAX_TRIBUTE_PHOTOS_PER_MEMORIAL - (approvedCount + nextPending)),
-      },
+      message: fields.kind === "portrait"
+        ? "Thank you — your profile portrait request has been submitted for administrator verification and approval."
+        : "Thank you — your photo has been submitted for administrator review. It will appear in this gallery once approved.",
+      slots: buildSlots(nextPendingTributes, nextPortraitPending),
     },
     { status: 201 },
   );

@@ -106,8 +106,20 @@ test("sanitizeVisitorSubmissionFields and checkVisitorUploadRateLimit enforce st
   assert.equal(security.sanitizeVisitorSubmissionFields({ name: "Maria Santos", relation: "Stranger" }).ok, false);
   const valid = security.sanitizeVisitorSubmissionFields({ name: "  Maria\nSantos ", relation: "Family", caption: "  With love  " });
   assert.equal(valid.ok, true);
+  assert.equal(valid.kind, "tribute");
   assert.equal(valid.name, "Maria Santos");
   assert.equal(valid.caption, "With love");
+
+  assert.equal(security.sanitizeVisitorSubmissionFields({ kind: "portrait", name: "Maria Santos", relation: "Family", contact: "" }).ok, false);
+  const validPortrait = security.sanitizeVisitorSubmissionFields({
+    kind: "portrait",
+    name: "Maria Santos",
+    relation: "Family",
+    contact: " 0917-123-4567 ",
+  });
+  assert.equal(validPortrait.ok, true);
+  assert.equal(validPortrait.kind, "portrait");
+  assert.equal(validPortrait.contact, "0917-123-4567");
 
   const t0 = 1_700_000_000_000;
   assert.equal(security.checkVisitorUploadRateLimit("test-ip-1", t0).allowed, true);
