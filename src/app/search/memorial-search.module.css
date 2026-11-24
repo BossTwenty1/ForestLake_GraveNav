@@ -316,6 +316,22 @@
   background: var(--search-placeholder);
   color: var(--search-muted);
 }
+.shell :global(.search-memorial-photo) {
+  grid-area: media;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--search-placeholder);
+}
+.shell :global(.search-memorial-photo) img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
 .shell :global(.search-memorial-placeholder) svg { width: 27px; height: 27px; }
 .shell :global(.search-memorial-placeholder) span { display: none; }
 .shell :global(.search-memorial-details) { grid-area: info; min-width: 0; line-height: 1.45; }
@@ -456,6 +472,15 @@
   }
   .shell :global(.search-memorial-badges) { position: absolute; z-index: 1; inset: 12px 12px auto; }
   .shell :global(.search-memorial-placeholder) { aspect-ratio: 1.9; border-radius: 0; }
+  .shell :global(.search-memorial-photo) { aspect-ratio: 1.9; border-radius: 0; }
+  .shell :global(.search-memorial-photo)::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 60px;
+    background: linear-gradient(180deg, rgb(0 0 0 / 34%), transparent);
+    pointer-events: none;
+  }
   .shell :global(.search-memorial-placeholder) svg { width: 42px; height: 42px; }
   .shell :global(.search-memorial-placeholder) span { display: block; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
   .shell :global(.search-memorial-details) { padding: 20px 23px 14px; }
