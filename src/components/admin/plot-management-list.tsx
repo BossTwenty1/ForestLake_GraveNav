@@ -67,18 +67,18 @@ export function PlotManagementList({ plots, total, summary, areas, loading, erro
     <div aria-busy={loading} className="admin-burial-data-panel">
       {error ? <EmptyState action={<Button onClick={onRetry} variant="secondary">Try again</Button>} className="admin-burial-empty" description={error} icon="alert" title="Plots unavailable" />
         : loading ? <Loading filtered={Boolean(plots.length || filterCount)} />
-        : plots.length ? <>
-          <PlotTable busy={busy} canAdmin={canAdmin} mapLink={mapLink} plots={plots} queryState={queryState} onChangeSort={sortBy} onDelete={onDelete} onEdit={onEdit} />
-          <MobileCards busy={busy} canAdmin={canAdmin} mapLink={mapLink} plots={plots} onDelete={onDelete} onEdit={onEdit} />
-          <Pagination pageCount={pageCount} queryState={queryState} total={total} visibleCount={plots.length} onUpdate={update} />
-        </> : <EmptyState action={filterCount ? <Button onClick={resetFilters} variant="secondary">Clear filters</Button> : <Button icon="plus" onClick={onAdd}>Add plot</Button>} className="admin-burial-empty" description={filterCount ? "No plots match the current search and filters. Adjust or clear them to see more plots." : "No current plots have been added. Add the first plot after its cemetery area exists."} icon={filterCount ? "filter" : "grid"} title={filterCount ? "No matching plots" : "No plots yet"} />}
+          : plots.length ? <>
+            <PlotTable busy={busy} canAdmin={canAdmin} mapLink={mapLink} plots={plots} queryState={queryState} onChangeSort={sortBy} onDelete={onDelete} onEdit={onEdit} />
+            <MobileCards busy={busy} canAdmin={canAdmin} mapLink={mapLink} plots={plots} onDelete={onDelete} onEdit={onEdit} />
+            <Pagination pageCount={pageCount} queryState={queryState} total={total} visibleCount={plots.length} onUpdate={update} />
+          </> : <EmptyState action={filterCount ? <Button onClick={resetFilters} variant="secondary">Clear filters</Button> : <Button icon="plus" onClick={onAdd}>Add plot</Button>} className="admin-burial-empty" description={filterCount ? "No plots match the current search and filters. Adjust or clear them to see more plots." : "No current plots have been added. Add the first plot after its cemetery area exists."} icon={filterCount ? "filter" : "grid"} title={filterCount ? "No matching plots" : "No plots yet"} />}
     </div>
   </section>;
 }
 
 function Metrics({ summary, loading }: { summary: PlotManagementSummary | null; loading: boolean }) {
   if (loading) return <div aria-label="Loading plot totals" className="admin-burial-metrics" role="status">{Array.from({ length: 4 }, (_, index) => <Skeleton className="admin-burial-metric admin-burial-metric--loading" key={index} />)}</div>;
-  const totalPlots = summary ? summary.total + (summary.syntheticPlots ?? 0) : null;
+  const totalPlots = summary ? summary.total : null;
   return <div className="admin-burial-metrics"><Metric icon="grid" label="Total plot records" value={totalPlots} /><Metric icon="records" label="Occupied" value={summary?.occupied} /><Metric icon="check" label="Available" tone="success" value={summary?.available} /><Metric icon="verification" label="Needs coordinate review" tone="warning" value={summary?.needsVerification} /></div>;
 }
 function Metric({ icon, label, value, tone = "neutral" }: { icon: IconName; label: string; value: number | null | undefined; tone?: "neutral" | "success" | "warning" }) { return <div className={`admin-burial-metric admin-burial-metric--${tone}`}><div><span>{label}</span><strong>{value == null ? "—" : value.toLocaleString()}</strong></div><span className="admin-burial-metric__icon"><Icon name={icon} size={20} /></span></div>; }
