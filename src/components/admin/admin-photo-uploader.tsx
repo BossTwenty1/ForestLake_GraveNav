@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import {
   getAdminPhotoCounts,
@@ -300,7 +301,11 @@ export function AdminPhotoUploader() {
           ) : null}
 
           {photoLoading ? (
-            <p role="status">Loading photos…</p>
+            <div className={styles.skeletonRows} role="status" aria-label="Loading photos">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton className={styles.skeletonRow} key={index} />
+              ))}
+            </div>
           ) : photos.length ? (
             <>
               <Table caption="Photo review queue">
