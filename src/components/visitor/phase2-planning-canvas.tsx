@@ -1,18 +1,44 @@
 "use client";
 
 import L from "leaflet";
-import { useEffect, useRef, type MutableRefObject } from "react";
-import { MapContainer, ZoomControl, useMap } from "react-leaflet";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
+import { MapContainer, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import { PARK_NAME } from "@/lib/park-details";
 import type { ParkCategory, ParkPlace } from "@/lib/park-explorer-features";
 import { Icon } from "@/components/ui/icons";
 import { cadDetailRoles, cadDetailsAssetRoot, type CadDetailRole } from "@/lib/phase2-cad-details";
+import { PARK_CENTER_WGS84, parkLayoutToWgs84 } from "@/lib/phase2-gps-bridge";
 import detailStyles from "./phase2-planning-canvas.module.css";
 import { PlanningLotPopup, type PlanningLotPopupOptions } from "./planning-lot-popup";
 import {
-  cadToMap, landmarkName, mapBounds, planningAssetRoot,
-  type CadFeature, type LandscapeRole, type LayerKey, type PlanningBundle, type Shape, type Visibility,
+  landmarkName, mapBounds, planningAssetRoot,
+  type Bounds, type CadFeature, type LandscapeRole, type LayerKey, type PlanningBundle, type Shape, type Visibility,
 } from "@/lib/phase2-planning";
+
+export type PlanningMapStyle = "illustrated" | "satellite";
+
+const ESRI_WORLD_IMAGERY_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const ESRI_WORLD_IMAGERY_ATTRIBUTION = "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics";
+
+function cadToWgsLatLng(xy: readonly number[]): L.LatLng {
+  const { latitude, longitude } = parkLayoutToWgs84([xy[0], xy[1]]);
+  return L.latLng(latitude, longitude);
+}
+
+function projectPoint(xy: readonly number[], satellite: boolean): L.LatLng {
+  return satellite ? cadToWgsLatLng(xy) : L.latLng(xy[1], xy[0]);
+}
+
+function projectBounds(bounds: Bounds, satellite: boolean): L.LatLngBounds {
+  if (!satellite) return L.latLngBounds(mapBounds(bounds));
+  const [minX, minY, maxX, maxY] = bounds;
+  return L.latLngBounds([
+    cadToWgsLatLng([minX, minY]),
+    cadToWgsLatLng([maxX, minY]),
+    cadToWgsLatLng([maxX, maxY]),
+    cadToWgsLatLng([minX, maxY]),
+  ]);
+}
 
 export interface PlanningMapActions {
   reset: () => void;
@@ -39,6 +65,8 @@ export interface PlanningMapProps {
   focusOnLoad?: CadFeature | null;
   lotPopup?: PlanningLotPopupOptions;
   layoutRoute?: PlanningRouteOverlay | null;
+  mapStyle?: PlanningMapStyle;
+  onTileError?: (failed: boolean) => void;
   places: boolean;
   trees: boolean;
   protection: boolean;
@@ -62,16 +90,28 @@ const styles: Record<LayerKey, L.PathOptions> = {
   context: { color: "#899087", weight: 0.65, opacity: 0.6, fill: false },
   overlaps: { color: "#af3862", weight: 1.5, fillColor: "#f5d7e2", fillOpacity: 0.4 },
 };
-function shapeLayer(shape: Shape, options: L.PathOptions): L.Layer {
-  if (shape.kind === "polygon") return L.polygon(shape.positions.map(ring => ring.map(cadToMap)), { ...options, smoothFactor: 0, fillRule: "evenodd" });
-  if (shape.kind === "line") return L.polyline(shape.positions.map(cadToMap), { ...options, smoothFactor: 0 });
-  if (shape.kind === "point") return L.circleMarker(cadToMap(shape.positions), { ...options, radius: 5 });
-  return L.layerGroup(shape.parts.map(part => shapeLayer(part, options)));
+const satelliteStyles: Record<LayerKey, L.PathOptions> = {
+  lawn: { color: "#f8fafc", weight: 0.75, opacity: 0.58, fillColor: "#22c55e", fillOpacity: 0.06 },
+  estates: { color: "#fde68a", weight: 1.1, opacity: 0.85, fillColor: "#f59e0b", fillOpacity: 0.22 },
+  blocks: { color: "#fcd34d", weight: 1.4, opacity: 0.78, fill: false },
+  boundary: { color: "#86efac", weight: 2, opacity: 0.9, dashArray: "7 5", fill: false },
+  roads: { color: "#e2e8f0", weight: 1.5, opacity: 0.52, fill: false },
+  paths: { color: "#fef08a", weight: 1.4, opacity: 0.78, fill: false },
+  context: { color: "#cbd5e1", weight: 0.8, opacity: 0.45, fill: false },
+  overlaps: { color: "#fb7185", weight: 1.7, fillColor: "#fda4af", fillOpacity: 0.42 },
+};
+function shapeLayer(shape: Shape, options: L.PathOptions, satellite = false): L.Layer {
+  if (shape.kind === "polygon") return L.polygon(shape.positions.map(ring => ring.map(pt => projectPoint(pt, satellite))), { ...options, smoothFactor: 0, fillRule: "evenodd" });
+  if (shape.kind === "line") return L.polyline(shape.positions.map(pt => projectPoint(pt, satellite)), { ...options, smoothFactor: 0 });
+  if (shape.kind === "point") return L.circleMarker(projectPoint(shape.positions, satellite), { ...options, radius: 5 });
+  return L.layerGroup(shape.parts.map(part => shapeLayer(part, options, satellite)));
 }
 function PlanningLayers(props: PlanningMapProps) {
-  const { bundle, visible, selected, focusOnLoad, places, trees, protection, onReady, attempt } = props;
+  const { bundle, visible, selected, places, trees, protection, onReady, attempt } = props;
+  const satellite = props.mapStyle === "satellite";
   const map = useMap();
   const latest = useRef(props);
+  const initialFocus = useRef(props.focusOnLoad);
   const groups = useRef<Partial<Record<LayerKey, L.LayerGroup>>>({});
   const images = useRef<Partial<Record<LandscapeRole, L.ImageOverlay>>>({});
   const detailImages = useRef<Partial<Record<CadDetailRole, L.ImageOverlay>>>({});
@@ -86,50 +126,54 @@ function PlanningLayers(props: PlanningMapProps) {
     let active = true;
     const loaded = new Set<string>();
     let failed = false;
-    for (const [index, role] of roles.entries()) {
-      const name = "planning-image-" + role;
-      const pane = map.getPane(name) ?? map.createPane(name);
-      pane.style.zIndex = String(210 + index * 10);
-      pane.style.pointerEvents = "none";
-      const image = L.imageOverlay(planningAssetRoot + "landscape/" + bundle.landscape.layers[role].image + "?attempt=" + attempt,
-        mapBounds(bundle.landscape.bounds), { pane: name, interactive: false, alt: "Phase 2 " + role + " map layer" });
-      image.on("load", () => {
-        if (!active) return;
-        loaded.add(role);
-        if (loaded.size === roles.length && !failed) node.dataset.landscapeStatus = "ready";
-      });
-      image.on("error", () => {
-        if (!active) return;
-        failed = true;
-        node.dataset.landscapeStatus = "error";
-        image.getElement()?.style.setProperty("display", "none");
-        latest.current.onError("A landscape image could not be loaded. Retry to restore the full map.");
-      });
-      overlays[role] = image;
-    }
-    const detailLoaded = new Set<CadDetailRole>();
-    const requiredDetailRoles = cadDetailRoles.filter(role => props.reviewMode || role !== "paths");
-    const detailOrder = { roads: 225, paths: 245, edges: 255, site: 270 };
-    node.dataset.cadDetailsStatus = "loading";
-    for (const role of cadDetailRoles) {
-      const paneName = "planning-cad-detail-" + role;
-      const pane = map.getPane(paneName) ?? map.createPane(paneName);
-      pane.style.zIndex = String(detailOrder[role]);
-      pane.style.pointerEvents = "none";
-      const image = L.imageOverlay(cadDetailsAssetRoot + bundle.details.layers[role].image,
-        mapBounds(bundle.details.bounds), { pane: paneName, interactive: false, alt: "Phase 2 " + role + " map details" });
-      image.on("load", () => {
-        if (!active) return;
-        detailLoaded.add(role);
-        if (requiredDetailRoles.every(required => detailLoaded.has(required))) node.dataset.cadDetailsStatus = "ready";
-      });
-      image.on("error", () => {
-        if (!active) return;
-        node.dataset.cadDetailsStatus = "error";
-        image.getElement()?.style.setProperty("display", "none");
-        latest.current.onError("Part of the park map could not be loaded. Please retry the map.");
-      });
-      detailOverlays[role] = image;
+    if (!satellite) {
+      for (const [index, role] of roles.entries()) {
+        const name = "planning-image-" + role;
+        const pane = map.getPane(name) ?? map.createPane(name);
+        pane.style.zIndex = String(210 + index * 10);
+        pane.style.pointerEvents = "none";
+        const image = L.imageOverlay(planningAssetRoot + "landscape/" + bundle.landscape.layers[role].image + "?attempt=" + attempt,
+          mapBounds(bundle.landscape.bounds), { pane: name, interactive: false, alt: "Phase 2 " + role + " map layer" });
+        image.on("load", () => {
+          if (!active) return;
+          loaded.add(role);
+          if (loaded.size === roles.length && !failed) node.dataset.landscapeStatus = "ready";
+        });
+        image.on("error", () => {
+          if (!active) return;
+          failed = true;
+          node.dataset.landscapeStatus = "error";
+          image.getElement()?.style.setProperty("display", "none");
+          latest.current.onError("A landscape image could not be loaded. Retry to restore the full map.");
+        });
+        overlays[role] = image;
+      }
+      const detailLoaded = new Set<CadDetailRole>();
+      const requiredDetailRoles = cadDetailRoles.filter(role => props.reviewMode || role !== "paths");
+      const detailOrder = { roads: 225, paths: 245, edges: 255, site: 270 };
+      node.dataset.cadDetailsStatus = "loading";
+      for (const role of cadDetailRoles) {
+        const paneName = "planning-cad-detail-" + role;
+        const pane = map.getPane(paneName) ?? map.createPane(paneName);
+        pane.style.zIndex = String(detailOrder[role]);
+        pane.style.pointerEvents = "none";
+        const image = L.imageOverlay(cadDetailsAssetRoot + bundle.details.layers[role].image,
+          mapBounds(bundle.details.bounds), { pane: paneName, interactive: false, alt: "Phase 2 " + role + " map details" });
+        image.on("load", () => {
+          if (!active) return;
+          detailLoaded.add(role);
+          if (requiredDetailRoles.every(required => detailLoaded.has(required))) node.dataset.cadDetailsStatus = "ready";
+        });
+        image.on("error", () => {
+          if (!active) return;
+          node.dataset.cadDetailsStatus = "error";
+          image.getElement()?.style.setProperty("display", "none");
+          latest.current.onError("Part of the park map could not be loaded. Please retry the map.");
+        });
+        detailOverlays[role] = image;
+      }
+    } else {
+      node.dataset.cadDetailsStatus = "ready";
     }
     for (const [name, zIndex] of [["planning-lines", 300], ["planning-plots", 340], ["planning-labels", 355], ["planning-review", 370], ["planning-route", 375], ["planning-selection", 380]] as const) {
       const pane = map.getPane(name) ?? map.createPane(name);
@@ -137,13 +181,14 @@ function PlanningLayers(props: PlanningMapProps) {
       pane.style.pointerEvents = name === "planning-plots" ? "auto" : "none";
     }
     // One map-owned canvas serves both plot groups. Selection uses a persistent named pane.
+    const palette = satellite ? satelliteStyles : styles;
     for (const key of Object.keys(bundle.data.layers) as LayerKey[]) {
       const group = L.layerGroup();
       const plot = key === "lawn" || key === "estates";
       for (const feature of bundle.data.layers[key]) {
         const layer = shapeLayer(feature.shape, {
-          ...styles[key], pane: plot ? "planning-plots" : "planning-lines", interactive: plot, bubblingMouseEvents: false,
-        });
+          ...palette[key], pane: plot ? "planning-plots" : "planning-lines", interactive: plot, bubblingMouseEvents: false,
+        }, satellite);
         if (plot) layer.on("click", (event: L.LeafletMouseEvent) => {
           L.DomEvent.stopPropagation(event);
           latest.current.onSelect(feature);
@@ -155,23 +200,23 @@ function PlanningLayers(props: PlanningMapProps) {
     groups.current = paths;
     images.current = overlays;
     detailImages.current = detailOverlays;
-    const reset = () => map.fitBounds(mapBounds(bundle.data.bounds), { padding: [28, 54], animate: false });
+    const reset = () => map.fitBounds(projectBounds(bundle.data.bounds, satellite), { padding: [28, 54], animate: false });
     onReady({
       reset,
-      focus: feature => map.fitBounds(mapBounds(feature.bounds), { padding: [70, 70], maxZoom: 5.5, animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches }),
-      place: position => map.setView(cadToMap(position), 3.3, { animate: false }),
-      focusPlaces: positions => map.fitBounds(L.latLngBounds(positions.map(cadToMap)), { padding: [62, 62], maxZoom: 3.3, animate: false }),
+      focus: feature => map.fitBounds(projectBounds(feature.bounds, satellite), { padding: [70, 70], maxZoom: satellite ? 21.2 : 5.5, animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches }),
+      place: position => map.setView(projectPoint(position, satellite), satellite ? 19.5 : 3.3, { animate: false }),
+      focusPlaces: positions => map.fitBounds(L.latLngBounds(positions.map(pt => projectPoint(pt, satellite))), { padding: [62, 62], maxZoom: satellite ? 19.5 : 3.3, animate: false }),
       fitRoute: positions => {
         if (!positions.length) return;
-        map.fitBounds(L.latLngBounds(positions.map(cadToMap)), {
+        map.fitBounds(L.latLngBounds(positions.map(pt => projectPoint(pt, satellite))), {
           padding: [56, 56],
-          maxZoom: 4.2,
+          maxZoom: satellite ? 20.2 : 4.2,
           animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         });
       },
       invalidateSize: () => map.invalidateSize({ animate: false }),
     });
-    if (focusOnLoad) map.fitBounds(mapBounds(focusOnLoad.bounds), { padding: [70, 70], maxZoom: 5.5, animate: false });
+    if (initialFocus.current) map.fitBounds(projectBounds(initialFocus.current.bounds, satellite), { padding: [70, 70], maxZoom: satellite ? 21.2 : 5.5, animate: false });
     else reset();
     const clear = () => latest.current.onSelect(null);
     map.on("click", clear);
@@ -185,7 +230,8 @@ function PlanningLayers(props: PlanningMapProps) {
     const resize = new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resize.observe(node);
     node.dataset.plotCount = "4494";
-    node.dataset.landscapeStatus = "loading";
+    node.dataset.mapStyle = satellite ? "satellite" : "illustrated";
+    node.dataset.landscapeStatus = satellite ? "ready" : "loading";
     return () => {
       active = false;
       resize.disconnect();
@@ -198,59 +244,61 @@ function PlanningLayers(props: PlanningMapProps) {
       images.current = {};
       detailImages.current = {};
     };
-  }, [map, bundle, onReady, attempt, props.reviewMode, focusOnLoad]);
+  }, [map, bundle, onReady, attempt, props.reviewMode, satellite]);
 
   useEffect(() => {
     for (const key of Object.keys(visible) as LayerKey[]) {
       const group = groups.current[key];
-      if (group) { if (visible[key] && (props.reviewMode || key !== "paths")) group.addTo(map); else group.remove(); }
+      if (group) { if (visible[key] && (props.reviewMode || satellite || key !== "paths")) group.addTo(map); else group.remove(); }
     }
-    for (const role of ["base", "roads", "paths", "trees", "protection"] as const) {
-      const image = images.current[role];
-      const show = role === "base" || (role === "trees" ? trees : role === "protection" ? protection : visible[role]);
-      if (image) { if (show) image.addTo(map); else image.remove(); }
-      map.getContainer().dataset["landscape" + role[0].toUpperCase() + role.slice(1)] = show ? "visible" : "hidden";
+    if (!satellite) {
+      for (const role of ["base", "roads", "paths", "trees", "protection"] as const) {
+        const image = images.current[role];
+        const show = role === "base" || (role === "trees" ? trees : role === "protection" ? protection : visible[role]);
+        if (image) { if (show) image.addTo(map); else image.remove(); }
+        map.getContainer().dataset["landscape" + role[0].toUpperCase() + role.slice(1)] = show ? "visible" : "hidden";
+      }
+      for (const role of cadDetailRoles) {
+        const image = detailImages.current[role];
+        const show = props.details && (role === "site" || (role === "edges" ? protection : visible[role])) && (props.reviewMode || role !== "paths");
+        if (image) { if (show) image.addTo(map); else image.remove(); }
+      }
     }
-    for (const role of cadDetailRoles) {
-      const image = detailImages.current[role];
-      const show = props.details && (role === "site" || (role === "edges" ? protection : visible[role])) && (props.reviewMode || role !== "paths");
-      if (image) { if (show) image.addTo(map); else image.remove(); }
-    }
-    map.getContainer().dataset.cadDetails = props.details ? "visible" : "hidden";
-  }, [map, bundle, visible, trees, protection, props.details, props.reviewMode, attempt]);
+    map.getContainer().dataset.cadDetails = !satellite && props.details ? "visible" : "hidden";
+  }, [map, bundle, visible, trees, protection, props.details, props.reviewMode, attempt, satellite]);
 
   useEffect(() => {
     map.getContainer().dataset.selected = selected?.id ?? "";
     if (!selected) return;
     const highlight = L.layerGroup([
-      shapeLayer(selected.shape, { pane: "planning-selection", interactive: false, color: "#453617", weight: 7, fill: false }),
-      shapeLayer(selected.shape, { pane: "planning-selection", interactive: false, color: "#ffce32", weight: 4, fillColor: "#ffe890", fillOpacity: 0.15 }),
+      shapeLayer(selected.shape, { pane: "planning-selection", interactive: false, color: "#453617", weight: 7, fill: false }, satellite),
+      shapeLayer(selected.shape, { pane: "planning-selection", interactive: false, color: "#ffce32", weight: 4, fillColor: "#ffe890", fillOpacity: satellite ? 0.28 : 0.15 }, satellite),
     ]).addTo(map);
     return () => { highlight.remove(); };
-  }, [map, selected]);
+  }, [map, selected, satellite]);
 
   useEffect(() => {
     const route = props.layoutRoute;
     if (!route || route.path.length < 2) return;
     const layers: L.Layer[] = [
-      L.polyline(route.path.map(cadToMap), {
+      L.polyline(route.path.map(pt => projectPoint(pt, satellite)), {
         pane: "planning-route", interactive: false, color: "#ffffff", weight: 9, opacity: 0.96, lineCap: "round", lineJoin: "round",
       }),
-      L.polyline(route.path.map(cadToMap), {
+      L.polyline(route.path.map(pt => projectPoint(pt, satellite)), {
         pane: "planning-route", interactive: false, color: "#2563eb", weight: 5, opacity: 1, lineCap: "round", lineJoin: "round",
       }),
     ];
     if (route.approach.length >= 2) {
-      layers.push(L.polyline(route.approach.map(cadToMap), {
+      layers.push(L.polyline(route.approach.map(pt => projectPoint(pt, satellite)), {
         pane: "planning-route", interactive: false, color: "#ffffff", weight: 5.5, dashArray: "6 6", opacity: 0.9,
       }));
-      layers.push(L.polyline(route.approach.map(cadToMap), {
+      layers.push(L.polyline(route.approach.map(pt => projectPoint(pt, satellite)), {
         pane: "planning-route", interactive: false, color: "#2563eb", weight: 3, dashArray: "6 6", opacity: 0.98,
       }));
       const destPoint = route.approach[route.approach.length - 1];
       if (route.destinationLabel) {
         const pinHtml = `<span class="${detailStyles.destinationPin}"><span class="${detailStyles.destinationPinCore}"></span></span>`;
-        const destMarker = L.marker(cadToMap(destPoint), {
+        const destMarker = L.marker(projectPoint(destPoint, satellite), {
           pane: "planning-selection",
           interactive: false,
           icon: L.divIcon({
@@ -281,7 +329,7 @@ function PlanningLayers(props: PlanningMapProps) {
     }
 
     if (route.isLiveGps && route.gpsPosition) {
-      const gpsLatLng = cadToMap(route.gpsPosition);
+      const gpsLatLng = projectPoint(route.gpsPosition, satellite);
       if (typeof route.gpsAccuracyMeters === "number" && Number.isFinite(route.gpsAccuracyMeters)) {
         layers.push(L.circle(gpsLatLng, {
           pane: "planning-route",
@@ -328,7 +376,7 @@ function PlanningLayers(props: PlanningMapProps) {
       });
       layers.push(pulseMarker);
     } else {
-      const startMarker = L.circleMarker(cadToMap(route.path[0]), {
+      const startMarker = L.circleMarker(projectPoint(route.path[0], satellite), {
         pane: "planning-route", interactive: false, radius: 7, color: "#ffffff", weight: 2.5, fillColor: "#2563eb", fillOpacity: 1,
       });
       startMarker.bindTooltip(route.startLabel, {
@@ -338,7 +386,7 @@ function PlanningLayers(props: PlanningMapProps) {
     }
     const group = L.layerGroup(layers).addTo(map);
     return () => { group.remove(); };
-  }, [map, props.layoutRoute]);
+  }, [map, props.layoutRoute, satellite]);
 
   useEffect(() => {
     if (!places) return;
@@ -348,9 +396,11 @@ function PlanningLayers(props: PlanningMapProps) {
       labels.forEach(label => label.remove());
       labels = [];
       const zoom = map.getZoom();
-      if (zoom > 4.6 || (map.getSize().x < 600 && zoom < 1.5)) return;
+      if (satellite
+        ? (zoom > 21 || (map.getSize().x < 600 && zoom < 17.5))
+        : (zoom > 4.6 || (map.getSize().x < 600 && zoom < 1.5))) return;
       for (const place of bundle.places.landmarks) {
-        if (place.kind === "facility" && zoom < 2.4) continue;
+        if (place.kind === "facility" && zoom < (satellite ? 18.8 : 2.4)) continue;
         const text = document.createElement("span");
         text.textContent = landmarkName(place.name);
         text.dataset.cadPlace = place.id;
@@ -359,7 +409,7 @@ function PlanningLayers(props: PlanningMapProps) {
           className: "phase-two-place-label",
           direction: place.kind === "facility" ? "right" : "top",
           offset: place.kind === "facility" ? L.point(0, 0) : L.point(0, -16),
-        }).setLatLng(cadToMap(place.cadXY)).setContent(text).addTo(map));
+        }).setLatLng(projectPoint(place.cadXY, satellite)).setContent(text).addTo(map));
       }
     };
     const schedule = () => {
@@ -375,7 +425,7 @@ function PlanningLayers(props: PlanningMapProps) {
       map.off("resize", schedule);
       labels.forEach(label => label.remove());
     };
-  }, [map, bundle, places]);
+  }, [map, bundle, places, satellite]);
 
   useEffect(() => {
     if (!places || !props.details) return;
@@ -385,25 +435,27 @@ function PlanningLayers(props: PlanningMapProps) {
       annotations.forEach(label => label.remove());
       annotations = [];
       const zoom = map.getZoom();
-      if (zoom > 5.2) return;
+      if (zoom > (satellite ? 21.5 : 5.2)) return;
       for (const label of bundle.details.labels) {
-        if (label.kind === "edge" && (!protection || zoom < 2.5)) continue;
-        if (label.kind === "amenity" && zoom < 2.4) continue;
+        if (label.kind === "edge" && (!protection || zoom < (satellite ? 19 : 2.5))) continue;
+        if (label.kind === "amenity" && zoom < (satellite ? 19 : 2.4)) continue;
         const text = document.createElement("span");
         text.textContent = label.name;
         text.dataset.cadDetailLabel = label.id;
         text.setAttribute("aria-label", label.kind === "section" ? "Section " + label.name : label.name);
-        annotations.push(L.tooltip({ permanent: true, interactive: false, pane: "planning-labels",
+        annotations.push(L.tooltip({
+          permanent: true, interactive: false, pane: "planning-labels",
           className: label.kind === "section" ? detailStyles.sectionLabel : detailStyles.edgeLabel,
-          direction: label.kind === "section" ? "center" : "right" })
-          .setLatLng(cadToMap(label.cadXY)).setContent(text).addTo(map));
+          direction: label.kind === "section" ? "center" : "right"
+        })
+          .setLatLng(projectPoint(label.cadXY, satellite)).setContent(text).addTo(map));
       }
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(update); };
     schedule();
     map.on("zoomend", schedule);
     return () => { cancelAnimationFrame(frame); map.off("zoomend", schedule); annotations.forEach(label => label.remove()); };
-  }, [map, bundle, places, props.details, protection]);
+  }, [map, bundle, places, props.details, protection, satellite]);
 
   useEffect(() => {
     if (!props.reviewMode) return;
@@ -417,7 +469,7 @@ function PlanningLayers(props: PlanningMapProps) {
   }, [map, bundle, visible.roads, visible.paths, props.reviewMode]);
   return null;
 }
-function ExplorerMarkers({ explorer }: { explorer: NonNullable<PlanningMapProps["explorer"]> }) {
+function ExplorerMarkers({ explorer, satellite }: { explorer: NonNullable<PlanningMapProps["explorer"]>; satellite: boolean }) {
   const map = useMap();
   const markers = useRef<{ place: ParkPlace; node: HTMLSpanElement }[]>([]);
   const select = useRef(explorer.onSelect);
@@ -432,7 +484,7 @@ function ExplorerMarkers({ explorer }: { explorer: NonNullable<PlanningMapProps[
         node.dataset.category = place.category;
         node.dataset.kind = place.kind;
         markers.current.push({ place, node });
-        const marker = L.marker(cadToMap(point), {
+        const marker = L.marker(projectPoint(point, satellite), {
           icon: L.divIcon({ className: "park-place-marker", html: node, iconSize: [26, 26], iconAnchor: [13, 13] }),
           title: place.name, alt: place.name, keyboard: true, zIndexOffset: place.kind === "Garden" ? 100 : 0,
         }).on("click", () => select.current(place)).addTo(layer);
@@ -448,7 +500,7 @@ function ExplorerMarkers({ explorer }: { explorer: NonNullable<PlanningMapProps[
       }
     }
     return () => { markers.current = []; layer.remove(); };
-  }, [map, explorer.places, explorer.showLabels, explorer.showPaths]);
+  }, [map, explorer.places, explorer.showLabels, explorer.showPaths, satellite]);
   useEffect(() => {
     for (const { place, node } of markers.current) {
       const selected = place.id === explorer.selectedId;
@@ -473,12 +525,37 @@ function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: 
   </div>;
 }
 export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: MutableRefObject<PlanningMapActions | null>; onTogglePaths: () => void }) {
-  return <MapContainer className="cemetery-leaflet-canvas phase-two-planning-canvas" aria-label={`${PARK_NAME} Phase 2 park map`}
-    crs={L.CRS.Simple} center={[110, 145]} zoom={1} minZoom={-2} maxZoom={7} zoomSnap={0.1} zoomDelta={0.5}
-    zoomControl={false} preferCanvas scrollWheelZoom={props.scrollWheelZoom ?? true}>
+  const satellite = props.mapStyle === "satellite";
+  const projectPopup = useCallback((xy: [number, number]) => projectPoint(xy, satellite), [satellite]);
+  return <MapContainer
+    className={"cemetery-leaflet-canvas phase-two-planning-canvas" + (satellite ? " phase-two-planning-canvas--satellite" : "")}
+    aria-label={`${PARK_NAME} Phase 2 ${satellite ? "satellite" : "park"} map`}
+    crs={satellite ? L.CRS.EPSG3857 : L.CRS.Simple}
+    center={satellite ? [PARK_CENTER_WGS84.latitude, PARK_CENTER_WGS84.longitude] : [110, 145]}
+    zoom={satellite ? 18 : 1}
+    minZoom={satellite ? 15 : -2}
+    maxZoom={satellite ? 22 : 7}
+    zoomSnap={satellite ? 0.25 : 0.1}
+    zoomDelta={0.5}
+    zoomControl={false}
+    preferCanvas
+    scrollWheelZoom={props.scrollWheelZoom ?? true}
+  >
+    {satellite ? (
+      <TileLayer
+        attribution={ESRI_WORLD_IMAGERY_ATTRIBUTION}
+        eventHandlers={{
+          tileerror: () => props.onTileError?.(true),
+          tileload: () => props.onTileError?.(false),
+        }}
+        maxNativeZoom={18}
+        maxZoom={22}
+        url={ESRI_WORLD_IMAGERY_URL}
+      />
+    ) : null}
     <ZoomControl position={props.zoomPosition ?? (props.explorer ? "topright" : "bottomright")} />
     <PlanningLayers {...props} />
-    {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id} feature={props.selected} {...props.lotPopup} /> : null}
-    {props.explorer ? <ExplorerMarkers explorer={props.explorer} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}
+    {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id} feature={props.selected} {...props.lotPopup} project={projectPopup} /> : null}
+    {props.explorer ? <ExplorerMarkers explorer={props.explorer} satellite={satellite} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}
   </MapContainer>;
 }

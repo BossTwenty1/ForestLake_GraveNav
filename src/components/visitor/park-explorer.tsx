@@ -37,6 +37,10 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
   const [labels, setLabels] = useState(true);
   const [plots, setPlots] = useState(true);
   const [trees, setTrees] = useState(true);
+  const [mapStyle, setMapStyle] = useState<"illustrated" | "satellite">("illustrated");
+  const [satelliteTileError, setSatelliteTileError] = useState(false);
+  const [layersPopoverOpen, setLayersPopoverOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [position, setPosition] = useState<GpsPosition | null>(null);
   const [locationStatus, setLocationStatus] = useState(startPublished && !geography ? "Published geographic coverage is unavailable." : "");
   const [mapRequest, setMapRequest] = useState({ count: 0, kind: "park" as "park" | "place" | "location" });
@@ -47,6 +51,32 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
   const selectedHeading = useRef<HTMLHeadingElement>(null);
   const listOpener = useRef<HTMLElement | null>(null);
   const ready = useCallback((value: PlanningMapActions) => { actions.current = value; }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const resizeMap = () => actions.current?.invalidateSize?.();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const frame = requestAnimationFrame(resizeMap);
+    const timer = window.setTimeout(resizeMap, 160);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(resizeMap);
+    };
+  }, [isFullscreen]);
+
+  function changeMapStyle(next: "illustrated" | "satellite") {
+    if (next === mapStyle) return;
+    setSatelliteTileError(false);
+    setMapStyle(next);
+  }
 
   useEffect(() => {
     if (published || bundle) return;
@@ -140,7 +170,9 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
   return <article className={styles.explorer} data-source={published ? "published" : "layout"}
     data-collapsed={collapsed} data-expanded={expanded} onKeyDown={event => {
       if (event.key !== "Escape") return;
-      if (plotPopupOpen) setPlotPopupOpen(false);
+      if (layersPopoverOpen) setLayersPopoverOpen(false);
+      else if (isFullscreen) setIsFullscreen(false);
+      else if (plotPopupOpen) setPlotPopupOpen(false);
       else if (selectedName) closeSelection();
     }}>
     <header className={styles.heading}>
@@ -155,17 +187,42 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
         setCategory(item.key); setExpanded(true);
       }}><Icon name={item.icon} size={15} />{item.title}</button>)}
     </nav>
-    <section ref={mapPanel} className={styles.stage} aria-label="Interactive park map">
-      <div className={styles.mapSource}><Icon name="map" size={16} />{published ? "Published coverage" : "Park overview"}</div>
+    <section ref={mapPanel} className={styles.stage + (isFullscreen ? " " + styles.stageFullscreen : "")} aria-label="Interactive park map">
+      <div className={styles.mapSource}>
+        {isFullscreen ? (
+          <button
+            type="button"
+            className={styles.exitFullscreenBtn}
+            aria-label="Exit full screen map"
+            onClick={() => setIsFullscreen(false)}
+          >
+            <Icon name="arrowLeft" size={15} />Exit
+          </button>
+        ) : null}
+        <Icon name={mapStyle === "satellite" && !published ? "layers" : "map"} size={16} />
+        <span>{published ? "Published coverage" : mapStyle === "satellite" ? "Satellite view" : "Park overview"}</span>
+      </div>
       {published && geography ? <GeographicCanvas key={geography.releaseId} data={geography} position={position}
         explorer={{ plots, paths, labels, selectedId: pick?.id, places, request: mapRequest, onSelect: selectPlace }} />
-        : bundle ? <PlanningCanvas key={attempt} bundle={bundle} visible={visible} selected={plots ? plot : null}
+        : bundle ? <PlanningCanvas key={`${attempt}:${mapStyle}`} bundle={bundle} visible={visible} selected={plots ? plot : null}
+          focusOnLoad={plots ? plot : null}
+          mapStyle={mapStyle}
+          onTileError={setSatelliteTileError}
           places={false} trees={trees} protection details attempt={attempt} onReady={ready}
           actions={actions} onTogglePaths={() => setPaths(value => !value)} onError={() => setAssetError(true)}
           lotPopup={plots && plot && plotPopupOpen ? { onClose: () => setPlotPopupOpen(false) } : undefined}
-          onSelect={feature => { if (feature) { setPick(null); setPlot(feature); setPlotPopupOpen(true); } }}
+          onSelect={feature => {
+            setLayersPopoverOpen(false);
+            if (feature) { setPick(null); setPlot(feature); setPlotPopupOpen(true); }
+          }}
           explorer={{ places, showLabels: labels, showPaths: paths, category, selectedId: pick?.id, onSelect: selectPlace }} />
         : <div className={styles.mapMessage} role={error ? "alert" : "status"}>{error ? "Park map data is temporarily unavailable." : "Loading the park map…"}</div>}
+      {!published && mapStyle === "satellite" && satelliteTileError ? (
+        <div className={styles.satelliteFallback} role="status">
+          <span>Satellite imagery is temporarily unavailable.</span>
+          <button type="button" onClick={() => changeMapStyle("illustrated")}>Use Park Map</button>
+        </div>
+      ) : null}
       {!published && (error || assetError) ? <div className={styles.retry} role="alert">
         {assetError ? "Some map layers could not load." : "The local map could not be loaded."}
         <button type="button" onClick={() => { setBundle(null); setError(false); setAssetError(false); setAttempt(value => value + 1); }}>Retry map</button>
@@ -176,12 +233,69 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
           if (published && position) requestMap("location"); else fitPark();
         }}><Icon name="target" size={21} /></button>
         <button type="button" aria-label="Fit to park" title="Fit to park" disabled={!mapReady} onClick={() => { fitPark(true); setCategory("all"); setFilter(""); }}><Icon name="map" size={21} /></button>
-        <button type="button" aria-label="Map layers" title="Map layers" aria-controls="park-layers" onClick={() => {
-          setExpanded(true); setCollapsed(false);
-          if (layerPanel.current) layerPanel.current.open = true;
-          requestAnimationFrame(() => { layerPanel.current?.scrollIntoView({ block: "nearest" }); layerPanel.current?.querySelector("summary")?.focus(); });
-        }}><Icon name="layers" size={20} /></button>
+        <button
+          type="button"
+          aria-label={isFullscreen ? "Exit full screen map" : "Full screen map view"}
+          title={isFullscreen ? "Exit full screen" : "Full screen map"}
+          aria-pressed={isFullscreen}
+          className={isFullscreen ? styles.controlActive : undefined}
+          onClick={() => setIsFullscreen(open => !open)}
+        >
+          <Icon name={isFullscreen ? "minimize" : "maximize"} size={20} />
+        </button>
+        <button
+          type="button"
+          aria-label="Map style and layers"
+          title="Map style & layers"
+          aria-expanded={layersPopoverOpen}
+          aria-controls="park-map-style-popover"
+          className={layersPopoverOpen || mapStyle === "satellite" ? styles.controlActive : undefined}
+          onClick={() => setLayersPopoverOpen(open => !open)}
+        >
+          <Icon name="layers" size={20} />
+        </button>
       </div>
+      {layersPopoverOpen ? (
+        <div id="park-map-style-popover" className={styles.layersPopover} role="dialog" aria-label="Map style and layers">
+          <div className={styles.layersPopoverHead}>
+            <strong>Map Style &amp; Layers</strong>
+            <button type="button" aria-label="Close map layers" onClick={() => setLayersPopoverOpen(false)}>
+              <Icon name="close" size={15} />
+            </button>
+          </div>
+          {!published ? (
+            <div className={styles.styleSwitch} role="radiogroup" aria-label="Map background style">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mapStyle === "illustrated"}
+                onClick={() => changeMapStyle("illustrated")}
+              >
+                <Icon name="map" size={14} />Park Map
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mapStyle === "satellite"}
+                onClick={() => changeMapStyle("satellite")}
+              >
+                <Icon name="layers" size={14} />Satellite
+              </button>
+            </div>
+          ) : null}
+          <div className={styles.popoverChecks}>
+            <label><span>Pathways</span><input type="checkbox" checked={paths} onChange={event => setPaths(event.target.checked)} /></label>
+            <label><span>{published ? "Landmark markers" : "Place markers"}</span><input type="checkbox" checked={labels} onChange={event => setLabels(event.target.checked)} /></label>
+            <label><span>Plot outlines</span><input type="checkbox" checked={plots} onChange={event => setPlots(event.target.checked)} /></label>
+            {!published && mapStyle === "illustrated" ? (
+              <label><span>Tree canopy</span><input type="checkbox" checked={trees} onChange={event => setTrees(event.target.checked)} /></label>
+            ) : null}
+          </div>
+          {!published && mapStyle === "satellite" ? (
+            <p className={styles.popoverNote}>Esri satellite imagery is for visual reference (~1–3 m offset possible).</p>
+          ) : null}
+        </div>
+      ) : null}
       {locationStatus ? <p className={styles.location} role="status">{locationStatus}</p> : null}
     </section>
 
@@ -223,10 +337,30 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
         })}
         <details className={styles.layers} ref={layerPanel} id="park-layers" open>
           <summary><Icon name="layers" size={17} />Map layers<Icon name="chevronDown" size={16} /></summary>
+          {!published ? (
+            <div className={styles.styleSwitch} role="radiogroup" aria-label="Map background style">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mapStyle === "illustrated"}
+                onClick={() => changeMapStyle("illustrated")}
+              >
+                <Icon name="map" size={14} />Park Map
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mapStyle === "satellite"}
+                onClick={() => changeMapStyle("satellite")}
+              >
+                <Icon name="layers" size={14} />Satellite
+              </button>
+            </div>
+          ) : null}
           <label><span>Pathways</span><input type="checkbox" checked={paths} onChange={event => setPaths(event.target.checked)} /></label>
           <label><span>{published ? "Landmark markers" : "Place markers"}</span><input type="checkbox" checked={labels} onChange={event => setLabels(event.target.checked)} /></label>
           <label><span>Plot outlines</span><input type="checkbox" checked={plots} onChange={event => setPlots(event.target.checked)} /></label>
-          {!published ? <label><span>Tree canopy</span><input type="checkbox" checked={trees} onChange={event => setTrees(event.target.checked)} /></label> : null}
+          {!published && mapStyle === "illustrated" ? <label><span>Tree canopy</span><input type="checkbox" checked={trees} onChange={event => setTrees(event.target.checked)} /></label> : null}
         </details>
         {geography ? <div className={styles.sources} aria-label="Map sources">
           <button type="button" aria-pressed={!published} onClick={() => { if (published) chooseSource(false); }}>Park layout</button>

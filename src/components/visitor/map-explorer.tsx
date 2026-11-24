@@ -83,6 +83,8 @@ export function MapExplorer({
   const [preferPaved, setPreferPaved] = useState(false);
   const [routeCardOpen, setRouteCardOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapStyle, setMapStyle] = useState<"illustrated" | "satellite">("illustrated");
+  const [satelliteTileError, setSatelliteTileError] = useState(false);
 
   const planningFallback = !staffTools && requestedView === "geographic" && Boolean(destination) && !geography?.data;
   const view = planningFallback ? "planning" : requestedView;
@@ -261,13 +263,31 @@ export function MapExplorer({
       setPopupClosed(false);
       setVisible(current => ({ ...current, [featureLayer(feature)]: true }));
       actions.current?.focus(feature);
+      setSelected(feature);
+      setPanelOpen(true);
+      return;
     }
-    setSelected(feature);
-    if (!feature) {
-      setShowRoute(false);
-      setGuidanceActive(false);
+    setSelected(null);
+    setShowRoute(false);
+    setGuidanceActive(false);
+  }
+  function handleCanvasSelect(feature: CadFeature | null) {
+    if (feature) {
+      select(feature);
+      return;
     }
-    if (feature) setPanelOpen(true);
+    if (staffTools) {
+      select(null);
+      return;
+    }
+    setPopupClosed(true);
+    if (assigned) {
+      setSelected(undefined);
+      return;
+    }
+    if (!showRoute && !guidanceActive) {
+      setSelected(null);
+    }
   }
   function activateGpsMode() {
     setRouteMode("gps");
@@ -320,6 +340,12 @@ export function MapExplorer({
   function toggle(key: LayerKey) {
     if (selected && featureLayer(selected) === key && visible[key]) setSelected(null);
     setVisible(current => ({ ...current, [key]: !current[key] }));
+  }
+  function changeMapStyle(next: "illustrated" | "satellite") {
+    if (next === mapStyle) return;
+    setSatelliteTileError(false);
+    initialRouteFitted.current = false;
+    setMapStyle(next);
   }
   function search(event: FormEvent) {
     event.preventDefault();
@@ -583,7 +609,7 @@ export function MapExplorer({
     if (event.key !== "Escape") return;
     if (isFullscreen) setIsFullscreen(false);
     else if (showLotPopup) setPopupClosed(true);
-    else setSelected(null);
+    else if (staffTools || (!assigned && !showRoute)) setSelected(null);
   }}>
     {showHeading ? <header className="public-map-heading">
       <div><h1>Cemetery Map</h1>
@@ -656,8 +682,34 @@ export function MapExplorer({
           ) : null}
         </nav>
         {!staffTools && view === "planning" && mapOptionsOpen ? <div id="visitor-map-options" className={layout.options}>
+          <div className={layout.mapStyleGroup} role="radiogroup" aria-label="Map background style">
+            <span className={layout.mapStyleLabel}>Map style</span>
+            <div className={layout.mapStyleSwitch}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mapStyle === "illustrated"}
+                className={layout.mapStyleOption + (mapStyle === "illustrated" ? " " + layout.mapStyleOptionActive : "")}
+                onClick={() => changeMapStyle("illustrated")}
+              >
+                <Icon name="map" size={14} />Park Map
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mapStyle === "satellite"}
+                className={layout.mapStyleOption + (mapStyle === "satellite" ? " " + layout.mapStyleOptionActive : "")}
+                onClick={() => changeMapStyle("satellite")}
+              >
+                <Icon name="layers" size={14} />Satellite
+              </button>
+            </div>
+          </div>
           <label><input type="checkbox" checked={visible.paths} onChange={() => toggle("paths")} />Show pathways</label>
           <label><input type="checkbox" checked={showPlaces} onChange={event => setShowPlaces(event.target.checked)} />Show place labels</label>
+          {mapStyle === "satellite" ? (
+            <p className={layout.satelliteNote}>Satellite imagery (Esri) is for visual reference and may vary ~1–3 m from ground markers.</p>
+          ) : null}
         </div> : null}
         <div ref={mapStage} tabIndex={assigned ? -1 : undefined} role={assigned ? "group" : undefined}
           aria-label={assigned ? "Assigned gravesite map" : undefined}
@@ -675,7 +727,9 @@ export function MapExplorer({
               <div role="status"><strong>{geographicUnavailable.title}</strong>
                 <p>{staffTools ? geography?.message || "Approved geographic information is required before GPS can be displayed." : geographicUnavailable.detail}</p></div>
               <Link className="button button--secondary" href={mapUrl("planning")} prefetch={false}>Back to park map</Link>
-            </div> : bundle ? <PlanningCanvas key={attempt} bundle={bundle} visible={visible} selected={selected} focusOnLoad={assigned}
+            </div> : bundle ? <PlanningCanvas key={`${attempt}:${mapStyle}`} bundle={bundle} visible={visible} selected={selected} focusOnLoad={selected ?? assigned}
+            mapStyle={staffTools ? "illustrated" : mapStyle}
+            onTileError={setSatelliteTileError}
             layoutRoute={activeRoute ? {
               path: activeRoute.path,
               approach: activeRoute.approach,
@@ -688,7 +742,7 @@ export function MapExplorer({
             } : null}
             lotPopup={showLotPopup ? { preferredId: selected?.id === assigned?.id ? destination?.id : undefined, returnTo, onClose: () => setPopupClosed(true) } : undefined}
             places={showPlaces} trees={showTrees} protection={showProtection} details={showDetails} attempt={attempt}
-            reviewMode={staffTools} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={select} onReady={ready} onError={setAssetError} />
+            reviewMode={staffTools} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={handleCanvasSelect} onReady={ready} onError={setAssetError} />
             : error ? null : <div className="map-loading" role="status"><span className="map-loading__spinner" />Loading cemetery layout…</div>}
 
           {view === "planning" && !staffTools && isFullscreen ? (
@@ -717,16 +771,39 @@ export function MapExplorer({
           ) : null}
 
           {view === "planning" && !staffTools && bundle ? (
-            <button
-              type="button"
-              className={layout.fullscreenToggle}
-              aria-pressed={isFullscreen}
-              aria-label={isFullscreen ? "Exit full screen map" : "Open full screen map"}
-              onClick={() => setIsFullscreen(open => !open)}
-            >
-              <Icon name={isFullscreen ? "minimize" : "maximize"} size={15} />
-              <span>{isFullscreen ? "Exit full screen" : "Full screen"}</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className={layout.fullscreenToggle}
+                aria-pressed={isFullscreen}
+                aria-label={isFullscreen ? "Exit full screen map" : "Open full screen map"}
+                onClick={() => setIsFullscreen(open => !open)}
+              >
+                <Icon name={isFullscreen ? "minimize" : "maximize"} size={15} />
+                <span>{isFullscreen ? "Exit full screen" : "Full screen"}</span>
+              </button>
+              {isFullscreen ? (
+                <button
+                  type="button"
+                  className={layout.fullscreenStyleToggle}
+                  aria-pressed={mapStyle === "satellite"}
+                  aria-label={mapStyle === "satellite" ? "Switch to illustrated Park Map" : "Switch to Satellite view"}
+                  onClick={() => changeMapStyle(mapStyle === "satellite" ? "illustrated" : "satellite")}
+                >
+                  <Icon name={mapStyle === "satellite" ? "map" : "layers"} size={15} />
+                  <span>{mapStyle === "satellite" ? "Park Map" : "Satellite"}</span>
+                </button>
+              ) : null}
+            </>
+          ) : null}
+
+          {view === "planning" && !staffTools && mapStyle === "satellite" && satelliteTileError ? (
+            <div className={layout.satelliteFallback} role="status">
+              <span>Satellite imagery is temporarily unavailable.</span>
+              <button type="button" className={layout.inlineAction} onClick={() => changeMapStyle("illustrated")}>
+                Use Park Map
+              </button>
+            </div>
           ) : null}
 
           {view === "planning" && !staffTools && activeRoute ? (
