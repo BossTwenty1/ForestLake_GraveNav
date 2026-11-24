@@ -7,10 +7,12 @@ import type { PublicBurialRecord } from "@/lib/supabase/types";
 
 export function PublicSearchResultCard({
   record,
+  photo,
   returnTo,
   preview = false,
 }: {
   record: PublicBurialRecord;
+  photo?: { src: string; caption?: string | null } | null;
   returnTo?: string;
   preview?: boolean;
 }) {
@@ -48,9 +50,21 @@ export function PublicSearchResultCard({
     return (
       <article className="search-memorial-card">
         <div className="search-memorial-badges">{status}{match}</div>
-        <div aria-label="Memorial photo unavailable" className="search-memorial-placeholder" role="img">
-          <Icon name="tree" size={48} /><span>{PARK_NAME}</span>
-        </div>
+        {photo?.src ? (
+          <div className="search-memorial-photo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={photo.caption || `Memorial photograph for ${record.name}`}
+              decoding="async"
+              loading="lazy"
+              src={photo.src}
+            />
+          </div>
+        ) : (
+          <div aria-label="Memorial photo unavailable" className="search-memorial-placeholder" role="img">
+            <Icon name="tree" size={48} /><span>{PARK_NAME}</span>
+          </div>
+        )}
         <div className="search-memorial-details">
           <h2>{record.name}</h2>
           <p className="search-memorial-years"><Icon name="clock" size={15} />{record.dates}</p>

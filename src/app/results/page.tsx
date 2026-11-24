@@ -3,6 +3,7 @@ import { Icon } from "@/components/ui/icons";
 import { PublicSearchForm } from "@/components/visitor/public-search-form";
 import { PublicSearchResultCard } from "@/components/visitor/public-search-result-card";
 import { getPublicGardenNames, searchPublicBurials } from "@/lib/supabase/public-data";
+import { getPrimaryPublicMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
 import { MemorialSearchHelp, MemorialSearchShell } from "../search/memorial-search-shell";
 import styles from "../search/memorial-search.module.css";
 import { readSearchParams, resultsHref } from "../search/search-params";
@@ -30,6 +31,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
 
   const { items, total, pageSize } = search.value;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const primaryPhotos = items.length
+    ? await getPrimaryPublicMemorialPhotos(items.map(record => record.id)).catch(() => ({} as Record<string, { id: number; src: string; caption: string | null }>))
+    : {};
 
   return (
     <MemorialSearchShell>
@@ -37,7 +41,14 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         gardenListUnavailable={gardens.status === "rejected"} resultCount={total} />
       {items.length ? (
         <section className={styles.cards} aria-label="Search results">
-          {items.map(record => <PublicSearchResultCard key={record.id} record={record} returnTo={currentHref} />)}
+          {items.map(record => (
+            <PublicSearchResultCard
+              key={record.id}
+              record={record}
+              photo={primaryPhotos[record.id]}
+              returnTo={currentHref}
+            />
+          ))}
         </section>
       ) : (
         <section className={styles.statePanel} aria-labelledby="search-empty">

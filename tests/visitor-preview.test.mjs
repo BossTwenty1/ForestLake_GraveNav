@@ -164,6 +164,18 @@ test("reused cards and memorials contain natural labels and only protected previ
     "@/components/ui/icons": { Icon }, "@/lib/visitor-presentation": presentation,
   }).MemorialProfile;
   const long = { ...record, name: "Tomas " + "Longname".repeat(25) };
+  const withPhoto = renderToStaticMarkup(React.createElement(Card, {
+    record,
+    photo: { src: "/gravesite/photos/5/1", caption: "Family portrait" },
+    returnTo: "/results?query=Tomas",
+  }));
+  assert.match(withPhoto, /src="\/gravesite\/photos\/5\/1"/);
+  assert.match(withPhoto, /alt="Family portrait"/);
+  const withoutPhoto = renderToStaticMarkup(React.createElement(Card, {
+    record,
+    returnTo: "/results?query=Tomas",
+  }));
+  assert.match(withoutPhoto, /Memorial photo unavailable/);
   const html = renderToStaticMarkup(React.createElement(Card,
     { record: long, preview: true, returnTo: presentation.previewSearchHref("Tomas", 2) }));
   assert.match(html, /\/admin\/burial-records\/5\/preview\?/);

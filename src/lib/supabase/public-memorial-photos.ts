@@ -28,6 +28,35 @@ export async function getPublicMemorialPhotos(burialId: string): Promise<PublicM
   });
 }
 
+export async function getPrimaryPublicMemorialPhotos(burialIds: string[]): Promise<Record<string, PublicMemorialPhoto>> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET) return {};
+  const validIds = [...new Set(burialIds.filter(positiveId))].map(Number);
+  if (!validIds.length) return {};
+  const client = getPublicSupabase();
+  if (!client) return {};
+
+  const { data, error } = await client
+    .from("public_burial_photos")
+    .select("burial_id,photo_id,storage_path,caption")
+    .in("burial_id", validIds)
+    .order("photo_id");
+  if (error) return {};
+
+  const primaryByBurial: Record<string, PublicMemorialPhoto> = {};
+  for (const row of data ?? []) {
+    const burialKey = row.burial_id === null ? "" : String(row.burial_id);
+    const photoId = row.photo_id;
+    if (!burialKey || primaryByBurial[burialKey] || photoId === null || !positiveId(String(photoId))) continue;
+    if (!row.storage_path || !burialPhotoPath(row.storage_path, burialKey)) continue;
+    primaryByBurial[burialKey] = {
+      id: photoId,
+      src: `/gravesite/photos/${burialKey}/${photoId}`,
+      caption: row.caption?.trim() || null,
+    };
+  }
+  return primaryByBurial;
+}
+
 export async function downloadPublicMemorialPhoto(burialId: string, photoId: string) {
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET;
   if (!bucket || !positiveId(burialId) || !positiveId(photoId)) return null;
