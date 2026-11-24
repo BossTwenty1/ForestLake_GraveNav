@@ -2,25 +2,21 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import {
   getAdminPhotoCounts,
   getAdminPhotoPreview,
   getAdminPhotos,
   getStorageStatus,
-  searchStaffBurials,
   updatePhotoReview,
-  uploadBurialPhoto,
   type AdminPhotoCounts,
-  type StaffBurialOption,
 } from "@/lib/supabase/admin-data";
 import type { AdminPhoto } from "@/lib/supabase/types";
 import { isSyntheticPlot } from "@/lib/synthetic-plots";
@@ -45,14 +41,6 @@ function formatShortDate(value: string) {
 
 export function AdminPhotoUploader() {
   const canAdmin = useStaff()?.role === "ADMIN";
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [records, setRecords] = useState<StaffBurialOption[]>([]);
-  const [recordQuery, setRecordQuery] = useState("");
-  const [recordPage, setRecordPage] = useState(1);
-  const [recordTotal, setRecordTotal] = useState(0);
-  const [recordLoading, setRecordLoading] = useState(false);
-  const [selected, setSelected] = useState<StaffBurialOption | null>(null);
-
   const [counts, setCounts] = useState<AdminPhotoCounts>({ pending: 0, approved: 0, rejected: 0, visitorPending: 0, total: 0 });
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
   const [photoPage, setPhotoPage] = useState(0);
@@ -67,20 +55,10 @@ export function AdminPhotoUploader() {
   const previewRequest = useRef(0);
 
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [caption, setCaption] = useState("");
-  const [capturedAt, setCapturedAt] = useState("");
   const [busy, setBusy] = useState(false);
   const submission = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  const localPreviewUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
-  useEffect(() => {
-    if (!localPreviewUrl) return;
-    return () => URL.revokeObjectURL(localPreviewUrl);
-  }, [localPreviewUrl]);
 
   useEffect(() => {
     let active = true;
@@ -89,21 +67,6 @@ export function AdminPhotoUploader() {
       .catch(() => { if (active) setError("Photo storage could not be checked. Reload to try again."); });
     return () => { active = false; };
   }, []);
-
-  useEffect(() => {
-    if (!uploadOpen) return;
-    let active = true;
-    const timer = window.setTimeout(() => {
-      setRecordLoading(true);
-      searchStaffBurials(recordQuery, recordPage)
-        .then((result) => {
-          if (active) { setRecords(result.items); setRecordTotal(result.total); }
-        })
-        .catch((reason: unknown) => { if (active) setError(errorMessage(reason)); })
-        .finally(() => { if (active) setRecordLoading(false); });
-    }, 200);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [uploadOpen, recordQuery, recordPage]);
 
   useEffect(() => {
     let active = true;
@@ -137,23 +100,7 @@ export function AdminPhotoUploader() {
     setPhotoLoading(true);
     setPreview(null);
   }
-  function changeRecordPage(page: number) { setRecordPage(page); }
   function changePhotoPage(page: number) { setPhotoLoading(true); setPhotoPage(page); }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (submission.current || !selected || !file) return;
-    submission.current = true; setBusy(true); setError(""); setMessage("");
-    try {
-      await uploadBurialPhoto({ burialId: selected.burial_id, file, caption, capturedAt });
-      setFile(null); setCaption(""); setCapturedAt("");
-      if (fileInput.current) fileInput.current.value = "";
-      setUploadOpen(false);
-      setMessage(`Photo uploaded for ${selected.display_name}. It remains private until an administrator approves it.`);
-      setStatus("pending"); setKindFilter("all"); setPhotoPage(0); reloadQueue();
-    } catch (reason) { setError(errorMessage(reason)); }
-    finally { submission.current = false; setBusy(false); }
-  }
 
   async function review(photo: AdminPhoto, approvalStatus: AdminPhoto["approvalStatus"]) {
     if (submission.current || !canAdmin) return;
@@ -191,7 +138,7 @@ export function AdminPhotoUploader() {
     <div className={styles.workspace}>
       {configured === false ? (
         <Alert title="Photo storage is not configured" variant="warning">
-          Configure the private photo bucket before uploading or approving memorial photos.
+          Configure the private photo bucket before approving or previewing memorial photos.
         </Alert>
       ) : null}
       {error ? <Alert title="Photo action unavailable" variant="danger">{error}</Alert> : null}
@@ -236,100 +183,6 @@ export function AdminPhotoUploader() {
         </button>
       </section>
 
-      {uploadOpen ? (
-        <Card>
-          <CardHeader>
-            <div className={styles.queueHeader}>
-              <CardTitle>Upload Memorial Portrait</CardTitle>
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => setUploadOpen(false)}>Close</Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form className="admin-form" onSubmit={(event) => void submit(event)}>
-              <div className={styles.uploadGrid}>
-                <div className={styles.uploadColumn}>
-                  <Input
-                    id="photo-record-search"
-                    label="Find a burial record"
-                    value={recordQuery}
-                    maxLength={160}
-                    placeholder="Search deceased name or plot code…"
-                    onChange={(event) => { setRecordQuery(event.target.value); setRecordPage(1); }}
-                  />
-                  <div aria-busy={recordLoading}>
-                    <label className="input-field" htmlFor="photo-burial">
-                      <span className="input-label">Matching records</span>
-                      <select
-                        className="input-control"
-                        disabled={recordLoading || busy}
-                        id="photo-burial"
-                        value={selected ? String(selected.burial_id) : ""}
-                        onChange={(event) => setSelected(records.find((record) => String(record.burial_id) === event.target.value) || null)}
-                      >
-                        <option value="">{recordLoading ? "Searching…" : records.length ? "Select a burial record" : "No matching records"}</option>
-                        {selected && !records.some((record) => record.burial_id === selected.burial_id) ? (
-                          <option value={selected.burial_id}>{selected.display_name} — {selected.lot_code} (selected)</option>
-                        ) : null}
-                        {records.map((record) => (
-                          <option key={record.burial_id} value={record.burial_id}>
-                            {record.display_name} — {record.area_name} · {record.lot_code}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className={styles.recordPager}>
-                      <Button type="button" size="sm" variant="secondary" disabled={recordLoading || recordPage <= 1} onClick={() => changeRecordPage(recordPage - 1)}>Previous</Button>
-                      <span>{recordTotal} records · page {recordPage}</span>
-                      <Button type="button" size="sm" variant="secondary" disabled={recordLoading || recordPage * 20 >= recordTotal} onClick={() => changeRecordPage(recordPage + 1)}>Next</Button>
-                    </div>
-                  </div>
-                  {selected ? (
-                    <p className={styles.selectedNotice}>
-                      Selected: <strong>{selected.display_name}</strong> · {selected.area_name} · {selected.lot_code}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className={styles.uploadColumn}>
-                  <Input
-                    ref={fileInput}
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={!configured || busy}
-                    id="photo-file"
-                    label="Image file"
-                    onChange={(event) => setFile(event.target.files?.[0] || null)}
-                    type="file"
-                    hint="JPG, PNG, or WebP; maximum 10 MB. Uploaded portraits stay private until approved."
-                  />
-                  {localPreviewUrl && file ? (
-                    <div className={styles.localPreview}>
-                      <div className={styles.localPreviewThumb}>
-                        <Image src={localPreviewUrl} alt="Selected upload preview" width={68} height={68} unoptimized />
-                      </div>
-                      <div>
-                        <strong>{file.name}</strong>
-                        <span className={styles.metaSub}>{(file.size / 1024).toFixed(0)} KB · Ready to upload</span>
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="filter-grid">
-                    <Input disabled={busy} id="photo-caption" label="Caption (optional)" maxLength={2000} onChange={(event) => setCaption(event.target.value)} value={caption} placeholder="e.g., Family-provided portrait" />
-                    <Input disabled={busy} id="photo-captured-at" label="Captured date (optional)" onChange={(event) => setCapturedAt(event.target.value)} type="date" value={capturedAt} />
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.uploadFooter}>
-                <Button type="button" variant="secondary" disabled={busy} onClick={() => setUploadOpen(false)}>Cancel</Button>
-                <Button disabled={!configured || busy || !selected || !file} icon="upload" type="submit">
-                  {busy ? "Uploading…" : "Upload for review"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Card>
         <CardHeader>
           <div className={styles.queueHeader}>
@@ -337,15 +190,6 @@ export function AdminPhotoUploader() {
             <div className={styles.queueHeaderActions}>
               <Button variant="secondary" size="sm" disabled={busy || photoLoading} onClick={reloadQueue}>
                 Refresh
-              </Button>
-              <Button
-                variant={uploadOpen ? "secondary" : "primary"}
-                size="sm"
-                icon="upload"
-                disabled={!configured}
-                onClick={() => setUploadOpen((open) => !open)}
-              >
-                {uploadOpen ? "Hide Upload" : "Upload Photo"}
               </Button>
             </div>
           </div>
@@ -476,68 +320,68 @@ export function AdminPhotoUploader() {
                     const cleanLotCode = photo.lotCode && !isSyntheticPlot(photo.lotCode) ? photo.lotCode : null;
                     const isVisitor = Boolean(photo.isVisitorSubmitted || photo.photoKind === "tribute");
                     return (
-                    <TableRow key={photo.photoId}>
-                      <TableCell>
-                        <Link className={styles.recordLink} href={`/admin/burial-records/${photo.burialId}`}>
-                          {photo.deceasedName || `Record #${photo.burialId}`}
-                        </Link>
-                        <span className={styles.metaSub}>
-                          Record #{photo.burialId}{cleanLotCode ? ` · ${cleanLotCode}` : ""}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className={styles.typePill + " " + badge.className}>
-                          <Icon name={badge.icon} size={13} />
-                          {badge.label}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {photo.submittedByName ? (
-                          <>
-                            <strong>{photo.submittedByName}</strong>
-                            {photo.submittedByRelation ? ` (${photo.submittedByRelation})` : ""}
-                            {photo.submittedByContact ? (
-                              <span className={styles.metaSub}>Contact: {photo.submittedByContact}</span>
-                            ) : null}
-                            <span className={styles.metaSub}>{photo.caption || photo.fileName}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>{photo.caption || "Family portrait"}</span>
-                            <span className={styles.metaSub}>{photo.fileName}</span>
-                          </>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatShortDate(photo.createdAt)}</TableCell>
-                      <TableCell>
-                        <Badge variant={photo.approvalStatus === "approved" ? "success" : photo.approvalStatus === "rejected" ? "danger" : "warning"}>
-                          {photo.approvalStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className={styles.rowActions}>
-                          <Button size="sm" variant="secondary" disabled={previewBusy} onClick={() => void showPreview(photo)}>
-                            Preview
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy || !canAdmin || photo.approvalStatus === "approved"}
-                            onClick={() => void review(photo, "approved")}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            disabled={busy || !canAdmin || photo.approvalStatus === "rejected"}
-                            onClick={() => void review(photo, "rejected")}
-                          >
-                            {isVisitor ? "Reject & Delete" : "Reject"}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                      <TableRow key={photo.photoId}>
+                        <TableCell>
+                          <Link className={styles.recordLink} href={`/admin/burial-records/${photo.burialId}`}>
+                            {photo.deceasedName || `Record #${photo.burialId}`}
+                          </Link>
+                          <span className={styles.metaSub}>
+                            Record #{photo.burialId}{cleanLotCode ? ` · ${cleanLotCode}` : ""}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={styles.typePill + " " + badge.className}>
+                            <Icon name={badge.icon} size={13} />
+                            {badge.label}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {photo.submittedByName ? (
+                            <>
+                              <strong>{photo.submittedByName}</strong>
+                              {photo.submittedByRelation ? ` (${photo.submittedByRelation})` : ""}
+                              {photo.submittedByContact ? (
+                                <span className={styles.metaSub}>Contact: {photo.submittedByContact}</span>
+                              ) : null}
+                              <span className={styles.metaSub}>{photo.caption || photo.fileName}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>{photo.caption || "Family portrait"}</span>
+                              <span className={styles.metaSub}>{photo.fileName}</span>
+                            </>
+                          )}
+                        </TableCell>
+                        <TableCell>{formatShortDate(photo.createdAt)}</TableCell>
+                        <TableCell>
+                          <Badge variant={photo.approvalStatus === "approved" ? "success" : photo.approvalStatus === "rejected" ? "danger" : "warning"}>
+                            {photo.approvalStatus}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className={styles.rowActions}>
+                            <Button size="sm" variant="secondary" disabled={previewBusy} onClick={() => void showPreview(photo)}>
+                              Preview
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy || !canAdmin || photo.approvalStatus === "approved"}
+                              onClick={() => void review(photo, "approved")}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={busy || !canAdmin || photo.approvalStatus === "rejected"}
+                              onClick={() => void review(photo, "rejected")}
+                            >
+                              {isVisitor ? "Reject & Delete" : "Reject"}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
                 </TableBody>
