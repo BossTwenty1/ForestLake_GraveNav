@@ -81,6 +81,8 @@ export function MapExplorer({
   const [gpsDenied, setGpsDenied] = useState(false);
   const [guidanceActive, setGuidanceActive] = useState(false);
   const [preferPaved, setPreferPaved] = useState(false);
+  const [routeCardOpen, setRouteCardOpen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const planningFallback = !staffTools && requestedView === "geographic" && Boolean(destination) && !geography?.data;
   const view = planningFallback ? "planning" : requestedView;
@@ -121,11 +123,39 @@ export function MapExplorer({
   useEffect(() => {
     if (staffTools) return;
     const desktop = window.matchMedia("(min-width: 960px)");
-    const expand = () => { if (desktop.matches) setPanelOpen(true); };
-    expand();
-    desktop.addEventListener("change", expand);
-    return () => desktop.removeEventListener("change", expand);
+    const syncLayout = () => {
+      if (desktop.matches) setPanelOpen(true);
+      else setRouteCardOpen(false);
+    };
+    syncLayout();
+    desktop.addEventListener("change", syncLayout);
+    return () => desktop.removeEventListener("change", syncLayout);
   }, [staffTools]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const refit = () => {
+      actions.current?.invalidateSize?.();
+      if (latestRoute.current) {
+        actions.current?.fitRoute?.([...latestRoute.current.path, ...latestRoute.current.approach]);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const frame = requestAnimationFrame(refit);
+    const timer = window.setTimeout(refit, 160);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => actions.current?.invalidateSize?.());
+    };
+  }, [isFullscreen]);
 
   useEffect(() => {
     if (view !== "planning" || cachedBundle.current) return;
@@ -276,6 +306,10 @@ export function MapExplorer({
     setGuidanceActive(true);
     setShowRoute(true);
     setPopupClosed(true);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 959px)").matches) {
+      setRouteCardOpen(false);
+      setIsFullscreen(true);
+    }
     if (routeMode === "gps" && !gpsRequested) {
       activateGpsMode();
     }
@@ -360,7 +394,12 @@ export function MapExplorer({
     >
       <div className={layout.bannerGrid}>
         <div className={layout.bannerIntro}>
-          <h2>{memorial ? "Guide to " + memorial.name : "Park Layout Guide"}</h2>
+          <div className={layout.bannerIntroHead}>
+            <h2>{memorial ? "Guide to " + memorial.name : "Park Layout Guide"}</h2>
+            {hasFeaturedBanner && memorialProfileHref ? (
+              <Link className={layout.mobileMemorialChip} href={memorialProfileHref}>View Memorial</Link>
+            ) : null}
+          </div>
           {memorialPlot ? (
             <p className={layout.bannerRef}><Icon name="location" size={14} />{memorialPlot.reference}</p>
           ) : null}
@@ -447,7 +486,6 @@ export function MapExplorer({
                   </span>
                 </span>
               </button>
-              {gpsStatusContent}
             </div>
 
             <div
@@ -472,30 +510,37 @@ export function MapExplorer({
                   </span>
                 </span>
               </button>
-              <div className={layout.landmarkControls} onClick={event => event.stopPropagation()}>
-                <select
-                  aria-label="Choose a starting point landmark"
-                  className={layout.routeSelect}
-                  value={selectedLandmark?.id ?? ""}
-                  onChange={event => activateLandmarkMode(event.target.value)}
-                >
-                  {startPoints.map(point => (
-                    <option key={point.id} value={point.id}>
-                      {point.id === "entrance" ? "Main Entrance" : point.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className={"button button--primary " + layout.landmarkGoButton}
-                  onClick={() => activateLandmarkMode(selectedLandmark?.id ?? "entrance")}
-                >
-                  <span>Get Directions</span>
-                  <Icon name="chevronRight" size={15} />
-                </button>
-              </div>
             </div>
           </div>
+          {routeMode === "gps" ? gpsStatusContent : (
+            <div className={layout.landmarkControls} onClick={event => event.stopPropagation()}>
+              <select
+                aria-label="Choose a starting point landmark"
+                className={layout.routeSelect}
+                value={selectedLandmark?.id ?? ""}
+                onChange={event => activateLandmarkMode(event.target.value)}
+              >
+                {startPoints.map(point => (
+                  <option key={point.id} value={point.id}>
+                    {point.id === "entrance" ? "Main Entrance" : point.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={"button button--primary " + layout.landmarkGoButton}
+                onClick={() => {
+                  activateLandmarkMode(selectedLandmark?.id ?? "entrance");
+                  if (window.matchMedia("(max-width: 959px)").matches) {
+                    mapStage.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  }
+                }}
+              >
+                <span>Get Directions</span>
+                <Icon name="chevronRight" size={15} />
+              </button>
+            </div>
+          )}
         </div>
 
         {hasFeaturedBanner && memorial && memorialPlot ? (
@@ -536,7 +581,8 @@ export function MapExplorer({
 
   return <div className={"public-map-experience" + (staffTools ? "" : " " + layout.experience)} onKeyDown={event => {
     if (event.key !== "Escape") return;
-    if (showLotPopup) setPopupClosed(true);
+    if (isFullscreen) setIsFullscreen(false);
+    else if (showLotPopup) setPopupClosed(true);
     else setSelected(null);
   }}>
     {showHeading ? <header className="public-map-heading">
@@ -615,7 +661,13 @@ export function MapExplorer({
         </div> : null}
         <div ref={mapStage} tabIndex={assigned ? -1 : undefined} role={assigned ? "group" : undefined}
           aria-label={assigned ? "Assigned gravesite map" : undefined}
-          className={"map-stage map-stage--leaflet public-map-stage" + (view === "geographic" ? " map-stage--geographic" : "")}>
+          className={
+            "map-stage map-stage--leaflet public-map-stage"
+            + (view === "geographic" ? " map-stage--geographic" : "")
+            + (isFullscreen ? " " + layout.mapStageFullscreen : "")
+            + (view === "planning" && !staffTools && activeRoute ? " " + layout.mapStageWithRoute : "")
+            + (view === "planning" && !staffTools && activeRoute && !routeCardOpen ? " " + layout.mapStageWithPill : "")
+          }>
           {view === "geographic" ? geography?.data ? <PhaseTwoGeographicMap
             key={[geography.data.releaseId, geography.data.scopeRevision, requestedId].join(":")}
             data={geography.data} burialId={requestedId || undefined} /> :
@@ -639,66 +691,173 @@ export function MapExplorer({
             reviewMode={staffTools} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={select} onReady={ready} onError={setAssetError} />
             : error ? null : <div className="map-loading" role="status"><span className="map-loading__spinner" />Loading cemetery layout…</div>}
 
-          {view === "planning" && !staffTools && activeRoute ? (
-            <aside aria-label="Route preview" className={layout.routePreviewCard}>
-              <div className={layout.routePreviewHeader}>
-                <span className={layout.routePreviewTitle}>
-                  <Icon name="route" size={16} />
-                  <strong>{guidanceActive ? (usingLiveGps ? "Live Guidance" : "Guided Route") : "Route Preview"}</strong>
-                </span>
-                <button
-                  type="button"
-                  className={layout.routePreviewClose}
-                  aria-label="Hide route preview"
-                  onClick={() => { setShowRoute(false); setGuidanceActive(false); }}
-                >
-                  <Icon name="close" size={14} />
-                </button>
-              </div>
-              <div className={layout.routePreviewMetric}>
-                <span className={layout.routePreviewWalkIcon}><Icon name="walk" size={20} /></span>
-                <div>
-                  <strong>{formatRouteDistance(activeRoute.distanceMeters)}</strong>
-                  <span>
-                    {arrivedByGps
-                      ? "Arrived near gravesite"
-                      : usingLiveGps
-                        ? `~${activeRoute.estimatedMinutes} min walk · ${preferPaved ? "Paved" : "Live GPS"}`
-                        : preferPaved
-                          ? "Paved / accessible route"
-                          : "Shortest walking route"}
-                  </span>
-                </div>
-              </div>
-              <div className={layout.routePreviewEndpoints}>
-                <div className={layout.routePreviewPoint}>
-                  <span className={layout.originDot} aria-hidden="true" />
-                  <span>
-                    <strong>From:</strong> {usingLiveGps ? "Your current location" : activeRoute.start.id === "entrance" ? "Main Entrance" : activeRoute.start.label}
-                  </span>
-                </div>
-                <div className={layout.routePreviewPoint}>
-                  <span className={layout.destDot} aria-hidden="true"><Icon name="location" size={13} /></span>
-                  <span>
-                    <strong>To:</strong> {memorial ? memorial.name : "Selected plot"}
-                    {memorialPlot ? <small>{memorialPlot.reference}</small> : null}
-                  </span>
-                </div>
-              </div>
-              {guidanceActive && activeRoute.steps[0] ? (
-                <p className={layout.routePreviewNextStep} role="status">
-                  {activeRoute.steps[0].instruction}
-                </p>
-              ) : null}
+          {view === "planning" && !staffTools && isFullscreen ? (
+            <div className={layout.fullscreenBar}>
               <button
                 type="button"
-                className={"button button--" + (guidanceActive ? "secondary" : "primary") + " " + layout.routePreviewCta}
-                onClick={toggleGuidance}
+                className={layout.fullscreenExitButton}
+                aria-label="Exit full screen map"
+                onClick={() => setIsFullscreen(false)}
               >
-                <Icon name={guidanceActive ? "stop" : "play"} size={14} />
-                {guidanceActive ? "Stop Guidance" : "Start Guidance"}
+                <Icon name="arrowLeft" size={16} />
+                <span>Exit</span>
               </button>
-            </aside>
+              {memorial ? (
+                <div className={layout.fullscreenDest}>
+                  <strong>{memorial.name}</strong>
+                  {memorialPlot ? <span>{memorialPlot.reference}</span> : null}
+                </div>
+              ) : (
+                <div className={layout.fullscreenDest}>
+                  <strong>{PARK_NAME}</strong>
+                  <span>Phase 2 Park Map</span>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {view === "planning" && !staffTools && bundle ? (
+            <button
+              type="button"
+              className={layout.fullscreenToggle}
+              aria-pressed={isFullscreen}
+              aria-label={isFullscreen ? "Exit full screen map" : "Open full screen map"}
+              onClick={() => setIsFullscreen(open => !open)}
+            >
+              <Icon name={isFullscreen ? "minimize" : "maximize"} size={15} />
+              <span>{isFullscreen ? "Exit full screen" : "Full screen"}</span>
+            </button>
+          ) : null}
+
+          {view === "planning" && !staffTools && activeRoute ? (
+            routeCardOpen ? (
+              <aside aria-label="Route preview" className={layout.routePreviewCard + (isFullscreen ? " " + layout.routePreviewCardFullscreen : "")}>
+                <div className={layout.routePreviewHeader}>
+                  <span className={layout.routePreviewTitle}>
+                    <Icon name="route" size={16} />
+                    <strong>{guidanceActive ? (usingLiveGps ? "Live Guidance" : "Guided Route") : "Route Preview"}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    className={layout.routePreviewClose}
+                    aria-label="Minimize route preview"
+                    aria-expanded={true}
+                    title="Minimize route card (keeps route on map)"
+                    onClick={() => setRouteCardOpen(false)}
+                  >
+                    <Icon name="chevronDown" size={15} />
+                  </button>
+                </div>
+                <div className={layout.routePreviewMetric}>
+                  <span className={layout.routePreviewWalkIcon}><Icon name="walk" size={20} /></span>
+                  <div>
+                    <strong>{formatRouteDistance(activeRoute.distanceMeters)}</strong>
+                    <span>
+                      {arrivedByGps
+                        ? "Arrived near gravesite"
+                        : usingLiveGps
+                          ? `~${activeRoute.estimatedMinutes} min walk · ${preferPaved ? "Paved" : "Live GPS"}`
+                          : preferPaved
+                            ? "Paved / accessible route"
+                            : "Shortest walking route"}
+                    </span>
+                  </div>
+                </div>
+                <div className={layout.routePreviewEndpoints}>
+                  <div className={layout.routePreviewPoint}>
+                    <span className={layout.originDot} aria-hidden="true" />
+                    <span>
+                      <strong>From:</strong> {usingLiveGps ? "Your current location" : activeRoute.start.id === "entrance" ? "Main Entrance" : activeRoute.start.label}
+                    </span>
+                  </div>
+                  <div className={layout.routePreviewPoint}>
+                    <span className={layout.destDot} aria-hidden="true"><Icon name="location" size={13} /></span>
+                    <span>
+                      <strong>To:</strong> {memorial ? memorial.name : "Selected plot"}
+                      {memorialPlot ? <small>{memorialPlot.reference}</small> : null}
+                    </span>
+                  </div>
+                </div>
+                {guidanceActive && activeRoute.steps[0] ? (
+                  <p className={layout.routePreviewNextStep} role="status">
+                    {activeRoute.steps[0].instruction}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className={"button button--" + (guidanceActive ? "secondary" : "primary") + " " + layout.routePreviewCta}
+                  onClick={toggleGuidance}
+                >
+                  <Icon name={guidanceActive ? "stop" : "play"} size={14} />
+                  {guidanceActive ? "Stop Guidance" : "Start Guidance"}
+                </button>
+                <div className={layout.routePreviewSecondaryRow}>
+                  <button
+                    type="button"
+                    className={layout.routePreviewSecondaryBtn}
+                    onClick={() => actions.current?.fitRoute?.([...activeRoute.path, ...activeRoute.approach])}
+                  >
+                    <Icon name="map" size={13} />Fit route
+                  </button>
+                  <button
+                    type="button"
+                    className={layout.routePreviewSecondaryBtn}
+                    onClick={() => { setShowRoute(false); setGuidanceActive(false); }}
+                  >
+                    <Icon name="close" size={13} />Clear route
+                  </button>
+                </div>
+              </aside>
+            ) : (
+              <aside aria-label="Route preview" className={layout.routePreviewPill + (isFullscreen ? " " + layout.routePreviewPillFullscreen : "")}>
+                <button
+                  type="button"
+                  className={layout.routePreviewPillToggle}
+                  aria-expanded={false}
+                  aria-label="Expand route preview"
+                  onClick={() => setRouteCardOpen(true)}
+                >
+                  <span className={layout.routePreviewPillIcon} aria-hidden="true">
+                    <Icon name={guidanceActive ? "navigation" : "walk"} size={16} />
+                  </span>
+                  <span className={layout.routePreviewPillText}>
+                    <strong>
+                      {arrivedByGps ? "Arrived" : formatRouteDistance(activeRoute.distanceMeters)}
+                      {guidanceActive ? <em className={layout.pillLiveDot} aria-hidden="true" /> : null}
+                    </strong>
+                    <span>
+                      {guidanceActive && activeRoute.steps[0]
+                        ? activeRoute.steps[0].instruction
+                        : memorial
+                          ? `To ${memorial.name}`
+                          : "Route details"}
+                    </span>
+                  </span>
+                  <span className={layout.pillChevron} aria-hidden="true">
+                    <Icon name="chevronUp" size={16} />
+                  </span>
+                </button>
+                <div className={layout.pillActions}>
+                  <button
+                    type="button"
+                    className={layout.pillFitBtn}
+                    aria-label="Fit route on map"
+                    title="Fit route on map"
+                    onClick={() => actions.current?.fitRoute?.([...activeRoute.path, ...activeRoute.approach])}
+                  >
+                    <Icon name="target" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={"button button--" + (guidanceActive ? "secondary" : "primary") + " " + layout.pillGuideBtn}
+                    onClick={toggleGuidance}
+                  >
+                    <Icon name={guidanceActive ? "stop" : "play"} size={13} />
+                    <span>{guidanceActive ? "Stop" : "Start"}</span>
+                  </button>
+                </div>
+              </aside>
+            )
           ) : null}
 
           {view === "planning" && (error || assetError) ? <div className="map-layer-state map-layer-state--error" role="alert">
@@ -722,11 +881,15 @@ export function MapExplorer({
       </section>
 
       <aside aria-label="Map search and selected destination" className="public-map-sidebar">
-        <details ref={searchPanel} className={layout.searchPanel} open={staffTools || panelOpen}
-          onToggle={event => { if (!staffTools) setPanelOpen(event.currentTarget.open); }}>
+        <details
+          ref={searchPanel}
+          className={layout.searchPanel + (hasFeaturedBanner && !staffTools ? " " + layout.searchPanelFlat : "")}
+          open={staffTools || hasFeaturedBanner || panelOpen}
+          onToggle={event => { if (!staffTools) setPanelOpen(event.currentTarget.open); }}
+        >
           <summary>
             <Icon name={memorial || selected ? "walk" : "search"} size={18} />
-            {memorial ? "Navigation Guide & Details" : selected ? "Walking Guide & Plot" : "Find a Loved One"}
+            {memorial ? "Memorial Details & Search" : selected ? "Walking Guide & Plot" : "Find a Loved One"}
             <Icon name="chevronDown" className={layout.panelChevron} size={16} />
           </summary>
           <div className={layout.panelContent}>
@@ -785,7 +948,7 @@ export function MapExplorer({
         <details
           ref={memorialSearchPanel}
           className={layout.nestedSearch}
-          open={staffTools || Boolean(memorialQuery || records.length || recordsError) || (!memorial && !selected) || hasFeaturedBanner}
+          open={staffTools || Boolean(memorialQuery || records.length || recordsError) || (!memorial && !selected)}
         >
           <summary>
             <Icon name="search" size={16} />
