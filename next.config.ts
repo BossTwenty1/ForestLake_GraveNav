@@ -26,8 +26,14 @@ const nextConfig: NextConfig = {
       { key: "Cache-Control", value: "private, no-store, max-age=0" },
       { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
     ];
+    const staticAssetHeaders = [
+      { key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400" },
+    ];
     return [
       { source: "/:path*", headers },
+      { source: "/phase2-viewer/:path*", headers: staticAssetHeaders },
+      { source: "/phase2-planning/:path*", headers: staticAssetHeaders },
+      { source: "/homepage/:path*", headers: staticAssetHeaders },
       { source: "/admin/burial-records/preview", headers: previewHeaders },
       { source: "/admin/burial-records/:id/preview", headers: previewHeaders },
     ];

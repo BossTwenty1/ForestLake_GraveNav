@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import { PublicSearchForm } from "@/components/visitor/public-search-form";
 import { PublicSearchResultCard } from "@/components/visitor/public-search-result-card";
-import { getPublicGardenNames, searchPublicBurials } from "@/lib/supabase/public-data";
+import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
+import { searchPublicBurials } from "@/lib/supabase/public-data";
 import { getPrimaryPublicMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
 import { MemorialSearchHelp, MemorialSearchShell } from "../search/memorial-search-shell";
 import styles from "../search/memorial-search.module.css";
@@ -13,7 +14,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const { query, section, year, sort, page } = state;
   const currentHref = resultsHref(state);
   const searchHref = "/search?" + new URLSearchParams({ query, section, year, sort });
-  const [search, gardens] = await Promise.allSettled([searchPublicBurials(state), getPublicGardenNames()]);
+  const [search, gardens] = await Promise.allSettled([searchPublicBurials(state), getCachedPublicGardenNames()]);
 
   if (search.status === "rejected") {
     return (
