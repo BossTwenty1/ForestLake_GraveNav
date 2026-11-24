@@ -34,35 +34,33 @@ function loadSource(path) {
   return sourceModule.exports;
 }
 
-test("synthetic labels are precise and present in desktop/mobile plot presentation", () => {
+test("Phase 2 plot helpers detect internal lot keys and render ordinary cemetery terminology", () => {
   const code = "P2S-" + "a".repeat(64);
   const { isSyntheticPlot, plotAvailabilityLabel } = loadSource("src/lib/synthetic-plots.ts");
   assert.equal(isSyntheticPlot(code), true);
   for (const other of [null, "P2S-old", "P2S-" + "a".repeat(63), "PHYSICAL-1"]) {
     assert.equal(isSyntheticPlot(other), false);
   }
-  assert.equal(plotAvailabilityLabel(code, "AVAILABLE"), "Sample admission eligible");
-  assert.equal(plotAvailabilityLabel("PHYSICAL-1", "HOLD"), "HOLD");
+  assert.equal(plotAvailabilityLabel(code, "AVAILABLE"), "Available");
+  assert.equal(plotAvailabilityLabel("PHYSICAL-1", "HOLD"), "On hold");
   const { PlotManagementList } = loadSource("src/components/admin/plot-management-list.tsx");
   const noop = () => {};
   const html = renderToStaticMarkup(React.createElement(PlotManagementList, {
-    plots: [{ lotId: 1, lotCode: code, areaId: 1, areaName: "Garden", status: "AVAILABLE",
+    plots: [{ lotId: 1, lotCode: code, syntheticPlotReference: "Majestic Palm Garden · Blk 1 · Lot 4", areaId: 1, areaName: "Garden", status: "AVAILABLE",
       operationalState: "occupied", coordinateState: "missing", updatedAt: "2026-11-17",
-      remainingInterments: 4, interments: [{ id: 1, name: "Fictional person", status: "pending" }] }],
+      remainingInterments: 4, interments: [{ id: 1, name: "Elena Santos", status: "active" }] }],
     summary: { total: 4494, occupied: 0, available: 0, needsVerification: 4494, syntheticPlots: 90 },
     areas: [], total: 1, loading: false, error: "", busy: false, canAdmin: true,
     queryState: { query: "", area: "all", state: "all", verification: "all",
       sort: "updated", direction: "desc", page: 0, pageSize: 20 },
     onAdd: noop, onEdit: noop, onDelete: noop, onQueryStateChange: noop, onRetry: noop,
   }));
-  assert.match(html, /Physical plot records/);
-  assert.match(html, /Synthetic project plots: 90/);
-  assert.match(html, /Sample admission eligible/);
-  assert.match(html, /No verified physical location/);
-  assert.match(html, /sample reservations/);
+  assert.match(html, /Total plot records/);
+  assert.match(html, /Majestic Palm Garden · Blk 1 · Lot 4/);
+  assert.match(html, /Phase 2 layout/);
   assert.match(html, /admin-burial-table/);
   assert.match(html, /admin-burial-mobile-card/);
-  assert.doesNotMatch(html, /Available — confirmed/);
+  assert.doesNotMatch(html, /Synthetic project plot|sample reservations|Sample admission eligible|fictional/i);
 });
 
 test("read-only SQL correction preserves records, writer definitions and reader grants", async (t) => {

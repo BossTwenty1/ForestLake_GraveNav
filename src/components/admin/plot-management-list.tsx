@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { plotFilterParams, staffPlotMapHref } from "@/lib/plot-map";
-import { isSyntheticPlot, plotAvailabilityLabel, syntheticPlotDescription } from "@/lib/synthetic-plots";
+import { isSyntheticPlot } from "@/lib/synthetic-plots";
 import { createPortal } from "react-dom";
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -45,9 +45,9 @@ export function PlotManagementList({ plots, total, summary, areas, loading, erro
   }, [queryState]);
 
   const mapLink: PlotMapLink = (plot) => {
-    const canCheckOutline = allowedMapAreas.includes(String(plot.areaId))
-      && plot.coordinateState === "verified"
-      && !isSyntheticPlot(plot.lotCode);
+    const hasPhase2Mapping = isSyntheticPlot(plot.lotCode) && Boolean(plot.assignedBurialId || plot.interments?.length);
+    const canCheckOutline = hasPhase2Mapping
+      || (allowedMapAreas.includes(String(plot.areaId)) && plot.coordinateState === "verified");
     return { href: staffPlotMapHref(plot.lotId, queryState), label: canCheckOutline ? "View on Map" : "Map availability" };
   };
 
@@ -62,7 +62,7 @@ export function PlotManagementList({ plots, total, summary, areas, loading, erro
   return <section aria-label="Plot Management" className="admin-burial-list admin-plot-list">
     <PageHeading actions={<Button icon="plus" onClick={onAdd}>Add plot</Button>} breadcrumbs={[{ label: "Dashboard", href: "/admin" }, { label: "Plot Management" }]} description="Review plot availability, assignments, and coordinate readiness across the cemetery." title="Plot Management" />
     <Metrics loading={loading && !summary} summary={summary} />
-    <Toolbar areas={areas} filterCount={filterCount} queryState={queryState} onReset={resetFilters} onUpdate={update} />
+    <Toolbar areas={areas} filterCount={filterCount} plots={plots} queryState={queryState} onReset={resetFilters} onUpdate={update} />
     {filterCount ? <ActiveFilters areas={areas} queryState={queryState} onReset={resetFilters} onUpdate={update} /> : null}
     <div aria-busy={loading} className="admin-burial-data-panel">
       {error ? <EmptyState action={<Button onClick={onRetry} variant="secondary">Try again</Button>} className="admin-burial-empty" description={error} icon="alert" title="Plots unavailable" />
@@ -78,15 +78,13 @@ export function PlotManagementList({ plots, total, summary, areas, loading, erro
 
 function Metrics({ summary, loading }: { summary: PlotManagementSummary | null; loading: boolean }) {
   if (loading) return <div aria-label="Loading plot totals" className="admin-burial-metrics" role="status">{Array.from({ length: 4 }, (_, index) => <Skeleton className="admin-burial-metric admin-burial-metric--loading" key={index} />)}</div>;
-  return <><div className="admin-burial-metrics"><Metric icon="grid" label="Physical plot records" value={summary?.total} /><Metric icon="records" label="Occupied" value={summary?.occupied} /><Metric icon="check" label="Available" tone="success" value={summary?.available} /><Metric icon="verification" label="Needs coordinate review" tone="warning" value={summary?.needsVerification} /></div>
-    <p className="input-hint">Synthetic project plots: {summary?.syntheticPlots ?? "Count requires the staff read-model update"}.
-      {summary?.syntheticPlots !== undefined ? " Excluded from physical totals and coordinate reviews." : ""}
-    </p></>;
+  const totalPlots = summary ? summary.total + (summary.syntheticPlots ?? 0) : null;
+  return <div className="admin-burial-metrics"><Metric icon="grid" label="Total plot records" value={totalPlots} /><Metric icon="records" label="Occupied" value={summary?.occupied} /><Metric icon="check" label="Available" tone="success" value={summary?.available} /><Metric icon="verification" label="Needs coordinate review" tone="warning" value={summary?.needsVerification} /></div>;
 }
 function Metric({ icon, label, value, tone = "neutral" }: { icon: IconName; label: string; value: number | null | undefined; tone?: "neutral" | "success" | "warning" }) { return <div className={`admin-burial-metric admin-burial-metric--${tone}`}><div><span>{label}</span><strong>{value == null ? "—" : value.toLocaleString()}</strong></div><span className="admin-burial-metric__icon"><Icon name={icon} size={20} /></span></div>; }
 
-function Toolbar({ queryState, areas, filterCount, onUpdate, onReset }: { queryState: PlotManagementQuery; areas: PlotAreaOption[]; filterCount: number; onUpdate: (update: QueryUpdate, resetPage?: boolean) => void; onReset: () => void }) {
-  return <div className="admin-burial-toolbar"><label className="admin-burial-search"><span className="sr-only">Search plots</span><Icon name="search" size={18} /><input autoComplete="off" maxLength={160} onChange={(event) => onUpdate({ query: event.target.value })} placeholder="Search plot, area, reference, or assigned person…" type="search" value={queryState.query} />{queryState.query ? <button aria-label="Clear plot search" onClick={() => onUpdate({ query: "" })} type="button"><Icon name="x" size={16} /></button> : null}</label><div className="admin-burial-toolbar__actions"><FilterMenu areas={areas} filterCount={filterCount} queryState={queryState} onReset={onReset} onUpdate={onUpdate} /><label className="admin-burial-sort-select"><span className="sr-only">Sort plots</span><Icon name="sort" size={17} /><select aria-label="Sort plots" onChange={(event) => { const [sort, direction] = event.target.value.split(":") as [PlotManagementSort, PlotManagementQuery["direction"]]; onUpdate({ sort, direction }); }} value={`${queryState.sort}:${queryState.direction}`}><option value="updated:desc">Recently updated</option><option value="updated:asc">Oldest updated</option><option value="plot:asc">Plot A–Z</option><option value="plot:desc">Plot Z–A</option><option value="area:asc">Area A–Z</option><option value="area:desc">Area Z–A</option><option value="state:asc">Operational state</option><option value="coordinate:asc">Coordinate readiness</option></select><Icon name="chevronDown" size={15} /></label></div><p aria-live="polite" className="admin-burial-toolbar__scope">Search and filters apply to all current plots. Results update automatically.</p></div>;
+function Toolbar({ queryState, areas, plots, filterCount, onUpdate, onReset }: { queryState: PlotManagementQuery; areas: PlotAreaOption[]; plots: PlotManagementItem[]; filterCount: number; onUpdate: (update: QueryUpdate, resetPage?: boolean) => void; onReset: () => void }) {
+  return <div className="admin-burial-toolbar"><label className="admin-burial-search"><span className="sr-only">Search plots</span><Icon name="search" size={18} /><input autoComplete="off" maxLength={160} onChange={(event) => onUpdate({ query: event.target.value })} placeholder="Search plot, area, reference, or assigned person…" type="search" value={queryState.query} />{queryState.query ? <button aria-label="Clear plot search" onClick={() => onUpdate({ query: "" })} type="button"><Icon name="x" size={16} /></button> : null}</label><div className="admin-burial-toolbar__actions"><FilterMenu areas={areas} filterCount={filterCount} queryState={queryState} onReset={onReset} onUpdate={onUpdate} /><label className="admin-burial-sort-select"><span className="sr-only">Sort plots</span><Icon name="sort" size={17} /><select aria-label="Sort plots" onChange={(event) => { const [sort, direction] = event.target.value.split(":") as [PlotManagementSort, PlotManagementQuery["direction"]]; onUpdate({ sort, direction }); }} value={`${queryState.sort}:${queryState.direction}`}><option value="updated:desc">Recently updated</option><option value="updated:asc">Oldest updated</option><option value="plot:asc">Plot A–Z</option><option value="plot:desc">Plot Z–A</option><option value="area:asc">Area A–Z</option><option value="area:desc">Area Z–A</option><option value="state:asc">Operational state</option><option value="coordinate:asc">Coordinate readiness</option></select><Icon name="chevronDown" size={15} /></label><Button disabled={!plots.length} icon="download" onClick={() => downloadPlotsCsv(plots)} size="sm" variant="secondary">Export page</Button></div><p aria-live="polite" className="admin-burial-toolbar__scope">Search and filters apply to all current plots. Results update automatically.</p></div>;
 }
 
 function FilterMenu({ queryState, areas, filterCount, onUpdate, onReset }: { queryState: PlotManagementQuery; areas: PlotAreaOption[]; filterCount: number; onUpdate: (update: QueryUpdate) => void; onReset: () => void }) {
@@ -101,37 +99,45 @@ function SortHeader({ label, sort, state, onSort }: { label: string; sort: PlotM
 function MobileCards({ plots, busy, canAdmin, mapLink, onEdit, onDelete }: { plots: PlotManagementItem[]; busy: boolean; canAdmin: boolean; mapLink: PlotMapLink; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void }) { return <div className="admin-burial-mobile-list">{plots.map((plot) => <article aria-label={`Plot ${plot.lotCode}, ${plot.areaName || "unassigned area"}`} className="admin-burial-mobile-card admin-plot-mobile-card" key={plot.lotId}><div className="admin-burial-mobile-card__top"><PlotIdentity plot={plot} /><OperationalState plot={plot} /></div><dl className="admin-burial-mobile-card__details"><div><dt>Area</dt><dd><Area plot={plot} /></dd></div><div><dt>Assignment</dt><dd><Assignment plot={plot} /></dd></div><div><dt>Coordinates</dt><dd><CoordinateState plot={plot} /></dd></div><div><dt>Updated</dt><dd>{formatDate(plot.updatedAt)}</dd></div></dl><Actions busy={busy} canAdmin={canAdmin} mapLink={mapLink} plot={plot} onDelete={onDelete} onEdit={onEdit} /></article>)}</div>; }
 
 function PlotIdentity({ plot }: { plot: PlotManagementItem }) {
-  const synthetic = isSyntheticPlot(plot.lotCode);
+  const isInternalKey = isSyntheticPlot(plot.lotCode);
+  const displayTitle = plot.syntheticPlotReference || (isInternalKey ? `Phase 2 Plot #${plot.lotId}` : plot.lotCode);
   return <div className="admin-record-identity">
     <span aria-hidden="true" className="admin-record-avatar"><Icon name="grid" size={17} /></span>
     <span>
-      <strong>{synthetic ? "Synthetic project plot" : plot.lotCode}</strong>
-      {synthetic ? <small style={{ overflowWrap: "anywhere" }}>Internal code: {plot.lotCode}</small> : null}
-      {plot.syntheticPlotReference ? <small>Synthetic plot reference: {plot.syntheticPlotReference}</small> : null}
-      <small>{synthetic ? "No verified physical location" : plot.legacyLocationCode || `Plot #${plot.lotId}`}</small>
+      <strong>{displayTitle}</strong>
+      <small>{isInternalKey ? `Plot #${plot.lotId}` : plot.legacyLocationCode || `Plot #${plot.lotId}`}</small>
     </span>
   </div>;
 }
 function Area({ plot }: { plot: PlotManagementItem }) { return <span className="admin-record-plot"><Icon name="location" size={14} /><span>{plot.areaName || "Unassigned area"}{plot.areaCode ? <small>{plot.areaCode}</small> : null}</span></span>; }
 function Assignment({ plot }: { plot: PlotManagementItem }) {
-  if (isSyntheticPlot(plot.lotCode)) return <details>
-    <summary>{plot.interments?.length ?? 0} sample reservations · {plot.remainingInterments ?? 0} slots remain</summary>
-    <p>{syntheticPlotDescription}</p>
-    {plot.interments?.length ? <ul>{plot.interments.map((entry) => <li key={entry.id}>
-      {entry.name} · {entry.removed ? "Reserved for recovery" : entry.status}
-    </li>)}</ul> : <p>No sample interment assigned.</p>}
-  </details>;
-  if (plot.graveType || plot.interments?.length) return <details><summary>{plot.confirmedCount ?? 0} confirmed · {plot.remainingInterments ?? 0} open</summary>{plot.interments?.length ? <ul>{plot.interments.map((entry) => <li key={entry.id}>{entry.name} · {entry.removed ? "Reserved for recovery" : entry.status}{entry.confirmed === true ? " · confirmed" : " · confirmation not recorded"}</li>)}</ul> : <p>No burial assigned</p>}</details>; if (!plot.assignedBurialId) return <span className="admin-record-muted">No burial assigned</span>; return <span className="admin-plot-assignment"><strong>{plot.assignedDeceasedName || `Burial #${plot.assignedBurialId}`}</strong><small>{plot.assignedBurialDeleted ? "Reserved for recovery" : `Burial #${plot.assignedBurialId}`}</small></span>; }
-function OperationalState({ plot }: { plot: PlotManagementItem }) {
-  if (isSyntheticPlot(plot.lotCode)) return <span className="admin-record-muted">
-    {plotAvailabilityLabel(plot.lotCode, plot.status)}
+  if (plot.graveType || plot.interments?.length) {
+    const assignedCount = plot.interments?.length ?? plot.confirmedCount ?? 0;
+    return <details>
+      <summary>{assignedCount} assigned · {plot.remainingInterments ?? 0} open</summary>
+      {plot.interments?.length ? <ul>{plot.interments.map((entry) => <li key={entry.id}>
+        <Link className="subtle-link" href={`/admin/burial-records/${entry.id}`}>{entry.name}</Link>
+        {" · "}{entry.removed ? "Reserved for recovery" : entry.status}
+      </li>)}</ul> : <p>No burial assigned</p>}
+    </details>;
+  }
+  if (!plot.assignedBurialId) return <span className="admin-record-muted">No burial assigned</span>;
+  return <span className="admin-plot-assignment">
+    <Link className="subtle-link" href={`/admin/burial-records/${plot.assignedBurialId}`}>
+      <strong>{plot.assignedDeceasedName || `Burial #${plot.assignedBurialId}`}</strong>
+    </Link>
+    <small>{plot.assignedBurialDeleted ? "Reserved for recovery" : `Burial #${plot.assignedBurialId}`}</small>
   </span>;
+}
+function OperationalState({ plot }: { plot: PlotManagementItem }) {
   return <span className={`admin-record-status admin-record-status--plot-${plot.operationalState}`}>
     <span aria-hidden="true" />{stateLabel(plot.operationalState)}
   </span>;
 }
 function CoordinateState({ plot }: { plot: PlotManagementItem }) {
-  if (isSyntheticPlot(plot.lotCode)) return <span className="admin-record-muted">No verified physical location</span>; return <span className={`admin-record-verification admin-record-verification--${plot.coordinateState}`}><Icon name={plot.coordinateState === "verified" ? "check" : "verification"} size={14} />{coordinateLabel(plot.coordinateState)}</span>; }
+  if (isSyntheticPlot(plot.lotCode)) return <span className="admin-record-muted">Phase 2 layout</span>;
+  return <span className={`admin-record-verification admin-record-verification--${plot.coordinateState}`}><Icon name={plot.coordinateState === "verified" ? "check" : "verification"} size={14} />{coordinateLabel(plot.coordinateState)}</span>;
+}
 
 function Actions({ plot, busy, canAdmin, mapLink, onEdit, onDelete }: { plot: PlotManagementItem; busy: boolean; canAdmin: boolean; mapLink: PlotMapLink; onEdit: (plot: PlotManagementItem) => void; onDelete: (plot: PlotManagementItem) => void }) {
   const id = useId(); const [open, setOpen] = useState(false); const [position, setPosition] = useState({ top: 0, left: 0 }); const trigger = useRef<HTMLButtonElement>(null); const panel = useRef<HTMLDivElement>(null); useDismiss(open, setOpen, trigger, panel);
@@ -142,13 +148,13 @@ function Actions({ plot, busy, canAdmin, mapLink, onEdit, onDelete }: { plot: Pl
   function navigateMenu(event: ReactKeyboardEvent<HTMLDivElement>) { const items = Array.from(panel.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []); if (!items.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return; event.preventDefault(); const current = items.indexOf(document.activeElement as HTMLElement); const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : event.key === "ArrowDown" ? (current + 1) % items.length : (current <= 0 ? items.length : current) - 1; items[nextIndex]?.focus(); }
   const canRemove = canAdmin && !plot.assignedBurialId;
   const canViewBurial = Boolean(plot.assignedBurialId && !plot.assignedBurialDeleted);
-  const canReviewCoordinates = canAdmin && plot.coordinateState !== "verified";
+  const canReviewCoordinates = canAdmin && plot.coordinateState !== "verified" && !isSyntheticPlot(plot.lotCode);
   const map = mapLink(plot);
   const menu = open ? <div className="admin-record-menu__popover admin-record-menu__popover--portal" id={id} onKeyDown={navigateMenu} ref={panel} role="menu" style={position}>
     <Link href={map.href} onClick={() => setOpen(false)} prefetch={false} role="menuitem">
       <Icon name="map" size={16} />{map.label}
     </Link>
-    {canViewBurial ? <Link href={`/admin/burial-records?record=${plot.assignedBurialId}`} onClick={() => setOpen(false)} role="menuitem"><Icon name="eye" size={16} />View burial record</Link> : null}{canReviewCoordinates ? <Link href="/admin/coordinate-verification" onClick={() => setOpen(false)} role="menuitem"><Icon name="verification" size={16} />Review coordinates</Link> : null}{canRemove ? <><span className="admin-record-menu__separator" /><button className="admin-record-menu__danger" onClick={() => choose(() => onDelete(plot))} role="menuitem" type="button"><Icon name="trash" size={16} />Remove plot</button></> : null}</div> : null;
+    {canViewBurial ? <Link href={`/admin/burial-records/${plot.assignedBurialId}`} onClick={() => setOpen(false)} role="menuitem"><Icon name="eye" size={16} />View burial record</Link> : null}{canReviewCoordinates ? <Link href="/admin/coordinate-verification" onClick={() => setOpen(false)} role="menuitem"><Icon name="verification" size={16} />Review coordinates</Link> : null}{canRemove ? <><span className="admin-record-menu__separator" /><button className="admin-record-menu__danger" onClick={() => choose(() => onDelete(plot))} role="menuitem" type="button"><Icon name="trash" size={16} />Remove plot</button></> : null}</div> : null;
   return <div className="admin-record-actions"><button className="admin-record-actions__edit" disabled={busy} onClick={() => onEdit(plot)} type="button"><Icon name="edit" size={16} /><span>Edit</span></button><div className="admin-record-menu"><button aria-controls={id} aria-expanded={open} aria-haspopup="menu" aria-label={`More actions for plot ${plot.lotCode}`} disabled={busy} onClick={toggle} ref={trigger} type="button"><Icon name="more" size={18} /></button>{menu ? createPortal(menu, document.body) : null}</div></div>;
 }
 
@@ -161,3 +167,24 @@ function coordinateLabel(value: PlotManagementItem["coordinateState"] | "all") {
 function title(value: string) { return value.replace(/(^|\s)\S/g, (letter) => letter.toLocaleUpperCase()); }
 function formatDate(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit" }).format(date); }
 function pageWindow(page: number, count: number) { const length = Math.min(count, 5); const start = Math.max(0, Math.min(page - 2, count - length)); return Array.from({ length }, (_, index) => start + index); }
+function csvCell(value: unknown) { const text = String(value ?? ""); const safe = /^[\t\r\n ]*[=+\-@]/.test(text) ? `'${text}` : text; return `"${safe.replaceAll('"', '""')}"`; }
+function downloadPlotsCsv(plots: PlotManagementItem[]) {
+  const headers = ["lot_id", "plot_reference", "area", "operational_state", "stored_status", "assigned_interments", "remaining_slots", "updated_at"];
+  const rows = plots.map((plot) => [
+    plot.lotId,
+    plot.syntheticPlotReference || (isSyntheticPlot(plot.lotCode) ? `Phase 2 Plot #${plot.lotId}` : plot.lotCode),
+    plot.areaName || "",
+    stateLabel(plot.operationalState),
+    plot.status,
+    plot.interments?.map((entry) => entry.name).join("; ") || plot.assignedDeceasedName || "",
+    plot.remainingInterments ?? "",
+    plot.updatedAt,
+  ]);
+  const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "gravenav-plots.csv";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}

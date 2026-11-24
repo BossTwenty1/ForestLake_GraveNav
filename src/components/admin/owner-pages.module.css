@@ -164,6 +164,47 @@
   color: var(--muted);
 }
 
+.photoItemLead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.photoThumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle, var(--surface));
+  color: var(--muted);
+}
+
+.photoThumb img {
+  object-fit: cover;
+}
+
+.mobileCards {
+  display: none;
+}
+
+.mobileCard {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .desktopTable { display: none; }
+  .mobileCards { display: block; }
+}
+
 @media (max-width: 600px) {
   .profile { grid-template-columns: 1fr; }
   .portraitBox { grid-template-columns: 1fr; }

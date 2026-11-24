@@ -60,8 +60,11 @@ test("routing edges form one connected Phase 1 component", async () => {
 
 test("protected provisioning keeps the Auth admin key server-side", async () => {
   const route = await read("src/app/api/admin/accounts/provision/route.ts");
-  assert.match(route, /process\.env\.SUPABASE_(?:SECRET_KEY|SERVICE_ROLE_KEY)/);
+  const serverAdmin = await read("src/lib/supabase/server-admin.ts");
+  assert.match(route, /getServerServiceSupabase|process\.env\.SUPABASE_(?:SECRET_KEY|SERVICE_ROLE_KEY)/);
+  assert.match(serverAdmin, /process\.env\.SUPABASE_(?:SECRET_KEY|SERVICE_ROLE_KEY)/);
   assert.doesNotMatch(route, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
+  assert.doesNotMatch(serverAdmin, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
 });
 
 test("navigation requests browser geolocation", async () => {
@@ -98,12 +101,12 @@ test("public queries and exports apply security boundaries", async () => {
 
   const report = await read("src/app/admin/reports/export/route.ts");
   const reportAuth = await read("src/lib/supabase/staff-reports.ts");
-  assert.match(report, /await requireReportClient\(\)/);
+  assert.match(report, /await (?:requireReportClient|getAuthorizedReportClient)\(\)/);
   assert.match(reportAuth, /await requireStaff\(undefined, client\)/);
   assert.match(report, /row\.map\(csvCell\)/);
   assert.match(report, /"Cache-Control": "private, no-store"/);
   const audit = await read("src/components/admin/admin-page-content.tsx");
-  assert.match(audit, /\[row\.audit_id,[^\n]+\]\.map\(csvCell\)/);
+  assert.match(audit, /row\.audit_id[\s\S]*?\.map\(csvCell\)/);
 });
 
 test("auth callback data is scrubbed before session exchange", async () => {
@@ -125,8 +128,9 @@ test("protected routes enforce staff authentication and role checks", async () =
   assert.match(auth, /staff\.role !== requiredRole/);
 
   const provision = await read("src/app/api/admin/accounts/provision/route.ts");
+  const serverAdmin = await read("src/lib/supabase/server-admin.ts");
   assert.match(provision, /staff\.role !== "ADMIN"/);
-  assert.match(provision, /SUPABASE_SECRET_KEY/);
+  assert.match(serverAdmin, /SUPABASE_SECRET_KEY/);
 });
 
 test("CI runs the same repository gates used before deployment", async () => {

@@ -12,6 +12,7 @@ import styles from "./planning-lot-popup.module.css";
 export type PlanningLotPopupOptions = {
   preferredId?: string;
   returnTo?: string;
+  staffMode?: boolean;
   onClose: () => void;
   project?: (xy: [number, number]) => L.LatLng;
 };
@@ -24,7 +25,7 @@ function subscribeToCompact(change: () => void) {
   return () => query.removeEventListener("change", change);
 }
 
-export function PlanningLotPopup({ feature, preferredId, returnTo, onClose, project }: PlanningLotPopupOptions & { feature: CadFeature }) {
+export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = false, onClose, project }: PlanningLotPopupOptions & { feature: CadFeature }) {
   const map = useMap();
   const compact = useSyncExternalStore(subscribeToCompact, compactSnapshot, () => false);
   const heading = useId();
@@ -94,9 +95,17 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, onClose, proj
         <button type="button" className={styles.retry} onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>Try again</button>
       </p> : <p role="status">{records ? "No public memorial details available." : "Loading memorial details…"}</p>}
     </div>
-    {active ? <Link className={styles.profile} href={"/gravesite?" + new URLSearchParams({
-      id: active.id, ...(returnTo ? { returnTo } : {}),
-    })}>View Memorial Profile <Icon name="chevronRight" size={17} /></Link> : null}
+    {active ? (
+      staffMode ? (
+        <Link className={styles.profile} href={`/admin/burial-records/${active.id}`}>
+          Manage Memorial Record <Icon name="chevronRight" size={17} />
+        </Link>
+      ) : (
+        <Link className={styles.profile} href={"/gravesite?" + new URLSearchParams({
+          id: active.id, ...(returnTo ? { returnTo } : {}),
+        })}>View Memorial Profile <Icon name="chevronRight" size={17} /></Link>
+      )
+    ) : null}
   </section>;
 
   return compact ? card : <Popup position={anchor} className={styles.popup} offset={[0, -27]} maxWidth={340}

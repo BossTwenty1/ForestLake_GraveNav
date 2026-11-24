@@ -11,43 +11,24 @@ type AdminNavItem = {
   icon: IconName;
   href: string;
   adminOnly?: boolean;
-  managerHidden?: boolean;
 };
 
 const mainNavItems: AdminNavItem[] = [
   { label: "Dashboard", icon: "dashboard", href: "/admin" },
   { label: "Deceased & Interments", icon: "records", href: "/admin/burial-records" },
+  { label: "Photos", icon: "photos", href: "/admin/photos" },
   { label: "Cemetery Map", icon: "map", href: "/admin/cemetery-map" },
-  {
-    label: "Coordinate Verification",
-    icon: "verification",
-    href: "/admin/coordinate-verification",
-    managerHidden: true,
-  },
   { label: "Plot Management", icon: "grid", href: "/admin/plot-management" },
   { label: "Plot Owners", icon: "userSearch", href: "/admin/owner-data" },
-  { label: "Photos", icon: "photos", href: "/admin/photos" },
 ];
 
 const systemNavItems: AdminNavItem[] = [
   { label: "Reports", icon: "reports", href: "/admin/reports" },
   { label: "Audit Log", icon: "audit", href: "/admin/audit-log" },
   { label: "Recovery", icon: "audit", href: "/admin/recovery", adminOnly: true },
-  {
-    label: "Account Management",
-    icon: "users",
-    href: "/admin/accounts",
-    adminOnly: true,
-  },
-  {
-    label: "Settings",
-    icon: "settings",
-    href: "/admin/settings",
-    managerHidden: true,
-  },
+  { label: "Account Management", icon: "users", href: "/admin/accounts", adminOnly: true },
+  { label: "Visitor Site Settings", icon: "settings", href: "/admin/site-settings", adminOnly: true },
 ];
-
-export const adminNavItems = [...mainNavItems, ...systemNavItems];
 
 type AdminSidebarProps = {
   active: string;
@@ -68,7 +49,6 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   function isVisible(item: AdminNavItem) {
     if (item.adminOnly) return staff.role === "ADMIN";
-    if (item.managerHidden) return staff.role !== "MANAGER";
     return true;
   }
 
@@ -121,7 +101,7 @@ export function AdminSidebar({
 
       <div className="admin-sidebar__body">
         <div className="admin-nav-group">
-          <p className="admin-nav-label">Main menu</p>
+          <p className="admin-nav-label">Visitor &amp; cemetery</p>
           <nav aria-label="Primary administrator navigation" className="admin-nav">
             {renderLinks(mainNavItems)}
           </nav>
@@ -135,23 +115,19 @@ export function AdminSidebar({
       </div>
 
       <div className="admin-sidebar__footer">
-        <nav aria-label="Administrator support navigation">
+        <nav aria-label="Public site link">
           <Tooltip
             disabled={!collapsed || preview}
-            label="Support"
+            label="Open Visitor Site"
           >
             <Link
-              aria-current={active === "Support" ? "page" : undefined}
-              className={cn(
-                "admin-nav-link",
-                active === "Support" && "admin-nav-link--active",
-              )}
-              href="/admin/support"
+              className="admin-nav-link"
+              href="/"
               onClick={onNavigate}
-              title={collapsed && !preview ? "Support" : undefined}
+              title={collapsed && !preview ? "Open Visitor Site" : undefined}
             >
-              <Icon name="support" size={18} />
-              <span className="admin-nav-link__label">Support</span>
+              <Icon name="arrowUpRight" size={18} />
+              <span className="admin-nav-link__label">Visitor Site</span>
             </Link>
           </Tooltip>
         </nav>

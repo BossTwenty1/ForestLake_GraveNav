@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isSyntheticPlot, plotOptionLabel, syntheticPlotDescription } from "@/lib/synthetic-plots";
+import { isSyntheticPlot, plotOptionLabel } from "@/lib/synthetic-plots";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AdminPageFrame } from "./admin-page-content";
 import { RecordVisibility } from "./record-visibility";
@@ -12,12 +12,13 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Icon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import {
-  createBurialRecord, getAdminPhotoPreview, getAdminRecord, getAvailableBurialPlots,
-  getBurialPhotos, getStorageStatus, updateBurialRecord, updatePhotoReview, uploadBurialPhoto,
-  type BurialRecordInput,
+  createBurialRecord, deleteBurialRecord, getAdminPhotoPreview, getAdminPhotoThumbnails, getAdminRecord,
+  getAvailableBurialPlots, getBurialPhotos, getLotCoInterments, getStorageStatus, updateBurialRecord,
+  updatePhotoReview, uploadBurialPhoto, type BurialRecordInput,
 } from "@/lib/supabase/admin-data";
 import type { AdminPhoto, AdminRecord, BurialPlotOption } from "@/lib/supabase/types";
 import { burialDirectory, recordInputFromRecord, safeBurialReturnTo } from "@/lib/burial-records";
@@ -27,10 +28,37 @@ const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
 function primaryPortrait(photos: AdminPhoto[]): AdminPhoto | null {
-  return photos.find((photo) => photo.approvalStatus === "approved")
-    ?? photos.find((photo) => photo.approvalStatus === "pending")
-    ?? photos[0]
+  const portraits = photos.filter((photo) => photo.photoKind === "portrait");
+  return portraits.find((photo) => photo.approvalStatus === "approved")
+    ?? portraits.find((photo) => photo.approvalStatus === "pending")
+    ?? portraits[0]
     ?? null;
+}
+
+function isDeletedVisitorPhoto(photo: AdminPhoto) {
+  return Boolean((photo.isVisitorSubmitted || photo.photoKind === "tribute") && photo.approvalStatus === "rejected");
+}
+
+function formatEnumLabel(value: string | null | undefined) {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    PERMANENT: "Permanent",
+    TEMPORARY: "Temporary",
+    FRESH: "Fresh",
+    ASH: "Ash",
+    BONE: "Bone",
+    active: "Active",
+    pending: "Pending",
+    archived: "Archived",
+  };
+  return map[value] ?? value;
+}
+
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return value;
+  return new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function photoStatusBadge(status: AdminPhoto["approvalStatus"]) {
@@ -154,8 +182,6 @@ function BurialRecordForm({ record, availablePlots, back }: {
 
   const confirmed = record?.intermentConfirmed === true;
   const selectedPlot = availablePlots.find((plot) => plot.lotId === form.lotId);
-  const selectedLotCode = selectedPlot?.lotCode || (form.lotId === record?.lotId ? record.plot : "");
-  const synthetic = isSyntheticPlot(selectedLotCode);
   const noEligiblePlots = !record && !availablePlots.length;
   const detailHref = record
     ? burialDirectory + "/" + record.burialId + "?" + new URLSearchParams({ returnTo: back })
@@ -211,21 +237,27 @@ function BurialRecordForm({ record, availablePlots, back }: {
       let photoStatus = "";
       if (photoFile) {
         try {
-          await uploadBurialPhoto({
+          const insertedPhotoId = await uploadBurialPhoto({
             burialId: savedBurialId,
             file: photoFile,
             caption: photoCaption.trim() || undefined,
           });
           photoStatus = "uploaded";
           if (canAdmin && approvePhotoOnSave) {
-            const uploadedPhotos = await getBurialPhotos(savedBurialId);
-            const newest = [...uploadedPhotos]
-              .reverse()
-              .find((item) => item.approvalStatus === "pending" && item.fileName === photoFile.name)
-              ?? [...uploadedPhotos].reverse().find((item) => item.approvalStatus === "pending");
-            if (newest) {
-              await updatePhotoReview(newest.photoId, "approved", newest.revision);
-              photoStatus = "approved";
+            try {
+              const uploadedPhotos = await getBurialPhotos(savedBurialId);
+              const newest = (insertedPhotoId
+                ? uploadedPhotos.find((item) => item.photoId === insertedPhotoId)
+                : null)
+                ?? [...uploadedPhotos]
+                  .reverse()
+                  .find((item) => item.photoKind === "portrait" && !item.isVisitorSubmitted && item.approvalStatus === "pending" && item.fileName === photoFile.name);
+              if (newest) {
+                await updatePhotoReview(newest.photoId, "approved", newest.revision);
+                photoStatus = "approved";
+              }
+            } catch {
+              photoStatus = "uploaded";
             }
           }
         } catch {
@@ -304,7 +336,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
                 </label>
               ) : (
                 <p className="input-hint">
-                  Family photos uploaded by a clerk are saved privately and queued for administrator approval before public display.
+                  Family photos uploaded by a manager are saved privately and queued for administrator approval before public display.
                 </p>
               )}
               <div className={styles.portraitActions}>
@@ -377,7 +409,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
           >
             <option value="">Select an eligible existing plot</option>
             {record ? <option value={record.lotId}>
-              Current: {plotOptionLabel(record.plot)} — {record.section}
+              Current: {plotOptionLabel(record.plot, record.syntheticPlotReference)} — {record.section}
             </option> : null}
             {availablePlots.filter((plot) => plot.lotId !== record?.lotId).map((plot) => (
               <option key={plot.lotId} value={plot.lotId}>
@@ -386,19 +418,15 @@ function BurialRecordForm({ record, availablePlots, back }: {
             ))}
           </select>
           <span className="input-hint" id="burial-plot-hint">
-            {synthetic ? syntheticPlotDescription : confirmed ? "This confirmed interment retains its existing plot." :
+            {confirmed ? "This confirmed interment retains its existing plot." :
               selectedPlot?.graveType
                 ? selectedPlot.confirmedCount + " confirmed; " + selectedPlot.remaining +
                   " admissions remain after reservations."
-                : "Select the established plot association. A lot code does not verify a CAD or GPS location."}
+                : "Select the established cemetery plot for this interment."}
           </span>
         </label>
         {record?.syntheticPlotReference ? <p className="input-hint">
-          Current synthetic plot reference: {record.syntheticPlotReference}
-        </p> : null}
-        {synthetic ? <p className="input-hint">
-          Imported sample records use PERMANENT / ASH as synthetic project defaults,
-          not verified interment facts. Confirmation and publication rules still apply.
+          Gravesite reference: {record.syntheticPlotReference}
         </p> : null}
         <Input label="Interment date" aria-label="Interment date" type="date" value={form.intermentDate}
           hint="Classified interments require the existing order, date and confirmation checks."
@@ -480,6 +508,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
 function RecordPortraitCard({ record }: { record: AdminRecord }) {
   const canAdmin = useStaff()?.role === "ADMIN";
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
+  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [previewUrl, setPreviewUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
@@ -501,9 +530,13 @@ function RecordPortraitCard({ record }: { record: AdminRecord }) {
       .then(async (list) => {
         if (!active) return;
         setPhotos(list);
+        const activeIds = list.filter((item) => !isDeletedVisitorPhoto(item)).map((item) => item.photoId);
+        const signedMap = activeIds.length ? await getAdminPhotoThumbnails(activeIds).catch(() => ({} as Record<number, string>)) : {};
+        if (!active) return;
+        setThumbnails(signedMap);
         const primary = primaryPortrait(list);
-        if (primary) {
-          const url = await getAdminPhotoPreview(primary.photoId).catch(() => "");
+        if (primary && !isDeletedVisitorPhoto(primary)) {
+          const url = signedMap[primary.photoId] || await getAdminPhotoPreview(primary.photoId).catch(() => "");
           if (active) setPreviewUrl(url);
         } else {
           setPreviewUrl("");
@@ -536,17 +569,23 @@ function RecordPortraitCard({ record }: { record: AdminRecord }) {
     if (issue) { setError(issue); return; }
     setBusy(true); setError(""); setMessage("");
     try {
-      await uploadBurialPhoto({ burialId: record.burialId, file, caption: caption.trim() || undefined });
+      const insertedPhotoId = await uploadBurialPhoto({ burialId: record.burialId, file, caption: caption.trim() || undefined });
       let statusMsg = "Family profile photo uploaded for administrator review. It stays private until approved.";
       if (canAdmin && approveNow) {
-        const refreshed = await getBurialPhotos(record.burialId);
-        const newest = [...refreshed]
-          .reverse()
-          .find((item) => item.approvalStatus === "pending" && item.fileName === file.name)
-          ?? [...refreshed].reverse().find((item) => item.approvalStatus === "pending");
-        if (newest) {
-          await updatePhotoReview(newest.photoId, "approved", newest.revision);
-          statusMsg = "Family profile photo uploaded and approved for public memorial display.";
+        try {
+          const refreshed = await getBurialPhotos(record.burialId);
+          const newest = (insertedPhotoId
+            ? refreshed.find((item) => item.photoId === insertedPhotoId)
+            : null)
+            ?? [...refreshed]
+              .reverse()
+              .find((item) => item.photoKind === "portrait" && !item.isVisitorSubmitted && item.approvalStatus === "pending" && item.fileName === file.name);
+          if (newest) {
+            await updatePhotoReview(newest.photoId, "approved", newest.revision);
+            statusMsg = "Family profile photo uploaded and approved for public memorial display.";
+          }
+        } catch {
+          statusMsg = "Family profile photo uploaded, but immediate approval could not be completed. Approve it below.";
         }
       }
       setFile(null);
@@ -567,8 +606,12 @@ function RecordPortraitCard({ record }: { record: AdminRecord }) {
     try {
       await updatePhotoReview(photo.photoId, nextStatus, photo.revision);
       setMessage(nextStatus === "approved"
-        ? "Profile photo approved for public memorial display."
-        : "Profile photo rejected and kept private.");
+        ? photo.photoKind === "tribute"
+          ? "Visitor gallery photo approved for public memorial display."
+          : "Profile photo approved for public memorial display."
+        : isDeletedVisitorPhoto({ ...photo, approvalStatus: "rejected" })
+          ? "Visitor photo rejected and removed from storage."
+          : "Profile photo rejected and kept private.");
       reloadPhotos();
     } catch (reason) {
       setError(errorMessage(reason));
@@ -581,7 +624,10 @@ function RecordPortraitCard({ record }: { record: AdminRecord }) {
   const shownUrl = localPreview || previewUrl;
 
   return <Card>
-    <CardHeader><CardTitle>Profile picture &amp; family photos</CardTitle></CardHeader>
+    <CardHeader>
+      <CardTitle>Profile picture &amp; memorial gallery</CardTitle>
+      <Link className="subtle-link" href="/admin/photos">Open Photo Moderation</Link>
+    </CardHeader>
     <CardContent>
       {error ? <Alert title="Photo update unavailable" variant="danger">{error}</Alert> : null}
       {message ? <div role="status"><Alert title="Photo updated" variant="success">{message}</Alert></div> : null}
@@ -606,7 +652,7 @@ function RecordPortraitCard({ record }: { record: AdminRecord }) {
             {primary ? photoStatusBadge(primary.approvalStatus) : null}
           </div>
           <p className="input-hint">
-            Upload a portrait provided by the family before or after interment. The first approved photo appears as this person&apos;s public profile picture.
+            Upload a portrait provided by the family before or after interment. The approved profile portrait appears on the public memorial header.
           </p>
           <form className="admin-form" onSubmit={(e) => void handleUpload(e)}>
             <Input
@@ -669,44 +715,126 @@ function RecordPortraitCard({ record }: { record: AdminRecord }) {
 
       {loading ? <p role="status">Loading attached photos…</p> : photos.length ? (
         <div className={styles.photoList}>
-          {photos.map((photo) => (
-            <div className={styles.photoItem} key={photo.photoId}>
-              <div className={styles.photoItemMeta}>
-                <strong>{photo.fileName}</strong>
-                <span>{photo.caption || "Family memorial photo"} · Photo #{photo.photoId}</span>
+          {photos.map((photo) => {
+            const deletedVisitor = isDeletedVisitorPhoto(photo);
+            const thumb = thumbnails[photo.photoId];
+            return (
+              <div className={styles.photoItem} key={photo.photoId}>
+                <div className={styles.photoItemLead}>
+                  <div className={styles.photoThumb}>
+                    {thumb ? (
+                      <Image alt={photo.fileName} fill sizes="48px" src={thumb} unoptimized />
+                    ) : (
+                      <Icon name={deletedVisitor ? "close" : "photos"} size={18} />
+                    )}
+                  </div>
+                  <div className={styles.photoItemMeta}>
+                    <div className={styles.portraitHeader}>
+                      <strong>{photo.fileName}</strong>
+                      <Badge variant={photo.photoKind === "tribute" ? "info" : "neutral"}>
+                        {photo.photoKind === "tribute"
+                          ? "Visitor gallery"
+                          : photo.isVisitorSubmitted
+                            ? "Visitor portrait"
+                            : "Profile portrait"}
+                      </Badge>
+                    </div>
+                    <span>
+                      {photo.caption || (photo.photoKind === "tribute" ? "Visitor remembrance photo" : "Family memorial portrait")}
+                      {" · "}Photo #{photo.photoId}
+                      {photo.submittedByName ? ` · Submitted by ${photo.submittedByName}${photo.submittedByRelation ? ` (${photo.submittedByRelation})` : ""}` : ""}
+                      {canAdmin && photo.submittedByContact ? ` · Contact: ${photo.submittedByContact}` : ""}
+                    </span>
+                  </div>
+                </div>
+                <div className={styles.portraitActions}>
+                  {photoStatusBadge(photo.approvalStatus)}
+                  {canAdmin && photo.approvalStatus !== "approved" && !deletedVisitor ? (
+                    <Button disabled={busy} size="sm" variant="secondary" onClick={() => void handleReview(photo, "approved")}>
+                      Approve
+                    </Button>
+                  ) : null}
+                  {canAdmin && photo.approvalStatus !== "rejected" ? (
+                    <Button disabled={busy} size="sm" variant="danger" onClick={() => void handleReview(photo, "rejected")}>
+                      {photo.isVisitorSubmitted || photo.photoKind === "tribute" ? "Reject & Delete" : "Reject"}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              <div className={styles.portraitActions}>
-                {photoStatusBadge(photo.approvalStatus)}
-                {canAdmin && photo.approvalStatus !== "approved" ? (
-                  <Button disabled={busy} size="sm" variant="secondary" onClick={() => void handleReview(photo, "approved")}>
-                    Approve
-                  </Button>
-                ) : null}
-                {canAdmin && photo.approvalStatus !== "rejected" ? (
-                  <Button disabled={busy} size="sm" variant="danger" onClick={() => void handleReview(photo, "rejected")}>
-                    Reject
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </CardContent>
   </Card>;
 }
 
+function SharedGravesiteCard({ lotId, burialId, back }: { lotId: number; burialId: number; back: string }) {
+  const [siblings, setSiblings] = useState<Awaited<ReturnType<typeof getLotCoInterments>> | null>(null);
+  useEffect(() => {
+    let active = true;
+    getLotCoInterments(lotId, burialId)
+      .then((rows) => { if (active) setSiblings(rows); })
+      .catch(() => { if (active) setSiblings([]); });
+    return () => { active = false; };
+  }, [lotId, burialId]);
+
+  if (!siblings || !siblings.length) return null;
+  return (
+    <Card>
+      <CardHeader><CardTitle>Shared gravesite roster ({siblings.length} other)</CardTitle></CardHeader>
+      <CardContent>
+        <p className="input-hint">Other individuals recorded at this same physical cemetery plot.</p>
+        <ul className={styles.records}>
+          {siblings.map((person) => (
+            <li key={person.burialId}>
+              <Link
+                className="subtle-link"
+                href={`${burialDirectory}/${person.burialId}?${new URLSearchParams({ returnTo: back })}`}
+              >
+                {person.name} · Burial #{person.burialId}
+              </Link>
+              <span>Status: {formatEnumLabel(person.recordStatus)} · Interment: {person.intermentDate || "Not recorded"}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function BurialRecordDetail({ recordId, returnTo, saved = false, photoStatus }: {
   recordId: string; returnTo?: string; saved?: boolean; photoStatus?: string;
 }) {
+  const canAdmin = useStaff()?.role === "ADMIN";
+  const router = useRouter();
   const state = useRecord(recordId);
   const record = state.data?.record;
   const back = safeBurialReturnTo(returnTo);
   const editHref = burialDirectory + "/" + recordId + "/edit?" + new URLSearchParams({ returnTo: back });
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  async function removeRecord() {
+    if (!record || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteBurialRecord(record.burialId, record.revision);
+      router.push(back);
+    } catch (reason) {
+      setConfirmDelete(false);
+      setDeleteError(errorMessage(reason));
+      setDeleting(false);
+    }
+  }
+
   let content: ReactNode = <p role="status">Loading deceased and interment record…</p>;
   if (state.error) content = <LoadError message={state.error} onRetry={state.retry} />;
   else if (state.data && !record) content = <MissingRecord back={back} />;
   else if (record) content = <>
+    {deleteError ? <Alert title="Record could not be deleted" variant="danger">{deleteError}</Alert> : null}
     {saved ? <Alert title="Record saved" variant={photoStatus === "failed" ? "warning" : "success"}>
       {photoStatus === "approved"
         ? "Deceased details were saved and the family profile photo was approved for public memorial display."
@@ -727,8 +855,8 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
     </RecordSection>
     <RecordSection title="Interment">
       <Detail label="Interment date">{record.intermentDate}</Detail>
-      <Detail label="Interment status">{record.intermentStatus}</Detail>
-      <Detail label="Remains type">{record.remainsType}</Detail>
+      <Detail label="Interment status">{formatEnumLabel(record.intermentStatus)}</Detail>
+      <Detail label="Remains type">{formatEnumLabel(record.remainsType)}</Detail>
       <Detail label="Verified interment order">{record.intermentOrderNumber}</Detail>
       <Detail label="Interment confirmation">{record.intermentConfirmed === true
         ? "Confirmed" : record.intermentConfirmed === false ? "Not confirmed" : "Not recorded"}</Detail>
@@ -738,15 +866,19 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
       {record.syntheticPlotReference ? <Detail label="Gravesite Reference">
         {record.syntheticPlotReference}
       </Detail> : null}
-      {isSyntheticPlot(record.plot) ? <Detail label="Plot classification">
-        Synthetic project plot; no verified physical location or commercial availability.
-        Availability and capacity support project admissions only. PERMANENT / ASH are project defaults.
-      </Detail> : <Detail label="Lot">{record.plot}</Detail>}
+      {!isSyntheticPlot(record.plot) ? <Detail label="Lot">{record.plot}</Detail> : null}
+      <Detail label="Map & plot tools">
+        <div className={styles.actions}>
+          <Link className="subtle-link" href={`/admin/cemetery-map?plot=${record.lotId}`}>View plot on map</Link>
+          <Link className="subtle-link" href={`/admin/plot-management?query=${encodeURIComponent(record.syntheticPlotReference || record.plot)}`}>Open in Plot Management</Link>
+        </div>
+      </Detail>
     </RecordSection>
+    <SharedGravesiteCard back={back} burialId={record.burialId} lotId={record.lotId} />
     <RecordSection title="Record status">
-      <Detail label="Record status">{record.recordStatus}</Detail>
+      <Detail label="Record status">{formatEnumLabel(record.recordStatus)}</Detail>
       <Detail label="Service provider">{record.serviceProvider}</Detail>
-      <Detail label="Last updated">{record.updatedAt}</Detail>
+      <Detail label="Last updated">{formatTimestamp(record.updatedAt)}</Detail>
     </RecordSection>
     <Card><CardContent>
       <details className="admin-internal-record-details">
@@ -763,6 +895,15 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
         </dl>
       </details>
     </CardContent></Card>
+    <ConfirmationDialog
+      confirmLabel={deleting ? "Deleting…" : "Delete record"}
+      description={<p>This hides the burial record from visitors and operational lists. Administrators can restore it in Recovery.</p>}
+      open={confirmDelete}
+      title="Delete burial record?"
+      variant="danger"
+      onClose={() => { if (!deleting) setConfirmDelete(false); }}
+      onConfirm={() => void removeRecord()}
+    />
   </>;
   return <AdminPageFrame
     title={record?.name || "Deceased / Interment Record"}
@@ -772,12 +913,13 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
       { label: "Deceased & Interments", href: back },
       { label: "Record details" },
     ]}
-    actions={record ? <Link className="button button--secondary button--md" href={editHref}>
-      Edit record
-    </Link> : undefined}
+    actions={record ? <div className={styles.actions}>
+      <Link className="button button--secondary button--md" href={editHref}>Edit record</Link>
+      {canAdmin ? <Button disabled={deleting} size="md" variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button> : null}
+    </div> : undefined}
   >
     {content}
-    <Link className="subtle-link" href={back}>Back to Deceased & Interments</Link>
+    <Link className="subtle-link" href={back}>Back to Deceased &amp; Interments</Link>
   </AdminPageFrame>;
 }
 
@@ -788,7 +930,8 @@ function RecordSection({ title, children }: { title: string; children: ReactNode
 }
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
-  return <div><dt>{label}</dt><dd>{children ?? "Not recorded"}</dd></div>;
+  const empty = children === null || children === undefined || children === "";
+  return <div><dt>{label}</dt><dd>{empty ? "Not recorded" : children}</dd></div>;
 }
 
 function SelectField({ label, value, options, onChange }: {

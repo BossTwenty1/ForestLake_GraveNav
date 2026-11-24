@@ -91,7 +91,7 @@ export function MapExplorer({
   const assigned = view === "planning" && planningPlot && bundle
     ? [...bundle.data.layers.lawn, ...bundle.data.layers.estates].find(feature => feature.id === planningPlot) ?? null : null;
   const selected = chosen === undefined ? assigned : chosen;
-  const showLotPopup = !staffTools && selected && !popupClosed;
+  const showLotPopup = Boolean(selected && !popupClosed);
   const memorial = (requestedView === "geographic" && !assigned) || !selected || selected.id === assigned?.id ? destination : null;
   const memorialPlot = memorial ? visitorPlotDetails(memorial) : null;
   const mapUrl = (mode: "planning" | "geographic", id = requestedId, resultPage = page) => "/map?" + new URLSearchParams({
@@ -648,25 +648,27 @@ export function MapExplorer({
     <div className="public-map-workspace">
       <section aria-label="Interactive cemetery map" className="public-map-canvas-column">
         <nav aria-label="Map views" className={"phase-two-layer-options " + layout.viewSwitch}>
-          <div className={layout.viewTabs}>
-            <Link
-              className={"button button--" + (view === "planning" ? "primary" : "secondary")}
-              aria-current={view === "planning" ? "page" : undefined}
-              href={mapUrl("planning")}
-              prefetch={false}
-            >
-              Park map
-            </Link>
-            <Link
-              className={"button button--" + (view === "geographic" ? "primary" : "secondary")}
-              aria-current={view === "geographic" ? "page" : undefined}
-              href={mapUrl("geographic")}
-              prefetch={false}
-            >
-              Gravesite &amp; directions
-            </Link>
-          </div>
-          {!staffTools && view === "planning" ? (
+          {!staffTools ? (
+            <div className={layout.viewTabs}>
+              <Link
+                className={"button button--" + (view === "planning" ? "primary" : "secondary")}
+                aria-current={view === "planning" ? "page" : undefined}
+                href={mapUrl("planning")}
+                prefetch={false}
+              >
+                Park map
+              </Link>
+              <Link
+                className={"button button--" + (view === "geographic" ? "primary" : "secondary")}
+                aria-current={view === "geographic" ? "page" : undefined}
+                href={mapUrl("geographic")}
+                prefetch={false}
+              >
+                Gravesite &amp; directions
+              </Link>
+            </div>
+          ) : <div className={layout.viewTabs} />}
+          {view === "planning" ? (
             <button
               className={"button button--secondary " + layout.optionsButton}
               type="button"
@@ -681,7 +683,7 @@ export function MapExplorer({
             </button>
           ) : null}
         </nav>
-        {!staffTools && view === "planning" && mapOptionsOpen ? <div id="visitor-map-options" className={layout.options}>
+        {view === "planning" && mapOptionsOpen ? <div id="visitor-map-options" className={layout.options}>
           <div className={layout.mapStyleGroup} role="radiogroup" aria-label="Map background style">
             <span className={layout.mapStyleLabel}>Map style</span>
             <div className={layout.mapStyleSwitch}>
@@ -726,9 +728,9 @@ export function MapExplorer({
             <div className="map-loading">
               <div role="status"><strong>{geographicUnavailable.title}</strong>
                 <p>{staffTools ? geography?.message || "Approved geographic information is required before GPS can be displayed." : geographicUnavailable.detail}</p></div>
-              <Link className="button button--secondary" href={mapUrl("planning")} prefetch={false}>Back to park map</Link>
+              <Link className="button button--secondary" href={staffTools ? "/admin/cemetery-map" : mapUrl("planning")} prefetch={false}>Back to park map</Link>
             </div> : bundle ? <PlanningCanvas key={`${attempt}:${mapStyle}`} bundle={bundle} visible={visible} selected={selected} focusOnLoad={selected ?? assigned}
-            mapStyle={staffTools ? "illustrated" : mapStyle}
+            mapStyle={mapStyle}
             onTileError={setSatelliteTileError}
             layoutRoute={activeRoute ? {
               path: activeRoute.path,
@@ -740,12 +742,12 @@ export function MapExplorer({
               gpsPosition: gpsClassification?.status === "inside" ? gpsClassification.cadXY : null,
               gpsAccuracyMeters: gpsClassification?.status === "inside" ? gpsClassification.accuracyMeters : null,
             } : null}
-            lotPopup={showLotPopup ? { preferredId: selected?.id === assigned?.id ? destination?.id : undefined, returnTo, onClose: () => setPopupClosed(true) } : undefined}
+            lotPopup={showLotPopup ? { preferredId: selected?.id === assigned?.id ? destination?.id : undefined, returnTo, staffMode: staffTools, onClose: () => setPopupClosed(true) } : undefined}
             places={showPlaces} trees={showTrees} protection={showProtection} details={showDetails} attempt={attempt}
             reviewMode={staffTools} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={handleCanvasSelect} onReady={ready} onError={setAssetError} />
             : error ? null : <div className="map-loading" role="status"><span className="map-loading__spinner" />Loading cemetery layout…</div>}
 
-          {view === "planning" && !staffTools && isFullscreen ? (
+          {view === "planning" && isFullscreen ? (
             <div className={layout.fullscreenBar}>
               <button
                 type="button"
@@ -764,13 +766,13 @@ export function MapExplorer({
               ) : (
                 <div className={layout.fullscreenDest}>
                   <strong>{PARK_NAME}</strong>
-                  <span>Phase 2 Park Map</span>
+                  <span>{staffTools ? "Staff Cemetery Map" : "Phase 2 Park Map"}</span>
                 </div>
               )}
             </div>
           ) : null}
 
-          {view === "planning" && !staffTools && bundle ? (
+          {view === "planning" && bundle ? (
             <>
               <button
                 type="button"
@@ -797,7 +799,7 @@ export function MapExplorer({
             </>
           ) : null}
 
-          {view === "planning" && !staffTools && mapStyle === "satellite" && satelliteTileError ? (
+          {view === "planning" && mapStyle === "satellite" && satelliteTileError ? (
             <div className={layout.satelliteFallback} role="status">
               <span>Satellite imagery is temporarily unavailable.</span>
               <button type="button" className={layout.inlineAction} onClick={() => changeMapStyle("illustrated")}>
@@ -965,8 +967,8 @@ export function MapExplorer({
           onToggle={event => { if (!staffTools) setPanelOpen(event.currentTarget.open); }}
         >
           <summary>
-            <Icon name={memorial || selected ? "walk" : "search"} size={18} />
-            {memorial ? "Memorial Details & Search" : selected ? "Walking Guide & Plot" : "Find a Loved One"}
+            <Icon name={staffTools ? "map" : memorial || selected ? "walk" : "search"} size={18} />
+            {staffTools ? "Staff Map Tools & Plot Details" : memorial ? "Memorial Details & Search" : selected ? "Walking Guide & Plot" : "Find a Loved One"}
             <Icon name="chevronDown" className={layout.panelChevron} size={16} />
           </summary>
           <div className={layout.panelContent}>
@@ -1014,18 +1016,27 @@ export function MapExplorer({
             {staffTools ? <><dl><div><dt>Category</dt><dd>{featureLayer(selected) === "lawn" ? "Lawn plot" : "Estate lot"}</dd></div>
               <div><dt>Source reference</dt><dd>{selected.properties.instance_path}</dd></div></dl>
             {selected.review?.overlapReviewFids.length ? <p>This outline has an overlap review. Each source candidate remains separately selectable.</p> : null}
-            <p>Official gravesite and burial correspondence awaits verification.</p>
-            {bundle?.coordinates.entries[selected.id] ? <PlotCoordinateDetails reference={bundle.coordinates.entries[selected.id]} /> : null}</> :
+            <p>Click a plot to inspect assigned memorials or review CAD coordinate references.</p>
+            {bundle?.coordinates.entries[selected.id] ? <PlotCoordinateDetails reference={bundle.coordinates.entries[selected.id]} /> : null}
+            <button type="button" className="button button--secondary" onClick={() => setPopupClosed(false)}>Show assigned memorials</button></> :
               <button type="button" className="button button--secondary" onClick={() => setPopupClosed(false)}>Show memorial details</button>}
             <button type="button" className="button button--secondary" onClick={() => select(null)}>Clear selection</button>
-          </> : <p>Select a plot to explore the park, or search for a memorial.</p>}
-          <p><Link href="/search">Search memorial records</Link></p>
+          </> : <p>{staffTools ? "Select any plot on the Phase 2 map to inspect assigned memorials, coordinates, and CAD references." : "Select a plot to explore the park, or search for a memorial."}</p>}
+          {staffTools ? (
+            <p>
+              <Link href="/admin/burial-records">Open Deceased &amp; Interments</Link>
+              {" · "}
+              <Link href="/admin/plot-management">Open Plot Management</Link>
+            </p>
+          ) : (
+            <p><Link href="/search">Search memorial records</Link></p>
+          )}
         </section> : null}
 
-        <details
+        {!staffTools ? <details
           ref={memorialSearchPanel}
           className={layout.nestedSearch}
-          open={staffTools || Boolean(memorialQuery || records.length || recordsError) || (!memorial && !selected)}
+          open={Boolean(memorialQuery || records.length || recordsError) || (!memorial && !selected)}
         >
           <summary>
             <Icon name="search" size={16} />
@@ -1069,7 +1080,7 @@ export function MapExplorer({
             {page * pageSize < total ? <Link href={pageUrl(page + 1)}>Next</Link> : <span aria-disabled="true">Next</span>}
           </nav> : null}
         </section>
-        </details>
+        </details> : null}
 
             {view === "planning" ? (staffTools ? <section className="map-record-panel">
               <details><summary>Find a CAD candidate</summary>          <div className="map-panel-heading"><div><p>Find a plot</p><h2>CAD plot reference</h2></div><Icon name="search" size={21} /></div>

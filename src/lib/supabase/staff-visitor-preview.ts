@@ -8,6 +8,7 @@ import { visitorPlotDetails } from "@/lib/visitor-presentation";
 type PreviewFields = {
   id: number; name: string; birthDate: string | null; deathDate: string | null;
   intermentDate: string | null; recordStatus: "active" | "pending" | "archived";
+  inscription?: string | null;
   plot: string; garden?: string | null; block?: number | null; reference: string | null;
 };
 
@@ -16,6 +17,7 @@ function projectPreview(fields: PreviewFields) {
     burial_id: fields.id, display_name: fields.name,
     birth_date: fields.birthDate, death_date: fields.deathDate,
     interment_date: fields.intermentDate, record_status: fields.recordStatus,
+    inscription: fields.inscription ?? null,
     lot_code: fields.plot, area_name: fields.garden, block_number: fields.block,
     synthetic_plot_reference: fields.reference,
     location_geom: null, px_loc_x: null, px_loc_y: null,
@@ -80,7 +82,7 @@ export async function getStaffVisitorPreview(id: string) {
   const client = await getServerSupabase();
   if (!client) throw new Error("Staff data is unavailable.");
   const { data, error } = await client.from("burial_record").select(
-    "burial_id,lot_id,interment_date,record_status,deceased(display_name,birth_date,death_date,public_display),lot(lot_code,deleted_at,area(area_name),block(block_number))",
+    "burial_id,lot_id,interment_date,record_status,inscription,deceased(display_name,birth_date,death_date,public_display),lot(lot_code,deleted_at,area(area_name),block(block_number))",
   ).eq("burial_id", Number(id)).is("deleted_at", null).maybeSingle();
   if (error) throw new Error("The visitor preview could not be loaded.");
   if (!data || !data.deceased || !data.lot) return null;
@@ -103,6 +105,7 @@ export async function getStaffVisitorPreview(id: string) {
     id: data.burial_id, name: data.deceased.display_name,
     birthDate: data.deceased.birth_date, deathDate: data.deceased.death_date,
     intermentDate: data.interment_date,
+    inscription: "inscription" in data && typeof data.inscription === "string" ? data.inscription : null,
     recordStatus: data.record_status as PreviewFields["recordStatus"],
     plot: data.lot.lot_code, garden: data.lot.area?.area_name,
     block: data.lot.block?.block_number, reference: synthetic,

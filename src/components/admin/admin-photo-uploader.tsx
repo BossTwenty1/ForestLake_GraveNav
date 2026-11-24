@@ -7,13 +7,16 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
 import {
   getAdminPhotoCounts,
   getAdminPhotoPreview,
+  getAdminPhotoThumbnails,
   getAdminPhotos,
   getStorageStatus,
   updatePhotoReview,
@@ -34,6 +37,14 @@ function photoTypeBadge(photo: AdminPhoto) {
   return { label: "Profile portrait", className: styles.typePortrait, icon: "person" as const };
 }
 
+function isVisitorSubmission(photo: AdminPhoto) {
+  return Boolean(photo.isVisitorSubmitted || photo.photoKind === "tribute");
+}
+
+function isStorageDeletedVisitorPhoto(photo: AdminPhoto) {
+  return isVisitorSubmission(photo) && photo.approvalStatus === "rejected";
+}
+
 function formatShortDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return "—";
@@ -44,16 +55,22 @@ export function AdminPhotoUploader() {
   const canAdmin = useStaff()?.role === "ADMIN";
   const [counts, setCounts] = useState<AdminPhotoCounts>({ pending: 0, approved: 0, rejected: 0, visitorPending: 0, total: 0 });
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
+  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [photoPage, setPhotoPage] = useState(0);
   const [photoTotal, setPhotoTotal] = useState(0);
   const [status, setStatus] = useState<AdminPhoto["approvalStatus"] | "all">("pending");
   const [kindFilter, setKindFilter] = useState<"all" | "tribute" | "portrait">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "visitor" | "staff">("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [photoLoading, setPhotoLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
 
   const [preview, setPreview] = useState<{ photo: AdminPhoto; url: string } | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const previewRequest = useRef(0);
+
+  const [rejectTarget, setRejectTarget] = useState<AdminPhoto | null>(null);
 
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -70,9 +87,29 @@ export function AdminPhotoUploader() {
   }, []);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const normalized = searchInput.trim();
+      if (normalized !== searchQuery) {
+        setSearchQuery(normalized);
+        setPhotoPage(0);
+        setPhotoLoading(true);
+        setPreview(null);
+      }
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, searchQuery]);
+
+  useEffect(() => {
     let active = true;
     Promise.all([
-      getAdminPhotos({ page: photoPage, pageSize: 20, status, kind: kindFilter }),
+      getAdminPhotos({
+        page: photoPage,
+        pageSize: 20,
+        status,
+        kind: kindFilter,
+        source: sourceFilter,
+        query: searchQuery,
+      }),
       getAdminPhotoCounts().catch(() => null),
     ])
       .then(([result, nextCounts]) => {
@@ -80,59 +117,123 @@ export function AdminPhotoUploader() {
         setPhotos(result.items);
         setPhotoTotal(result.total || 0);
         if (nextCounts) setCounts(nextCounts);
+
+        const activePhotoIds = result.items
+          .filter((photo) => !isStorageDeletedVisitorPhoto(photo))
+          .map((photo) => photo.photoId);
+        if (activePhotoIds.length) {
+          getAdminPhotoThumbnails(activePhotoIds)
+            .then((nextThumbs) => {
+              if (active) setThumbnails(nextThumbs);
+            })
+            .catch(() => {});
+        } else {
+          setThumbnails({});
+        }
       })
       .catch((reason: unknown) => { if (active) setError(errorMessage(reason)); })
       .finally(() => { if (active) setPhotoLoading(false); });
     return () => { active = false; };
-  }, [photoPage, status, kindFilter, refresh]);
+  }, [photoPage, status, kindFilter, sourceFilter, searchQuery, refresh]);
 
-  function reloadQueue() { setPhotoLoading(true); setRefresh((value) => value + 1); }
-  function switchStatus(next: AdminPhoto["approvalStatus"] | "all") {
-    if (next === status) return;
-    setStatus(next);
+  function reloadQueue() {
+    setError("");
+    setPhotoLoading(true);
+    setRefresh((value) => value + 1);
+  }
+
+  function applyFilters(next: {
+    status?: AdminPhoto["approvalStatus"] | "all";
+    kind?: "all" | "tribute" | "portrait";
+    source?: "all" | "visitor" | "staff";
+  }) {
+    const nextStatus = next.status ?? status;
+    const nextKind = next.kind ?? kindFilter;
+    const nextSource = next.source ?? sourceFilter;
+    const changed = nextStatus !== status || nextKind !== kindFilter || nextSource !== sourceFilter || photoPage !== 0;
+    if (!changed) {
+      reloadQueue();
+      return;
+    }
+    setStatus(nextStatus);
+    setKindFilter(nextKind);
+    setSourceFilter(nextSource);
     setPhotoPage(0);
     setPhotoLoading(true);
     setPreview(null);
   }
-  function switchKind(next: "all" | "tribute" | "portrait") {
-    if (next === kindFilter) return;
-    setKindFilter(next);
-    setPhotoPage(0);
+
+  function changePhotoPage(page: number) {
+    if (page === photoPage) return;
     setPhotoLoading(true);
+    setPhotoPage(page);
     setPreview(null);
   }
-  function changePhotoPage(page: number) { setPhotoLoading(true); setPhotoPage(page); }
+
+  function requestReject(photo: AdminPhoto) {
+    if (!canAdmin || busy) return;
+    if (isVisitorSubmission(photo)) {
+      setRejectTarget(photo);
+      return;
+    }
+    void review(photo, "rejected");
+  }
 
   async function review(photo: AdminPhoto, approvalStatus: AdminPhoto["approvalStatus"]) {
     if (submission.current || !canAdmin) return;
-    submission.current = true; setBusy(true); setError(""); setMessage("");
+    submission.current = true;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setRejectTarget(null);
     try {
-      await updatePhotoReview(photo.photoId, approvalStatus, photo.revision);
-      const isVisitor = Boolean(photo.isVisitorSubmitted || photo.photoKind === "tribute");
+      const outcome = await updatePhotoReview(photo.photoId, approvalStatus, photo.revision);
+      const isVisitor = isVisitorSubmission(photo);
       setMessage(
         approvalStatus === "approved"
           ? photo.photoKind === "tribute"
             ? "Visitor gallery photo approved and published."
             : "Memorial portrait approved for public display."
           : isVisitor
-            ? "Visitor photo rejected, removed from storage, and upload slot reopened."
+            ? outcome.storageDeleted
+              ? "Visitor photo rejected, removed from storage, and upload slot reopened."
+              : "Visitor photo rejected and upload slot reopened. Storage cleanup could not be confirmed."
             : "Photo rejected and kept private.",
       );
-      setPreview(null); previewRequest.current += 1;
-      if (photos.length === 1 && photoPage > 0 && status !== "all") setPhotoPage((value) => value - 1);
+      setPreview(null);
+      previewRequest.current += 1;
+      if (photos.length === 1 && photoPage > 0 && status !== "all") {
+        setPhotoPage((value) => value - 1);
+      }
       reloadQueue();
-    } catch (reason) { setError(errorMessage(reason)); }
-    finally { submission.current = false; setBusy(false); }
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      submission.current = false;
+      setBusy(false);
+    }
   }
 
   async function showPreview(photo: AdminPhoto) {
+    if (isStorageDeletedVisitorPhoto(photo)) return;
+    const cachedUrl = thumbnails[photo.photoId];
+    if (cachedUrl) {
+      setError("");
+      setPreview({ photo, url: cachedUrl });
+      return;
+    }
     const request = ++previewRequest.current;
-    setPreviewBusy(true); setPreview(null); setError("");
+    setPreviewBusy(true);
+    setPreview(null);
+    setError("");
     try {
       const url = await getAdminPhotoPreview(photo.photoId);
       if (request === previewRequest.current) setPreview({ photo, url });
-    } catch (reason) { if (request === previewRequest.current) setError(errorMessage(reason)); }
-    finally { if (request === previewRequest.current) setPreviewBusy(false); }
+    } catch (reason) {
+      if (request === previewRequest.current) setError(errorMessage(reason));
+    } finally {
+      if (request === previewRequest.current) setPreviewBusy(false);
+    }
   }
 
   return (
@@ -142,14 +243,19 @@ export function AdminPhotoUploader() {
           Configure the private photo bucket before approving or previewing memorial photos.
         </Alert>
       ) : null}
+      {!canAdmin ? (
+        <Alert title="Administrator approval required" variant="info">
+          You can view photo status in read-only mode. Only an active ADMIN account can approve or reject photos and view private submitter verification contacts.
+        </Alert>
+      ) : null}
       {error ? <Alert title="Photo action unavailable" variant="danger">{error}</Alert> : null}
       {message ? <div role="status"><Alert title="Photo update" variant="success">{message}</Alert></div> : null}
 
       <section className={styles.kpiGrid} aria-label="Photo moderation summary">
         <button
           type="button"
-          className={styles.kpiCard + (status === "pending" && kindFilter === "all" ? " " + styles.kpiCardActive : "")}
-          onClick={() => { switchStatus("pending"); switchKind("all"); }}
+          className={styles.kpiCard + (status === "pending" && sourceFilter === "all" && kindFilter === "all" ? " " + styles.kpiCardActive : "")}
+          onClick={() => applyFilters({ status: "pending", kind: "all", source: "all" })}
         >
           <span className={styles.kpiLabel}>Pending Review</span>
           <strong className={styles.kpiValue}>{counts.pending}</strong>
@@ -157,8 +263,8 @@ export function AdminPhotoUploader() {
         </button>
         <button
           type="button"
-          className={styles.kpiCard + (status === "pending" && kindFilter === "tribute" ? " " + styles.kpiCardActive : "")}
-          onClick={() => { setStatus("pending"); setKindFilter("all"); setPhotoPage(0); setPhotoLoading(true); }}
+          className={styles.kpiCard + (status === "pending" && sourceFilter === "visitor" ? " " + styles.kpiCardActive : "")}
+          onClick={() => applyFilters({ status: "pending", kind: "all", source: "visitor" })}
         >
           <span className={styles.kpiLabel}>Visitor Submissions Pending</span>
           <strong className={styles.kpiValue}>{counts.visitorPending}</strong>
@@ -166,8 +272,8 @@ export function AdminPhotoUploader() {
         </button>
         <button
           type="button"
-          className={styles.kpiCard + (status === "approved" ? " " + styles.kpiCardActive : "")}
-          onClick={() => { switchStatus("approved"); switchKind("all"); }}
+          className={styles.kpiCard + (status === "approved" && sourceFilter === "all" ? " " + styles.kpiCardActive : "")}
+          onClick={() => applyFilters({ status: "approved", kind: "all", source: "all" })}
         >
           <span className={styles.kpiLabel}>Published Photos</span>
           <strong className={styles.kpiValue}>{counts.approved}</strong>
@@ -175,12 +281,12 @@ export function AdminPhotoUploader() {
         </button>
         <button
           type="button"
-          className={styles.kpiCard + (status === "rejected" ? " " + styles.kpiCardActive : "")}
-          onClick={() => { switchStatus("rejected"); switchKind("all"); }}
+          className={styles.kpiCard + (status === "rejected" && sourceFilter === "all" ? " " + styles.kpiCardActive : "")}
+          onClick={() => applyFilters({ status: "rejected", kind: "all", source: "all" })}
         >
           <span className={styles.kpiLabel}>Rejected</span>
           <strong className={styles.kpiValue}>{counts.rejected}</strong>
-          <span className={styles.kpiHint}>Kept private or deleted</span>
+          <span className={styles.kpiHint}>Kept private or removed</span>
         </button>
       </section>
 
@@ -189,6 +295,16 @@ export function AdminPhotoUploader() {
           <div className={styles.queueHeader}>
             <CardTitle>Photo Review Queue</CardTitle>
             <div className={styles.queueHeaderActions}>
+              <div className={styles.searchBox}>
+                <Input
+                  aria-label="Search photos by memorial, ID, submitter, or caption"
+                  icon="search"
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search memorial, submitter, or ID…"
+                  type="search"
+                  value={searchInput}
+                />
+              </div>
               <Button variant="secondary" size="sm" disabled={busy || photoLoading} onClick={reloadQueue}>
                 Refresh
               </Button>
@@ -210,7 +326,7 @@ export function AdminPhotoUploader() {
                   role="tab"
                   aria-selected={status === tab.key}
                   className={styles.tabButton + (status === tab.key ? " " + styles.tabButtonActive : "")}
-                  onClick={() => switchStatus(tab.key)}
+                  onClick={() => applyFilters({ status: tab.key })}
                 >
                   <span>{tab.label}</span>
                   <span className={styles.tabCount}>{tab.count}</span>
@@ -218,22 +334,42 @@ export function AdminPhotoUploader() {
               ))}
             </div>
 
-            <div className={styles.tabGroup} role="group" aria-label="Filter photos by source">
-              {([
-                { key: "all", label: "All types" },
-                { key: "tribute", label: "Visitor gallery" },
-                { key: "portrait", label: "Profile portraits" },
-              ] as const).map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  aria-pressed={kindFilter === item.key}
-                  className={styles.tabButton + (kindFilter === item.key ? " " + styles.tabButtonActive : "")}
-                  onClick={() => switchKind(item.key)}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className={styles.secondaryFilters}>
+              <div className={styles.tabGroup} role="group" aria-label="Filter photos by source">
+                {([
+                  { key: "all", label: "All sources" },
+                  { key: "visitor", label: "Visitor" },
+                  { key: "staff", label: "Staff" },
+                ] as const).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-pressed={sourceFilter === item.key}
+                    className={styles.tabButton + (sourceFilter === item.key ? " " + styles.tabButtonActive : "")}
+                    onClick={() => applyFilters({ source: item.key })}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.tabGroup} role="group" aria-label="Filter photos by type">
+                {([
+                  { key: "all", label: "All types" },
+                  { key: "tribute", label: "Visitor gallery" },
+                  { key: "portrait", label: "Profile portraits" },
+                ] as const).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-pressed={kindFilter === item.key}
+                    className={styles.tabButton + (kindFilter === item.key ? " " + styles.tabButtonActive : "")}
+                    onClick={() => applyFilters({ kind: item.key })}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -259,13 +395,16 @@ export function AdminPhotoUploader() {
                 </div>
                 <h4>{preview.photo.deceasedName || `Burial Record #${preview.photo.burialId}`}</h4>
                 <div className={styles.previewDetails}>
+                  {preview.photo.lotCode && !isSyntheticPlot(preview.photo.lotCode) ? (
+                    <span><strong>Plot reference:</strong> {preview.photo.lotCode}</span>
+                  ) : null}
                   {preview.photo.submittedByName ? (
                     <span>
                       <strong>Submitted by:</strong> {preview.photo.submittedByName}
                       {preview.photo.submittedByRelation ? ` (${preview.photo.submittedByRelation})` : ""}
                     </span>
                   ) : null}
-                  {preview.photo.submittedByContact ? (
+                  {canAdmin && preview.photo.submittedByContact ? (
                     <span><strong>Verification contact (private):</strong> {preview.photo.submittedByContact}</span>
                   ) : null}
                   <span><strong>Caption:</strong> {preview.photo.caption || "No caption provided"}</span>
@@ -275,7 +414,7 @@ export function AdminPhotoUploader() {
                   <Button
                     size="sm"
                     variant="primary"
-                    disabled={busy || !canAdmin || preview.photo.approvalStatus === "approved"}
+                    disabled={busy || !canAdmin || preview.photo.approvalStatus === "approved" || isStorageDeletedVisitorPhoto(preview.photo)}
                     onClick={() => void review(preview.photo, "approved")}
                   >
                     Approve &amp; Publish
@@ -284,9 +423,9 @@ export function AdminPhotoUploader() {
                     size="sm"
                     variant="danger"
                     disabled={busy || !canAdmin || preview.photo.approvalStatus === "rejected"}
-                    onClick={() => void review(preview.photo, "rejected")}
+                    onClick={() => requestReject(preview.photo)}
                   >
-                    {preview.photo.isVisitorSubmitted || preview.photo.photoKind === "tribute" ? "Reject & Delete" : "Reject"}
+                    {isVisitorSubmission(preview.photo) ? "Reject & Delete" : "Reject"}
                   </Button>
                   <Button
                     size="sm"
@@ -311,7 +450,7 @@ export function AdminPhotoUploader() {
               <Table caption="Photo review queue">
                 <TableHead>
                   <TableRow>
-                    <TableHeaderCell>Memorial</TableHeaderCell>
+                    <TableHeaderCell>Photo &amp; Memorial</TableHeaderCell>
                     <TableHeaderCell>Type</TableHeaderCell>
                     <TableHeaderCell>Details &amp; Attribution</TableHeaderCell>
                     <TableHeaderCell>Submitted</TableHeaderCell>
@@ -323,16 +462,41 @@ export function AdminPhotoUploader() {
                   {photos.map((photo) => {
                     const badge = photoTypeBadge(photo);
                     const cleanLotCode = photo.lotCode && !isSyntheticPlot(photo.lotCode) ? photo.lotCode : null;
-                    const isVisitor = Boolean(photo.isVisitorSubmitted || photo.photoKind === "tribute");
+                    const isVisitor = isVisitorSubmission(photo);
+                    const deletedVisitor = isStorageDeletedVisitorPhoto(photo);
+                    const thumbUrl = thumbnails[photo.photoId];
                     return (
                       <TableRow key={photo.photoId}>
                         <TableCell>
-                          <Link className={styles.recordLink} href={`/admin/burial-records/${photo.burialId}`}>
-                            {photo.deceasedName || `Record #${photo.burialId}`}
-                          </Link>
-                          <span className={styles.metaSub}>
-                            Record #{photo.burialId}{cleanLotCode ? ` · ${cleanLotCode}` : ""}
-                          </span>
+                          <div className={styles.memorialCell}>
+                            <button
+                              type="button"
+                              className={styles.thumbButton}
+                              disabled={deletedVisitor || previewBusy}
+                              onClick={() => void showPreview(photo)}
+                              aria-label={deletedVisitor ? "Image removed from storage" : `Preview ${photo.fileName}`}
+                            >
+                              {deletedVisitor ? (
+                                <span className={styles.thumbPlaceholder} title="Removed from storage">
+                                  <Icon name="close" size={16} />
+                                </span>
+                              ) : thumbUrl ? (
+                                <Image src={thumbUrl} alt="" fill sizes="48px" unoptimized />
+                              ) : (
+                                <span className={styles.thumbPlaceholder}>
+                                  <Icon name="photos" size={16} />
+                                </span>
+                              )}
+                            </button>
+                            <div>
+                              <Link className={styles.recordLink} href={`/admin/burial-records/${photo.burialId}`}>
+                                {photo.deceasedName || `Record #${photo.burialId}`}
+                              </Link>
+                              <span className={styles.metaSub}>
+                                Record #{photo.burialId}{cleanLotCode ? ` · ${cleanLotCode}` : ""}
+                              </span>
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className={styles.typePill + " " + badge.className}>
@@ -345,7 +509,7 @@ export function AdminPhotoUploader() {
                             <>
                               <strong>{photo.submittedByName}</strong>
                               {photo.submittedByRelation ? ` (${photo.submittedByRelation})` : ""}
-                              {photo.submittedByContact ? (
+                              {canAdmin && photo.submittedByContact ? (
                                 <span className={styles.metaSub}>Contact: {photo.submittedByContact}</span>
                               ) : null}
                               <span className={styles.metaSub}>{photo.caption || photo.fileName}</span>
@@ -360,18 +524,25 @@ export function AdminPhotoUploader() {
                         <TableCell>{formatShortDate(photo.createdAt)}</TableCell>
                         <TableCell>
                           <Badge variant={photo.approvalStatus === "approved" ? "success" : photo.approvalStatus === "rejected" ? "danger" : "warning"}>
-                            {photo.approvalStatus}
+                            {deletedVisitor ? "rejected · deleted" : photo.approvalStatus}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className={styles.rowActions}>
-                            <Button size="sm" variant="secondary" disabled={previewBusy} onClick={() => void showPreview(photo)}>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={previewBusy || deletedVisitor}
+                              title={deletedVisitor ? "File was permanently removed from storage" : undefined}
+                              onClick={() => void showPreview(photo)}
+                            >
                               Preview
                             </Button>
                             <Button
                               size="sm"
                               variant="secondary"
-                              disabled={busy || !canAdmin || photo.approvalStatus === "approved"}
+                              disabled={busy || !canAdmin || photo.approvalStatus === "approved" || deletedVisitor}
+                              title={deletedVisitor ? "Rejected visitor photos are deleted from storage and cannot be re-approved" : undefined}
                               onClick={() => void review(photo, "approved")}
                             >
                               Approve
@@ -380,7 +551,7 @@ export function AdminPhotoUploader() {
                               size="sm"
                               variant="danger"
                               disabled={busy || !canAdmin || photo.approvalStatus === "rejected"}
-                              onClick={() => void review(photo, "rejected")}
+                              onClick={() => requestReject(photo)}
                             >
                               {isVisitor ? "Reject & Delete" : "Reject"}
                             </Button>
@@ -407,16 +578,22 @@ export function AdminPhotoUploader() {
           ) : (
             <EmptyState
               icon="photos"
-              title={status === "pending" ? "All caught up" : "No photos found"}
+              title={status === "pending" && !searchQuery ? "All caught up" : "No photos found"}
               description={
-                status === "pending"
-                  ? "There are no pending visitor submissions or portraits awaiting review right now."
-                  : "No photos match the selected status and type filters."
+                searchQuery
+                  ? "No photos matched your search query and active filters."
+                  : status === "pending"
+                    ? "There are no pending visitor submissions or portraits awaiting review right now."
+                    : "No photos match the selected status, source, and type filters."
               }
               action={
-                status === "pending" && counts.approved > 0 ? (
-                  <Button variant="secondary" size="sm" onClick={() => switchStatus("approved")}>
+                status === "pending" && !searchQuery && counts.approved > 0 ? (
+                  <Button variant="secondary" size="sm" onClick={() => applyFilters({ status: "approved", source: "all", kind: "all" })}>
                     View {counts.approved} published photos
+                  </Button>
+                ) : searchQuery || sourceFilter !== "all" || kindFilter !== "all" ? (
+                  <Button variant="secondary" size="sm" onClick={() => { setSearchInput(""); setSearchQuery(""); applyFilters({ status: "all", source: "all", kind: "all" }); }}>
+                    Clear filters
                   </Button>
                 ) : undefined
               }
@@ -424,6 +601,24 @@ export function AdminPhotoUploader() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmationDialog
+        open={Boolean(rejectTarget)}
+        title="Reject and permanently delete visitor photo?"
+        description={
+          rejectTarget ? (
+            <>
+              Rejecting <strong>{rejectTarget.fileName}</strong> for{" "}
+              <strong>{rejectTarget.deceasedName || `Record #${rejectTarget.burialId}`}</strong>{" "}
+              permanently deletes the uploaded image from storage and reopens the visitor upload slot. This cannot be undone.
+            </>
+          ) : null
+        }
+        confirmLabel="Reject & Delete"
+        variant="danger"
+        onConfirm={() => { if (rejectTarget) void review(rejectTarget, "rejected"); }}
+        onClose={() => setRejectTarget(null)}
+      />
     </div>
   );
 }

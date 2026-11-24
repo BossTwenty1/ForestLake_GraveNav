@@ -2,9 +2,11 @@ import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import { PublicSearchForm } from "@/components/visitor/public-search-form";
 import { PublicSearchResultCard } from "@/components/visitor/public-search-result-card";
+import { VisitorAnnouncementBanner } from "@/components/visitor/visitor-announcement-banner";
 import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
 import { searchPublicBurials } from "@/lib/supabase/public-data";
 import { getPrimaryPublicMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
+import { getCachedPublicSiteSettings } from "@/lib/supabase/site-settings";
 import { MemorialSearchHelp, MemorialSearchShell } from "../search/memorial-search-shell";
 import styles from "../search/memorial-search.module.css";
 import { readSearchParams, resultsHref } from "../search/search-params";
@@ -14,11 +16,17 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const { query, section, year, sort, page } = state;
   const currentHref = resultsHref(state);
   const searchHref = "/search?" + new URLSearchParams({ query, section, year, sort });
-  const [search, gardens] = await Promise.allSettled([searchPublicBurials(state), getCachedPublicGardenNames()]);
+  const [search, gardens, siteSettingsRes] = await Promise.allSettled([
+    searchPublicBurials(state),
+    getCachedPublicGardenNames(),
+    getCachedPublicSiteSettings(),
+  ]);
+  const siteSettings = siteSettingsRes.status === "fulfilled" ? siteSettingsRes.value : null;
 
   if (search.status === "rejected") {
     return (
       <MemorialSearchShell>
+        <VisitorAnnouncementBanner settings={siteSettings} />
         <section className={styles.statePanel} aria-labelledby="search-error">
           <Icon name="alert" size={32} />
           <h1 id="search-error">Search is temporarily unavailable</h1>
@@ -38,6 +46,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
 
   return (
     <MemorialSearchShell>
+      <VisitorAnnouncementBanner settings={siteSettings} />
       <PublicSearchForm state={state} gardens={gardens.status === "fulfilled" ? gardens.value : []}
         gardenListUnavailable={gardens.status === "rejected"} resultCount={total} />
       {items.length ? (

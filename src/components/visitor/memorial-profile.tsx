@@ -35,12 +35,13 @@ export function MemorialProfile({ record, mapScope, shared, returnTo, preview = 
     <div className="profile-information-column">
       <GravesiteLocationCard record={record} mapScope={mapScope} returnTo={returnTo} showMapLink={!preview} />
       {shared.state === "unavailable" ? <section className="profile-information-card" aria-labelledby="shared-plot-status"><h2 id="shared-plot-status">Other interments at this plot</h2><p role="status">The shared-grave list is temporarily unavailable. Other interments may be recorded here.</p><a className="button button--primary profile-roster-retry" href={"/gravesite?" + new URLSearchParams({ id: record.id, returnTo })}>Retry shared-grave list</a></section> : null}
-      {shared.items.length ? <section className="profile-information-card" aria-labelledby="shared-plot-title"><h2 id="shared-plot-title">Also interred at this plot</h2><ul>{shared.items.map((person) => <li key={person.id}><Link href={`/gravesite?${new URLSearchParams({ id: person.id, returnTo })}`}>{person.name}</Link></li>)}</ul></section> : null}
+      {shared.items.length ? <section className="profile-information-card" aria-labelledby="shared-plot-title"><h2 id="shared-plot-title">Also interred at this plot</h2><ul>{shared.items.map((person) => <li key={person.id}><Link href={preview ? `/admin/burial-records/${person.id}/preview?${new URLSearchParams({ returnTo })}` : `/gravesite?${new URLSearchParams({ id: person.id, returnTo })}`}>{person.name}</Link></li>)}</ul></section> : null}
       <section aria-labelledby="memorial-information-title" className="profile-information-card">
         <div className="profile-section-heading">
           <h2 id="memorial-information-title">Deceased Information</h2>
           <Icon name="records" size={22} />
         </div>
+        {record.inscription ? <blockquote className="profile-registry-note"><p>“{record.inscription}”</p></blockquote> : null}
         <dl className="profile-registry-list">
           <div><dt>Full name</dt><dd>{record.name}</dd></div>
           <div><dt>Life dates</dt><dd>{record.dates}</dd></div>

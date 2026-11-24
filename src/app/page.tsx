@@ -10,47 +10,71 @@ import { HeroVisitorVideo } from "@/components/visitor/hero-visitor-video";
 import { HomepageParkMap } from "@/components/visitor/homepage-park-map";
 import { SearchSubmitButton } from "@/components/visitor/search-submit-button";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
-import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
 import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
+import { getCachedPublicSiteSettings } from "@/lib/supabase/site-settings";
 import styles from "./homepage.module.css";
 
 const landscape = "/phase2-viewer/landscape/";
-const information: { icon: IconName; label: string; title: string; body: string; note: string }[] = [
-  { icon: "location", label: "Directions & access", title: "Park Location",
-    body: "Explore the park layout before your visit.",
-    note: PARK_ADDRESS },
-  { icon: "support", label: "Staff guidance", title: "On-Site Staff Assistance",
-    body: "Ask cemetery staff for help finding a gravesite or checking a memorial record in person.",
-    note: "Memorial records and gravesite assistance" },
-  { icon: "tree", label: "Grounds courtesy", title: "Dignified Environment",
-    body: "Keep pathways clear and respect families taking time for quiet remembrance.",
-    note: "Courtesy on park grounds" },
-];
 
 export default async function HomePage() {
   await connection();
-  const gardenNames = (await getCachedPublicGardenNames().catch(() => [])).slice(0, 3);
+  const [gardenNamesRaw, siteSettings] = await Promise.all([
+    getCachedPublicGardenNames().catch(() => []),
+    getCachedPublicSiteSettings(),
+  ]);
+  const gardenNames = gardenNamesRaw.slice(0, 3);
+  const parkName = siteSettings.parkName;
+  const parkAddress = siteSettings.parkAddress;
+  const contactParts = [siteSettings.officePhone, siteSettings.officeEmail].filter(Boolean);
+  const contactNote = contactParts.length
+    ? contactParts.join(" · ")
+    : "Memorial records and gravesite assistance";
+
+  const information: { icon: IconName; label: string; title: string; body: string; note: string }[] = [
+    {
+      icon: "location",
+      label: "Directions & hours",
+      title: "Park Location & Hours",
+      body: siteSettings.operatingHours || "Explore the park layout before your visit.",
+      note: parkAddress,
+    },
+    {
+      icon: "support",
+      label: "Staff guidance",
+      title: "On-Site Staff Assistance",
+      body: "Ask cemetery staff for help finding a gravesite or checking a memorial record in person.",
+      note: contactNote,
+    },
+    {
+      icon: "tree",
+      label: "Grounds courtesy",
+      title: "Dignified Environment",
+      body: siteSettings.visitorGuidelines || "Keep pathways clear and respect families taking time for quiet remembrance.",
+      note: "Courtesy on park grounds",
+    },
+  ];
+
   const hasParkPreview = ["base.png", "roads.png", "paths.png", "trees.png"].every((file) =>
     existsSync(path.join(process.cwd(), "public", landscape, file)));
 
   return (
-    <VisitorShell batchOne wide className={styles.shell} helpHref="#visitor-information" searchInputId="homepage-query">
-      <section className={styles.hero} aria-label={`${PARK_NAME} memorial search`}>
+    <VisitorShell batchOne wide className={styles.shell} helpHref="#visitor-information" searchInputId="homepage-query" siteSettings={siteSettings}>
+      <section className={styles.hero} aria-label={`${parkName} memorial search`}>
         <HeroBackgroundVideo
           className={styles.heroVideo}
           src="/homepage/park-hero-showcase-web.mp4"
         />
         <div className={styles.context}>
           <div className={styles.container}>
-            <span className={styles.contextPark}><i aria-hidden="true" /> {PARK_NAME}</span>
-            <span className={styles.contextAddress}><Icon name="location" size={15} />{PARK_ADDRESS}</span>
+            <span className={styles.contextPark}><i aria-hidden="true" /> {parkName}</span>
+            <span className={styles.contextAddress}><Icon name="location" size={15} />{parkAddress}</span>
           </div>
         </div>
         <div className={styles.container}>
           <div className={styles.heroCopy}>
-            <p className={styles.parkLabel}><Icon name="location" size={15} />{PARK_NAME}</p>
+            <p className={styles.parkLabel}><Icon name="location" size={15} />{parkName}</p>
             <h1>Find a Loved One’s <span className={styles.heroTitleAccent}>Resting Place</span></h1>
-            <p className={styles.intro}>Search memorial records, discover gravesite information, and explore {PARK_NAME} with care.</p>
+            <p className={styles.intro}>Search memorial records, discover gravesite information, and explore {parkName} with care.</p>
             <Form action="/results" className={styles.searchCard} role="search" aria-label="Memorial search">
               <label className={styles.searchLabel} htmlFor="homepage-query"><span className={styles.mobileSearchLabel}>Name or plot identifier</span><span className={styles.desktopSearchLabel}>Search by deceased name or plot reference</span></label>
               <div className={styles.searchRow}>
@@ -67,8 +91,8 @@ export default async function HomePage() {
               <span className={styles.quickFactText}><strong>Memorials</strong><span>Search by name or plot</span></span>
             </li>
             <li>
-              <span className={styles.quickFactIcon} aria-hidden="true"><Icon name="location" size={22} /></span>
-              <span className={styles.quickFactText}><strong>Park location</strong><span>{PARK_ADDRESS}</span></span>
+              <span className={styles.quickFactIcon} aria-hidden="true"><Icon name="clock" size={22} /></span>
+              <span className={styles.quickFactText}><strong>Visiting hours</strong><span>{siteSettings.operatingHours || parkAddress}</span></span>
             </li>
             <li>
               <span className={styles.quickFactIcon} aria-hidden="true"><Icon name="map" size={22} /></span>
@@ -76,14 +100,14 @@ export default async function HomePage() {
             </li>
           </ul>
           <figure className={styles.parkPhoto}>
-            <div className={styles.landscape} role="img" aria-label={`Entrance of ${PARK_NAME}`}>
+            <div className={styles.landscape} role="img" aria-label={`Entrance of ${parkName}`}>
               <div className={styles.landscapeTitle} aria-hidden="true">
                 <span>Memorial grounds</span><strong>A Place for Remembrance</strong>
               </div>
             </div>
             <figcaption className={styles.parkCaption}>
               <span className={styles.captionIcon}><Icon name="tree" size={21} /></span>
-              <span><strong>{PARK_NAME}</strong><small>{PARK_ADDRESS}</small></span>
+              <span><strong>{parkName}</strong><small>{parkAddress}</small></span>
             </figcaption>
           </figure>
         </div>
@@ -136,15 +160,15 @@ export default async function HomePage() {
           </div>
           <div className={styles.mobileHelp}>
             <span className={styles.infoIcon}><Icon name="help" size={20} /></span>
-            <div><h3>Visiting {PARK_NAME}?</h3>
-              <p>Ask cemetery staff on site for help checking a memorial record or locating a gravesite.</p>
+            <div><h3>Visiting {parkName}?</h3>
+              <p>{contactParts.length ? `Contact cemetery staff at ${contactParts.join(" or ")} for help checking a memorial record or locating a gravesite.` : "Ask cemetery staff on site for help checking a memorial record or locating a gravesite."}</p>
             </div>
           </div>
         </div>
       </section>
 
       <footer className={styles.footer}><div className={styles.container}>
-        <p><strong>GraveNav Albay</strong> · {PARK_NAME}, {PARK_ADDRESS}</p>
+        <p><strong>GraveNav Albay</strong> · {parkName}, {parkAddress}{contactParts.length ? ` · ${contactParts.join(" · ")}` : ""}</p>
       </div></footer>
     </VisitorShell>
   );

@@ -26,7 +26,6 @@ export default async function AdminBurialRecordsRoute({
     <AdminShell active="Deceased & Interments">
       <BurialRecordsCrud
         initialQueryState={initialQueryState}
-        selectedRecordId={getParam(params?.record)}
       />
     </AdminShell>
   );

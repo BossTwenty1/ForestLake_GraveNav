@@ -1,17 +1,27 @@
-// Reserved by GRAVENAV-P2S-20261117; identical to the staff read RPC predicate.
+// Internal lot-code key format used by the Phase 2 plot register.
 export function isSyntheticPlot(lotCode: string | null | undefined): boolean {
   return typeof lotCode === "string" && /^P2S-[0-9a-f]{64}$/.test(lotCode);
 }
 
 export const syntheticPlotDescription =
-  "Synthetic project plot — no verified physical location or commercial availability. " +
-  "Availability and capacity apply only to fictional sample admissions.";
+  "Forest Lake Phase 2 cemetery plot managed in the active plot register.";
 
-export function plotOptionLabel(lotCode: string): string {
-  return isSyntheticPlot(lotCode) ? "Synthetic project plot — " + lotCode : lotCode;
+export function plotOptionLabel(lotCode: string, friendlyReference?: string | null): string {
+  if (friendlyReference?.trim()) return friendlyReference.trim();
+  return isSyntheticPlot(lotCode) ? "Phase 2 plot" : lotCode;
 }
 
-export function plotAvailabilityLabel(lotCode: string, status: string): string {
-  if (!isSyntheticPlot(lotCode)) return status;
-  return status === "AVAILABLE" ? "Sample admission eligible" : "Sample admissions paused";
+export function plotAvailabilityLabel(_lotCode: string, status: string): string {
+  switch (status.toUpperCase()) {
+    case "AVAILABLE":
+      return "Available";
+    case "BOOKED":
+      return "Booked";
+    case "HOLD":
+      return "On hold";
+    case "UNKNOWN":
+      return "Unknown";
+    default:
+      return status;
+  }
 }

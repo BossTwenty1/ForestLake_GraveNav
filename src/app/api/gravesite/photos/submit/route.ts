@@ -94,13 +94,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: sanitized.error }, { status: 400 });
   }
 
+  // Enforce dynamic Admin visitor photo submission toggles if site_settings is present.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: settingsRow } = await (supabase as any)
+    .from("site_settings")
+    .select("allow_visitor_gallery_uploads,allow_visitor_portrait_requests")
+    .eq("setting_id", 1)
+    .maybeSingle();
+  if (settingsRow && typeof settingsRow === "object") {
+    if (fields.kind === "portrait" && settingsRow.allow_visitor_portrait_requests === false) {
+      return NextResponse.json(
+        { error: "Visitor profile portrait requests are currently paused by cemetery administration." },
+        { status: 403 },
+      );
+    }
+    if (fields.kind === "tribute" && settingsRow.allow_visitor_gallery_uploads === false) {
+      return NextResponse.json(
+        { error: "Visitor remembrance gallery submissions are currently paused by cemetery administration." },
+        { status: 403 },
+      );
+    }
+  }
+
   // Confirm the burial record is active and publicly displayed.
   const { data: burialRow, error: burialError } = await supabase
     .from("public_burial_records")
     .select("burial_id")
     .eq("burial_id", burialId)
     .maybeSingle();
-  if (burialError || !burialRow) {
+  if (burialError) {
+    return NextResponse.json(
+      { error: "The memorial registry could not be reached. Please try again later." },
+      { status: 503 },
+    );
+  }
+  if (!burialRow) {
     return NextResponse.json({ error: "This memorial record could not be found." }, { status: 404 });
   }
 

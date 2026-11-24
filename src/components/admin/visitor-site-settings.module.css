@@ -1,0 +1,64 @@
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-line, var(--border));
+  border-radius: 12px;
+  background: var(--admin-panel-muted, var(--surface-subtle));
+}
+
+.toggleCopy {
+  display: grid;
+  gap: 3px;
+}
+
+.toggleCopy strong {
+  font-size: 0.92rem;
+  color: var(--admin-ink, var(--foreground));
+}
+
+.toggleCopy span {
+  font-size: 0.82rem;
+  color: var(--admin-muted, var(--muted));
+}
+
+.toggleCheckbox {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--green, #156a3c);
+  cursor: pointer;
+}
+
+.bannerPreview {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.bannerPreviewLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--admin-muted, var(--muted));
+}
+
+.metaBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
