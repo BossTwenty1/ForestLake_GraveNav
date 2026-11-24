@@ -245,6 +245,8 @@ export type AdminPhoto = {
   revision: number;
   photoId: number;
   burialId: number;
+  deceasedName?: string | null;
+  lotCode?: string | null;
   fileName: string;
   caption: string | null;
   capturedAt: string | null;
@@ -252,6 +254,8 @@ export type AdminPhoto = {
   publicDisplay: boolean;
   createdAt: string;
   photoKind?: "portrait" | "tribute";
+  isVisitorSubmitted?: boolean;
   submittedByName?: string | null;
   submittedByRelation?: string | null;
+  submittedByContact?: string | null;
 };

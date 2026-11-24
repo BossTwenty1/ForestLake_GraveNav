@@ -429,6 +429,71 @@
 .recovery p { margin-block: 10px; color: var(--memorial-muted); }
 .recovery div { display: flex; flex-wrap: wrap; gap: 12px; }
 
+.heroPhotoCol {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.portraitRequestWrap {
+  display: flex;
+  justify-content: center;
+}
+.portraitRequestBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--memorial-line);
+  border-radius: 7px;
+  background: var(--memorial-tile);
+  color: var(--memorial-accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.portraitRequestBtn:hover {
+  border-color: var(--memorial-accent);
+  background: var(--memorial-good);
+}
+.portraitPendingBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 7px;
+  background: var(--memorial-tile);
+  color: var(--memorial-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-align: center;
+}
+.portraitDialog {
+  position: fixed;
+  margin: auto;
+  inset: 0;
+  width: min(520px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 18px;
+  color: var(--memorial-ink);
+  background: var(--memorial-card);
+  border: 1px solid var(--memorial-line);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+.portraitDialog::backdrop { background: var(--memorial-overlay); }
+.portraitDialogForm {
+  display: grid;
+  gap: 11px;
+  margin-top: 10px;
+}
+
 @media (max-width: 899px) {
   .hero {
     grid-template-columns: 76px minmax(0, 1fr);
@@ -467,7 +532,8 @@
     min-height: 186px;
     padding: 30px 32px;
   }
-  .heroPhoto { grid-area: 1 / 1; border-radius: 10px; aspect-ratio: 1; }
+  .heroPhotoCol { grid-area: 1 / 1; }
+  .heroPhoto { border-radius: 10px; aspect-ratio: 1; }
   .identity { grid-area: 1 / 2; padding: 0; }
   .recordContext { display: block; color: var(--memorial-muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; font-weight: 650; }
   .recordContext span { color: var(--memorial-accent); text-transform: none; }
@@ -509,7 +575,7 @@
   .thumbnails button { aspect-ratio: 1.08; }
   .footer { justify-content: start; padding: 24px 0; border-top: 1px solid var(--memorial-edge); }
   :global(html[data-theme="dark"]) .hero { grid-template-columns: 146px minmax(0,1fr); gap: 10px 28px; min-height: 230px; }
-  :global(html[data-theme="dark"]) .heroPhoto { grid-row: span 2; }
+  :global(html[data-theme="dark"]) .heroPhotoCol { grid-row: span 2; }
   :global(html[data-theme="dark"]) .heroActions { grid-area: 2 / 2; justify-content: start; }
   :global(html[data-theme="light"]) .layout:has(.gallery) .remembering {
     border-bottom: 0;
@@ -532,7 +598,7 @@
 }
 @media (min-width: 900px) and (max-width: 1170px) {
   .hero { grid-template-columns: 112px minmax(0,1fr); gap: 8px 18px; }
-  .heroPhoto { grid-row: span 2; }
+  .heroPhotoCol { grid-row: span 2; }
   .heroActions { grid-area: 2 / 2; justify-content: start; }
   .shared .roster { grid-template-columns: minmax(0,1fr); }
 }

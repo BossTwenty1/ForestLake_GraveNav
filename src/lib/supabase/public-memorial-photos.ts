@@ -18,6 +18,9 @@ export type MemorialGallerySlots = {
   pending: number;
   maxSlots: number;
   remaining: number;
+  portraitApproved: number;
+  portraitPending: number;
+  canSubmitPortrait: boolean;
 };
 
 function positiveId(id: string) {
@@ -83,12 +86,19 @@ export async function getPublicMemorialPhotos(burialId: string): Promise<PublicM
   });
 }
 
-export async function getMemorialGallerySlots(burialId: string, approvedTributesFallback = 0): Promise<MemorialGallerySlots> {
+export async function getMemorialGallerySlots(
+  burialId: string,
+  approvedTributesFallback = 0,
+  hasPortraitFallback = false,
+): Promise<MemorialGallerySlots> {
   const fallback: MemorialGallerySlots = {
     approved: approvedTributesFallback,
     pending: 0,
     maxSlots: MAX_MEMORIAL_GALLERY_SLOTS,
     remaining: Math.max(0, MAX_MEMORIAL_GALLERY_SLOTS - approvedTributesFallback),
+    portraitApproved: hasPortraitFallback ? 1 : 0,
+    portraitPending: 0,
+    canSubmitPortrait: !hasPortraitFallback,
   };
   if (!positiveId(burialId) || !process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET) return fallback;
   const client = getPublicSupabase();
@@ -101,7 +111,12 @@ export async function getMemorialGallerySlots(burialId: string, approvedTributes
   const pending = typeof row.pending === "number" ? Math.max(0, row.pending) : 0;
   const maxSlots = typeof row.maxSlots === "number" ? Math.max(1, row.maxSlots) : MAX_MEMORIAL_GALLERY_SLOTS;
   const remaining = typeof row.remaining === "number" ? Math.max(0, row.remaining) : Math.max(0, maxSlots - (approved + pending));
-  return { approved, pending, maxSlots, remaining };
+  const portraitApproved = typeof row.portraitApproved === "number" ? Math.max(0, row.portraitApproved) : fallback.portraitApproved;
+  const portraitPending = typeof row.portraitPending === "number" ? Math.max(0, row.portraitPending) : 0;
+  const canSubmitPortrait = typeof row.canSubmitPortrait === "boolean"
+    ? row.canSubmitPortrait
+    : (portraitApproved + portraitPending) === 0;
+  return { approved, pending, maxSlots, remaining, portraitApproved, portraitPending, canSubmitPortrait };
 }
 
 export async function getPrimaryPublicMemorialPhotos(burialIds: string[]): Promise<Record<string, PublicMemorialPhoto>> {
