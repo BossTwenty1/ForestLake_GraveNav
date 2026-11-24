@@ -6,28 +6,60 @@ import type { ReportArea, ReportInterment, ReportLot, ReportSource } from "@/lib
 import { isSyntheticPlot } from "@/lib/synthetic-plots";
 import { getServerSupabase } from "./server";
 
-const pageSize = 500;
-type Page<T> = { data: T[] | null; count: number | null; error: unknown };
+const pageSize = 1000;
+type Page<T> = { data: T[] | null; count?: number | null; error: unknown };
 
 async function readPages<T>(
-  load: (from: number, to: number) => PromiseLike<Page<T>>,
+  load: (from: number, to: number, withCount: boolean) => PromiseLike<Page<T>>,
   idOf: (row: T) => number,
 ) {
   const rows: T[] = [];
   const seen = new Set<number>();
-  let from = 0;
-  for (let page = 0; page < 100; page++) {
-    const { data, error } = await load(from, from + pageSize - 1);
-    if (error || !data) {
-      throw new Error("A complete report could not be read.");
-    }
-    for (const row of data) {
+  const append = (batch: T[]) => {
+    for (const row of batch) {
       const id = idOf(row);
       if (Number.isSafeInteger(id) && !seen.has(id)) {
         seen.add(id);
         rows.push(row);
       }
     }
+  };
+
+  const first = await load(0, pageSize - 1, true);
+  if (first.error || !first.data) {
+    throw new Error("A complete report could not be read.");
+  }
+  append(first.data);
+  if (first.data.length < pageSize) return rows;
+
+  const totalCount = typeof first.count === "number" && Number.isFinite(first.count) ? first.count : null;
+  if (totalCount !== null && totalCount > pageSize) {
+    const totalPages = Math.min(100, Math.ceil(totalCount / pageSize));
+    const offsets = Array.from({ length: totalPages - 1 }, (_, index) => (index + 1) * pageSize);
+    // Fetch remaining pages in small concurrent waves to avoid a 10-step sequential waterfall.
+    const concurrency = 6;
+    for (let i = 0; i < offsets.length; i += concurrency) {
+      const wave = offsets.slice(i, i + concurrency);
+      const results = await Promise.all(
+        wave.map((from) => load(from, from + pageSize - 1, false)),
+      );
+      for (const page of results) {
+        if (page.error || !page.data) {
+          throw new Error("A complete report could not be read.");
+        }
+        append(page.data);
+      }
+    }
+    return rows;
+  }
+
+  let from = pageSize;
+  for (let page = 1; page < 100; page++) {
+    const { data, error } = await load(from, from + pageSize - 1, false);
+    if (error || !data) {
+      throw new Error("A complete report could not be read.");
+    }
+    append(data);
     if (data.length < pageSize) break;
     from += pageSize;
   }
@@ -53,16 +85,16 @@ export async function readStaffReport(
   client: NonNullable<Awaited<ReturnType<typeof getServerSupabase>>>,
 ): Promise<ReportSource> {
   const [areas, lots, interments] = await Promise.all([
-    readPages<ReportArea>((from, to) => client.from("area")
-      .select("area_id,area_name", { count: "exact" })
+    readPages<ReportArea>((from, to, withCount) => client.from("area")
+      .select("area_id,area_name", withCount ? { count: "exact" } : undefined)
       .order("area_id").range(from, to), (area) => area.area_id),
-    readPages<ReportLot>((from, to) => client.from("lot")
+    readPages<ReportLot>((from, to, withCount) => client.from("lot")
       .select("lot_id,area_id,lot_code,status,deleted_at,location_geom,coordinate_status,coordinate_verified",
-        { count: "exact" })
+        withCount ? { count: "exact" } : undefined)
       .order("lot_id").range(from, to), (lot) => lot.lot_id),
-    readPages<ReportInterment>((from, to) => client.from("burial_record")
+    readPages<ReportInterment>((from, to, withCount) => client.from("burial_record")
       .select("burial_id,lot_id,record_status,interment_date,interment_confirmed,remains_type,deceased(display_name,public_display)",
-        { count: "exact" })
+        withCount ? { count: "exact" } : undefined)
       .is("deleted_at", null).order("burial_id").range(from, to), (record) => record.burial_id),
   ]);
 

@@ -16,6 +16,7 @@ const PHOTO_COLUMNS_V1_WITH_RECORD = `${PHOTO_COLUMNS},photo_kind,submitted_by_n
 const PHOTO_COLUMNS_WITH_RECORD = `${PHOTO_COLUMNS_EXTENDED},burial_record(lot_id,deceased(display_name),lot(lot_code))`;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
+const PHASE2_PLOT_CODE_RE = /^P2S-[0-9a-f]{64}$/;
 
 export type PageResult<T> = { items: T[]; hasMore: boolean; total: number | null };
 type PageOptions = { page?: number; pageSize?: number };
@@ -232,27 +233,29 @@ export async function getAdminLots(options: PageOptions = {}) {
 
 export async function getAdminLotsPage(options: PageOptions = {}): Promise<PageResult<AdminLot>> {
   const lotsPage = await getLotsForVerificationPage(options);
-  return { ...lotsPage, items: lotsPage.items.map((lot) => ({
-    revision: lot.revision,
-    lotId: lot.lot_id,
-    lotCode: lot.lot_code,
-    areaId: lot.area_id,
-    blockId: lot.block_id,
-    lotOwnerId: lot.lot_owner_id,
-    legacyLocationCode: lot.legacy_location_code,
-    legacyPaNumber: lot.legacy_pa_number,
-    status: lot.status,
-    lengthM: lot.length_m,
-    widthM: lot.width_m,
-    pxLocX: lot.px_loc_x,
-    pxLocY: lot.px_loc_y,
-    coordinateStatus: lot.coordinate_status,
-    coordinateVerified: Boolean(lot.coordinate_verified),
-    coordinateRejectionReason: lot.coordinate_rejection_reason,
-    coordinateAccuracyM: lot.coordinate_accuracy_m,
-    location: lot.location,
-    updatedAt: lot.updated_at,
-  } satisfies AdminLot)) };
+  return {
+    ...lotsPage, items: lotsPage.items.map((lot) => ({
+      revision: lot.revision,
+      lotId: lot.lot_id,
+      lotCode: lot.lot_code,
+      areaId: lot.area_id,
+      blockId: lot.block_id,
+      lotOwnerId: lot.lot_owner_id,
+      legacyLocationCode: lot.legacy_location_code,
+      legacyPaNumber: lot.legacy_pa_number,
+      status: lot.status,
+      lengthM: lot.length_m,
+      widthM: lot.width_m,
+      pxLocX: lot.px_loc_x,
+      pxLocY: lot.px_loc_y,
+      coordinateStatus: lot.coordinate_status,
+      coordinateVerified: Boolean(lot.coordinate_verified),
+      coordinateRejectionReason: lot.coordinate_rejection_reason,
+      coordinateAccuracyM: lot.coordinate_accuracy_m,
+      location: lot.location,
+      updatedAt: lot.updated_at,
+    } satisfies AdminLot))
+  };
 }
 
 export async function getPlotAreas() {
@@ -288,7 +291,28 @@ export async function getPlotManagementPage(options: PlotManagementQuery): Promi
     || !data.areas.every(isPlotAreaOption)) {
     throw new Error("Plot Management returned an unexpected response. Reload to try again.");
   }
-  const page = data as PlotManagementPage;
+  let page = data as PlotManagementPage;
+  if ((page.summary.syntheticPlots ?? 0) > 0 && page.summary.total < page.totalAll) {
+    try {
+      const reconciled = await reconcilePhase2PlotInventory(requireClient());
+      if (reconciled.p2Total > 0) {
+        page = {
+          ...page,
+          summary: {
+            ...page.summary,
+            total: page.summary.total + reconciled.p2Total,
+            occupied: page.summary.occupied + reconciled.p2Occupied,
+            available: page.summary.available + reconciled.p2Available,
+            booked: page.summary.booked + reconciled.p2Booked,
+            onHold: page.summary.onHold + reconciled.p2OnHold,
+            unknown: page.summary.unknown + reconciled.p2Unknown,
+          },
+        };
+      }
+    } catch {
+      // Keep the RPC summary if client table reads are unavailable.
+    }
+  }
   const lotIds = page.items.filter(item => item.assignedBurialId || item.interments?.length).map(item => item.lotId);
   if (!lotIds.length) return page;
   const { data: references, error: referenceError } = await requireClient().rpc("staff_sample_plot_references", { p_lot_ids: lotIds });
@@ -832,13 +856,236 @@ export async function getStaffBurialRecords(options: BurialRecordQuery): Promise
     sections: data.sections,
   };
 }
+async function reconcilePhase2PlotInventory(client: SupabaseClient) {
+  const [lotsResult, burialsResult] = await Promise.all([
+    client
+      .from("lot")
+      .select("lot_id,status")
+      .is("deleted_at", null)
+      .like("lot_code", "P2S-%"),
+    client
+      .from("burial_record")
+      .select("lot_id,deleted_at,lot(lot_id,area_id,deleted_at,area(area_id,area_name))"),
+  ]);
+  if (lotsResult.error) throw lotsResult.error;
+  if (burialsResult.error) throw burialsResult.error;
+
+  const assignedLotIds = new Set<number>();
+  const sectionCounts = new Map<number, { areaId: number; areaName: string; burialCount: number }>();
+
+  for (const row of burialsResult.data || []) {
+    if (typeof row.lot_id === "number") assignedLotIds.add(row.lot_id);
+    if (row.deleted_at !== null) continue;
+    const lot = firstOne(row.lot as {
+      lot_id?: number;
+      area_id?: number;
+      deleted_at?: string | null;
+      area?: { area_id?: number; area_name?: string | null } | { area_id?: number; area_name?: string | null }[] | null;
+    } | {
+      lot_id?: number;
+      area_id?: number;
+      deleted_at?: string | null;
+      area?: { area_id?: number; area_name?: string | null } | { area_id?: number; area_name?: string | null }[] | null;
+    }[] | null);
+    if (!lot || lot.deleted_at !== null) continue;
+    const area = firstOne(lot.area ?? null);
+    const areaId = area?.area_id ?? lot.area_id;
+    const areaName = area?.area_name?.trim();
+    if (typeof areaId !== "number" || !areaName) continue;
+    const existing = sectionCounts.get(areaId);
+    if (existing) {
+      existing.burialCount += 1;
+    } else {
+      sectionCounts.set(areaId, { areaId, areaName, burialCount: 1 });
+    }
+  }
+
+  let p2Occupied = 0;
+  let p2Available = 0;
+  let p2Booked = 0;
+  let p2OnHold = 0;
+  let p2Unknown = 0;
+
+  for (const lot of lotsResult.data || []) {
+    if (assignedLotIds.has(lot.lot_id)) {
+      p2Occupied += 1;
+    } else if (lot.status === "AVAILABLE") {
+      p2Available += 1;
+    } else if (lot.status === "BOOKED") {
+      p2Booked += 1;
+    } else if (lot.status === "HOLD") {
+      p2OnHold += 1;
+    } else {
+      p2Unknown += 1;
+    }
+  }
+
+  const burialsBySection = Array.from(sectionCounts.values()).sort(
+    (a, b) => b.burialCount - a.burialCount || a.areaName.localeCompare(b.areaName) || a.areaId - b.areaId,
+  );
+
+  return {
+    p2Total: p2Occupied + p2Available + p2Booked + p2OnHold + p2Unknown,
+    p2Occupied,
+    p2Available,
+    p2Booked,
+    p2OnHold,
+    p2Unknown,
+    burialsBySection,
+  };
+}
+
+export type DashboardBurialMetricRow = {
+  burialId: number;
+  lotId: number | null;
+  recordStatus: "active" | "pending" | "archived";
+  publicDisplay: boolean;
+  intermentDate: string | null;
+  createdAt: string;
+  areaId: number | null;
+  areaName: string | null;
+};
+
+export type DashboardPhotoMetricRow = {
+  photoId: number;
+  approvalStatus: "pending" | "approved" | "rejected";
+  publicDisplay: boolean;
+  uploadedBy: string | null;
+  createdAt: string;
+  burialActivePublic: boolean;
+};
+
+export async function getDashboardBurialMetrics(): Promise<DashboardBurialMetricRow[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("burial_record")
+    .select("burial_id,lot_id,record_status,interment_date,created_at,deceased(public_display),lot(area_id,deleted_at,area(area_id,area_name))")
+    .is("deleted_at", null);
+  if (error) throw error;
+  return (data || []).map((row) => {
+    const deceased = firstOne(row.deceased as { public_display?: boolean | null } | { public_display?: boolean | null }[] | null);
+    const lot = firstOne(row.lot as {
+      area_id?: number | null;
+      deleted_at?: string | null;
+      area?: { area_id?: number; area_name?: string | null } | { area_id?: number; area_name?: string | null }[] | null;
+    } | {
+      area_id?: number | null;
+      deleted_at?: string | null;
+      area?: { area_id?: number; area_name?: string | null } | { area_id?: number; area_name?: string | null }[] | null;
+    }[] | null);
+    const activeLot = lot && lot.deleted_at === null ? lot : null;
+    const area = activeLot ? firstOne(activeLot.area ?? null) : null;
+    return {
+      burialId: row.burial_id,
+      lotId: typeof row.lot_id === "number" ? row.lot_id : null,
+      recordStatus: enumValue(row.record_status, ["active", "pending", "archived"]),
+      publicDisplay: Boolean(deceased?.public_display),
+      intermentDate: row.interment_date ?? null,
+      createdAt: row.created_at,
+      areaId: area?.area_id ?? activeLot?.area_id ?? null,
+      areaName: area?.area_name?.trim() || null,
+    };
+  });
+}
+
+export async function getDashboardPhotoMetrics(): Promise<DashboardPhotoMetricRow[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from("photo")
+    .select("photo_id,approval_status,public_display,uploaded_by,created_at,burial_record(record_status,deleted_at,deceased(public_display))");
+  if (error) throw error;
+  return (data || []).map((row) => {
+    const burial = firstOne(row.burial_record as {
+      record_status?: string | null;
+      deleted_at?: string | null;
+      deceased?: { public_display?: boolean | null } | { public_display?: boolean | null }[] | null;
+    } | {
+      record_status?: string | null;
+      deleted_at?: string | null;
+      deceased?: { public_display?: boolean | null } | { public_display?: boolean | null }[] | null;
+    }[] | null);
+    const deceased = burial ? firstOne(burial.deceased ?? null) : null;
+    const burialActivePublic = Boolean(
+      burial && burial.deleted_at === null && burial.record_status === "active" && deceased?.public_display,
+    );
+    return {
+      photoId: row.photo_id,
+      approvalStatus: enumValue(row.approval_status, ["pending", "approved", "rejected"]),
+      publicDisplay: Boolean(row.public_display),
+      uploadedBy: row.uploaded_by ?? null,
+      createdAt: row.created_at,
+      burialActivePublic,
+    };
+  });
+}
+
+export async function getPendingAccountCount(): Promise<number> {
+  const client = requireClient();
+  const { count, error } = await client
+    .from("account")
+    .select("account_id", { count: "exact", head: true })
+    .eq("account_status", "PENDING");
+  if (error) return 0;
+  return count ?? 0;
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
-  const { data, error } = await requireClient().rpc("staff_dashboard_data");
+  const client = requireClient();
+  const { data, error } = await client.rpc("staff_dashboard_data");
   if (error) throw new Error(error.code === "PGRST202"
     ? "The Dashboard data migration has not been applied. Contact the project administrator."
     : error.message || "Dashboard data could not be loaded. Reload to try again.");
   if (!isDashboardData(data)) throw new Error("Dashboard data returned an unexpected response. Reload to try again.");
-  return data;
+
+  const sanitizedChanges = data.recentChanges.map((item) => ({
+    ...item,
+    plotCode: item.plotCode && PHASE2_PLOT_CODE_RE.test(item.plotCode) ? "Phase 2 plot" : item.plotCode,
+  }));
+
+  let dashboard: DashboardData = { ...data, recentChanges: sanitizedChanges };
+
+  if ((dashboard.summary.syntheticPlots ?? 0) > 0) {
+    try {
+      const reconciled = await reconcilePhase2PlotInventory(client);
+      if (reconciled.p2Total > 0 || reconciled.burialsBySection.length > 0) {
+        const occupied = dashboard.occupancy.occupied + reconciled.p2Occupied;
+        const available = dashboard.occupancy.available + reconciled.p2Available;
+        const booked = dashboard.occupancy.booked + reconciled.p2Booked;
+        const onHold = dashboard.occupancy.onHold + reconciled.p2OnHold;
+        const unknown = dashboard.occupancy.unknown + reconciled.p2Unknown;
+        const total = occupied + available + booked + onHold + unknown;
+        const rawPercent = total > 0 ? (occupied * 100) / total : 0;
+        const occupancyPercent = rawPercent > 0 && rawPercent < 10
+          ? Number(rawPercent.toFixed(1))
+          : Math.round(rawPercent);
+
+        dashboard = {
+          ...dashboard,
+          summary: {
+            ...dashboard.summary,
+            occupiedPlots: occupied,
+            availablePlots: available,
+          },
+          occupancy: {
+            occupied,
+            available,
+            booked,
+            onHold,
+            unknown,
+            total,
+            occupancyPercent,
+          },
+          burialsBySection: reconciled.burialsBySection.length > 0
+            ? reconciled.burialsBySection
+            : dashboard.burialsBySection,
+        };
+      }
+    } catch {
+      // Keep the RPC dashboard data if fallback queries are unavailable.
+    }
+  }
+
+  return dashboard;
 }
 export async function searchStaffBurials(query: string, page = 1): Promise<{ items: StaffBurialOption[]; total: number }> {
   const { data, error } = await requireClient().rpc("search_staff_burials", { p_query: query.slice(0, 160), p_page: page });
@@ -1071,14 +1318,14 @@ function isDashboardData(value: unknown): value is DashboardData {
     isObject(item) && isCount(item.areaId) && typeof item.areaName === "string" && isCount(item.burialCount))) return false;
   if (!Array.isArray(value.recentChanges) || !value.recentChanges.every((item) =>
     isObject(item) && isCount(item.auditId) && typeof item.label === "string"
-      && (item.subject === null || typeof item.subject === "string")
-      && (item.plotCode === null || typeof item.plotCode === "string")
-      && typeof item.createdAt === "string")) return false;
+    && (item.subject === null || typeof item.subject === "string")
+    && (item.plotCode === null || typeof item.plotCode === "string")
+    && typeof item.createdAt === "string")) return false;
   if (!Array.isArray(value.verificationItems) || !value.verificationItems.every((item) =>
     isObject(item) && isCount(item.lotId) && typeof item.plot === "string" && typeof item.issue === "string"
-      && ["missing", "pending", "rejected"].includes(String(item.status))
-      && (item.rejectionReason === null || typeof item.rejectionReason === "string")
-      && typeof item.updatedAt === "string")) return false;
+    && ["missing", "pending", "rejected"].includes(String(item.status))
+    && (item.rejectionReason === null || typeof item.rejectionReason === "string")
+    && typeof item.updatedAt === "string")) return false;
   return true;
 }
 

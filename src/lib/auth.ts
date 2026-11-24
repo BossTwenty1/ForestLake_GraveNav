@@ -1,21 +1,45 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "./supabase/server";
 import type { AccountStatus, StaffAccount, StaffRole } from "./supabase/types";
 
+type StaffCheckResult =
+  | { kind: "unconfigured" }
+  | { kind: "unauthenticated" }
+  | { kind: "authenticated"; staff: StaffAccount | null };
+
+const getRequestAuthState = cache(() => ({
+  promise: null as Promise<StaffCheckResult> | null,
+}));
+
+function loadStaffForRequest(
+  requestClient?: Awaited<ReturnType<typeof getServerSupabase>>,
+): Promise<StaffCheckResult> {
+  const state = getRequestAuthState();
+  if (!state.promise) {
+    state.promise = (async (): Promise<StaffCheckResult> => {
+      const supabase = requestClient ?? await getServerSupabase();
+      if (!supabase) {
+        logAuthDiagnostic("server-client", { configured: false, hasSession: false, hasAccount: false });
+        return { kind: "unconfigured" };
+      }
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (!user) {
+        logAuthDiagnostic("user-check", { hasSession: false, authError: Boolean(userError), authErrorCode: userError?.code || "NONE", hasAccount: false });
+        return { kind: "unauthenticated" };
+      }
+
+      const staff = await readCurrentStaff(supabase, user);
+      return { kind: "authenticated", staff };
+    })();
+  }
+  return state.promise;
+}
+
 export async function getCurrentStaff(): Promise<StaffAccount | null> {
-  const supabase = await getServerSupabase();
-  if (!supabase) {
-    logAuthDiagnostic("server-client", { configured: false, hasSession: false, hasAccount: false });
-    return null;
-  }
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (!user) {
-    logAuthDiagnostic("user-check", { hasSession: false, authError: Boolean(userError), authErrorCode: userError?.code || "NONE", hasAccount: false });
-    return null;
-  }
-
-  return readCurrentStaff(supabase, user);
+  const result = await loadStaffForRequest();
+  return result.kind === "authenticated" ? result.staff : null;
 }
 
 async function readCurrentStaff(supabase: Awaited<ReturnType<typeof getServerSupabase>>, user: { id: string; email?: string }) {
@@ -76,11 +100,9 @@ export async function requireStaff(
   requiredRole?: StaffRole,
   requestClient?: Awaited<ReturnType<typeof getServerSupabase>>,
 ) {
-  const supabase = requestClient ?? await getServerSupabase();
-  if (!supabase) redirect("/admin/login");
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/admin/login");
-  const staff = await readCurrentStaff(supabase, user);
+  const result = await loadStaffForRequest(requestClient);
+  if (result.kind !== "authenticated") redirect("/admin/login");
+  const staff = result.staff;
   if (!staff) redirect("/admin/unauthorized");
   if (!staff.isActive || staff.accountStatus !== "ACTIVE") redirect("/admin/unauthorized");
   if (requiredRole && staff.role !== requiredRole) redirect("/admin/unauthorized?reason=role");

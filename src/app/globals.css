@@ -6951,9 +6951,9 @@ html[data-theme="dark"] .admin-shell {
   display: block;
   overflow: hidden;
   background: linear-gradient(100deg,
-      var(--admin-panel) 25%,
-      var(--admin-panel-muted) 45%,
-      var(--admin-panel) 65%);
+      var(--admin-panel-muted, var(--surface-muted)) 20%,
+      var(--admin-line, var(--border-soft)) 50%,
+      var(--admin-panel-muted, var(--surface-muted)) 80%);
   background-size: 220% 100%;
   animation: admin-loading 1.4s ease-in-out infinite;
 }

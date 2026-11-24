@@ -58,7 +58,11 @@ export function AdminPhotoUploader() {
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [photoPage, setPhotoPage] = useState(0);
   const [photoTotal, setPhotoTotal] = useState(0);
-  const [status, setStatus] = useState<AdminPhoto["approvalStatus"] | "all">("pending");
+  const [status, setStatus] = useState<AdminPhoto["approvalStatus"] | "all">(() => {
+    if (typeof window === "undefined") return "pending";
+    const param = new URLSearchParams(window.location.search).get("status");
+    return param === "approved" || param === "rejected" || param === "all" || param === "pending" ? param : "pending";
+  });
   const [kindFilter, setKindFilter] = useState<"all" | "tribute" | "portrait">("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "visitor" | "staff">("all");
   const [searchInput, setSearchInput] = useState("");

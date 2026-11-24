@@ -3,28 +3,41 @@ import styles from "@/components/admin/admin-loading.module.css";
 
 export default function AdminLoading() {
   return (
-    <div className={styles.page} role="status" aria-label="Loading workspace">
-      <div className={styles.heading}>
-        <Skeleton className={styles.title} />
-        <Skeleton className={styles.subtitle} />
-      </div>
-      <div className={styles.kpis}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div className={styles.kpiCard} key={index}>
-            <Skeleton className={styles.kpiLabel} />
-            <Skeleton className={styles.kpiValue} />
-          </div>
-        ))}
-      </div>
-      <div className={styles.panel}>
-        <div className={styles.toolbar}>
-          <Skeleton className={styles.pill} />
-          <Skeleton className={styles.pill} />
-          <Skeleton className={styles.pill} />
+    <div aria-busy="true" aria-label="Loading workspace" className={styles.shell} role="status">
+      <aside aria-hidden="true" className={styles.sidebar}>
+        <Skeleton className={styles.sidebarBrand} />
+        <div className={styles.sidebarNav}>
+          {Array.from({ length: 9 }, (_, index) => (
+            <Skeleton className={styles.sidebarItem} key={index} />
+          ))}
         </div>
-        {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton className={styles.row} key={index} />
-        ))}
+      </aside>
+      <div className={styles.main}>
+        <div aria-hidden="true" className={styles.topbar}>
+          <Skeleton className={styles.topbarSearch} />
+          <div className={styles.topbarRight}>
+            <Skeleton className={styles.topbarPill} />
+            <Skeleton className={styles.topbarPill} />
+          </div>
+        </div>
+        <div className={styles.page}>
+          <Skeleton className={styles.banner} />
+          <div className={styles.kpis}>
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton className={styles.kpiCard} key={index} />
+            ))}
+          </div>
+          <div className={styles.analytics}>
+            <Skeleton className={styles.panelTall} />
+            <Skeleton className={styles.panelTall} />
+            <Skeleton className={styles.panelTall} />
+          </div>
+          <div className={styles.operations}>
+            <Skeleton className={styles.panelShort} />
+            <Skeleton className={styles.panelShort} />
+            <Skeleton className={styles.panelShort} />
+          </div>
+        </div>
       </div>
     </div>
   );
