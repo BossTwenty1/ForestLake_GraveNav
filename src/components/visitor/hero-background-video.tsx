@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 export function HeroBackgroundVideo({
   className,
-  poster,
   src,
 }: {
   className?: string;
-  poster: string;
   src: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,7 +46,6 @@ export function HeroBackgroundVideo({
       muted
       onError={() => setFailed(true)}
       playsInline
-      poster={poster}
       preload="metadata"
       tabIndex={-1}
     >

@@ -349,7 +349,11 @@ function edgeWeight(kind: EdgeKind, mode: LayoutRouteMode): number {
   return mode === "paved" ? 6.0 : 1.28;
 }
 
+const walkwayGraphCache = new WeakMap<PlanningBundle, LayoutWalkwayGraph>();
+
 export function buildLayoutWalkwayGraph(bundle: PlanningBundle): LayoutWalkwayGraph {
+  const cached = walkwayGraphCache.get(bundle);
+  if (cached) return cached;
   const { parkBoundary, hardPolygons, estatePolygons, barrierSegments } = extractObstacles(bundle);
   const gradedLawnCells = buildGradedLawnCells(bundle.data?.layers?.lawn);
   const nodes: LayoutPoint[] = [];
@@ -622,7 +626,7 @@ export function buildLayoutWalkwayGraph(bundle: PlanningBundle): LayoutWalkwayGr
     }
   }
 
-  return {
+  const built: LayoutWalkwayGraph = {
     nodes,
     nodeKinds,
     adj,
@@ -632,6 +636,8 @@ export function buildLayoutWalkwayGraph(bundle: PlanningBundle): LayoutWalkwayGr
     barrierSegments,
     gradedLawnCells,
   };
+  walkwayGraphCache.set(bundle, built);
+  return built;
 }
 
 export function layoutStartPoints(bundle: PlanningBundle): LayoutStartPoint[] {

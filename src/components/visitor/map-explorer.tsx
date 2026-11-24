@@ -130,13 +130,16 @@ export function MapExplorer({
   useEffect(() => {
     if (view !== "planning" || cachedBundle.current) return;
     const controller = new AbortController();
-    loadPlanningBundle(controller.signal).then(value => {
+    loadPlanningBundle(controller.signal, {
+      includeCoordinates: staffTools,
+      bypassCache: attempt > 0,
+    }).then(value => {
       if (!controller.signal.aborted) { cachedBundle.current = value; setBundle(value); }
     }).catch((reason: unknown) => {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "The map could not be loaded.");
     });
     return () => { controller.abort(); actions.current = null; };
-  }, [attempt, view]);
+  }, [attempt, view, staffTools]);
 
   useEffect(() => {
     if (staffTools || view !== "planning" || routeMode !== "gps" || !gpsRequested) return;

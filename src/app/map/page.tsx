@@ -2,7 +2,8 @@ import { safeResultsReturnTo } from "@/lib/visitor-presentation";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
 import { ParkExplorer } from "@/components/visitor/park-explorer";
 import { MapExplorer } from "@/components/visitor/map-explorer";
-import { getPublicGardenNames, searchPublicBurials } from "@/lib/supabase/public-data";
+import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
+import { searchPublicBurials } from "@/lib/supabase/public-data";
 import { getPhaseTwoDestination } from "@/lib/supabase/phase2-data";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 
@@ -29,7 +30,7 @@ export default async function MapPage({ searchParams }: { searchParams: SearchPa
   let gardenListUnavailable = false;
   const destination = id || view === "geographic" ? getPhaseTwoDestination(id) : Promise.resolve(null);
   try {
-    const [names, result] = await Promise.all([getPublicGardenNames().catch(() => null), searchPublicBurials({ query, section, page })]);
+    const [names, result] = await Promise.all([getCachedPublicGardenNames().catch(() => null), searchPublicBurials({ query, section, page })]);
     gardenListUnavailable = names === null;
     gardens = names ?? []; records = result.items; total = result.total; pageSize = result.pageSize;
   } catch {

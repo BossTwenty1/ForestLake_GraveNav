@@ -11,7 +11,7 @@ import { HomepageParkMap } from "@/components/visitor/homepage-park-map";
 import { SearchSubmitButton } from "@/components/visitor/search-submit-button";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
 import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
-import { getPublicGardenNames } from "@/lib/supabase/public-data";
+import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
 import styles from "./homepage.module.css";
 
 const landscape = "/phase2-viewer/landscape/";
@@ -29,7 +29,7 @@ const information: { icon: IconName; label: string; title: string; body: string;
 
 export default async function HomePage() {
   await connection();
-  const gardenNames = (await getPublicGardenNames().catch(() => [])).slice(0, 3);
+  const gardenNames = (await getCachedPublicGardenNames().catch(() => [])).slice(0, 3);
   const hasParkPreview = ["base.png", "roads.png", "paths.png", "trees.png"].every((file) =>
     existsSync(path.join(process.cwd(), "public", landscape, file)));
 
@@ -38,7 +38,6 @@ export default async function HomePage() {
       <section className={styles.hero} aria-label={`${PARK_NAME} memorial search`}>
         <HeroBackgroundVideo
           className={styles.heroVideo}
-          poster="/homepage/park-hero-poster.jpg"
           src="/homepage/park-hero-showcase-web.mp4"
         />
         <div className={styles.context}>

@@ -33,6 +33,7 @@ test("Map entry renders the integrated GraveNav section without redirecting to t
     "@/lib/visitor-presentation": presentation,
     "@/components/visitor/park-explorer": { ParkExplorer: ({ geography, startPublished }) => jsx.jsx("section", { "data-park-overview": true, "data-published": startPublished, "data-release": geography?.releaseId }) },
     "@/components/visitor/map-explorer": { MapExplorer: ({ query, destination, view }) => jsx.jsx("section", { "data-native-map": query, "data-burial": destination?.id, "data-view": view }) },
+    "@/lib/supabase/cached-public-data": { getCachedPublicGardenNames: async () => [] },
     "@/lib/supabase/public-data": { getPublicGardenNames: async () => [], searchPublicBurials: async () => ({ items: [], total: 0, pageSize: 20 }) },
     "@/lib/supabase/phase2-data": { getPhaseTwoDestination: async id => ({ record: { id }, geography: {state:"unavailable",data:null} }) },
   });

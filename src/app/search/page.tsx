@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { PublicSearchForm } from "@/components/visitor/public-search-form";
 import { PARK_NAME } from "@/lib/park-details";
-import { getPublicGardenNames } from "@/lib/supabase/public-data";
+import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
 import { MemorialSearchHelp, MemorialSearchShell } from "./memorial-search-shell";
 import styles from "./memorial-search.module.css";
 import { readSearchParams, resultsHref } from "./search-params";
@@ -17,7 +17,7 @@ const tips: { icon: IconName; title: string; text: string }[] = [
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const state = readSearchParams(await searchParams);
-  const gardens = await getPublicGardenNames().catch(() => null);
+  const gardens = await getCachedPublicGardenNames().catch(() => null);
 
   return (
     <MemorialSearchShell initial>

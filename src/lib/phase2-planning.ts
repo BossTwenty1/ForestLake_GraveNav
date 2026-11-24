@@ -130,8 +130,8 @@ const frozenDigests = {
   details: "00fd5a81075418e916a11ae28d442d57534ee0fb6dbf57b3ad43eaa584ab1de5",
   coordinates: "11939315dbd2ea87de374e57290bb96acd6f1bf6a30a9f136b71c441b91c7b23",
 };
-async function verifiedJson(url: string, expected: string, signal: AbortSignal) {
-  const response = await fetch(url, { signal, cache: "no-store" });
+async function verifiedJson(url: string, expected: string) {
+  const response = await fetch(url, { cache: "force-cache" });
   if (!response.ok) throw new Error("The Phase 2 map files could not be loaded.");
   const bytes = await response.arrayBuffer();
   const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
@@ -139,25 +139,80 @@ async function verifiedJson(url: string, expected: string, signal: AbortSignal) 
   if (digest !== expected) throw new Error("The Phase 2 map files differ from the verified release.");
   return JSON.parse(new TextDecoder().decode(bytes));
 }
-export async function loadPlanningBundle(signal: AbortSignal): Promise<PlanningBundle> {
-  const [raw, landscape, places, rawDetails, rawCoordinates] = await Promise.all([
-    verifiedJson(planningAssetRoot + "data/phase2.local.json", frozenDigests.data, signal),
-    verifiedJson(planningAssetRoot + "landscape/manifest.json", frozenDigests.landscape, signal),
-    verifiedJson("/phase2-planning/places.json", frozenDigests.places, signal),
-    verifiedJson("/phase2-planning/cad-details/manifest.json", frozenDigests.details, signal),
-    verifiedJson("/phase2-planning/plot-coordinates.json", frozenDigests.coordinates, signal),
-  ]);
-  const data = validateData(raw);
-  if (landscape.format !== "gravenav-full-landscape-v1" ||
-      landscape.sourceSha256 !== data.source.sha256 || landscape.dataSha256 !== frozenDigests.data ||
-      landscape.candidateCount !== 4494 || places.sourcePackageSha256 !== data.source.sha256 ||
-      places.geometrySha256 !== frozenDigests.data || places.landmarks.length !== 9) {
-    throw new Error("The landscape and CAD references do not match.");
+
+type PlanningCoreBundle = Omit<PlanningBundle, "coordinates">;
+const emptyCoordinates = { entries: {} } as unknown as PlotCoordinateReferences;
+
+let cachedCorePromise: Promise<PlanningCoreBundle> | null = null;
+let cachedCoordinatesPromise: Promise<PlotCoordinateReferences> | null = null;
+
+export function clearPlanningBundleCache() {
+  cachedCorePromise = null;
+  cachedCoordinatesPromise = null;
+}
+
+function loadPlanningCore(): Promise<PlanningCoreBundle> {
+  if (!cachedCorePromise) {
+    cachedCorePromise = (async () => {
+      const [raw, landscape, places, rawDetails] = await Promise.all([
+        verifiedJson(planningAssetRoot + "data/phase2.local.json", frozenDigests.data),
+        verifiedJson(planningAssetRoot + "landscape/manifest.json", frozenDigests.landscape),
+        verifiedJson("/phase2-planning/places.json", frozenDigests.places),
+        verifiedJson("/phase2-planning/cad-details/manifest.json", frozenDigests.details),
+      ]);
+      const data = validateData(raw);
+      if (landscape.format !== "gravenav-full-landscape-v1" ||
+          landscape.sourceSha256 !== data.source.sha256 || landscape.dataSha256 !== frozenDigests.data ||
+          landscape.candidateCount !== 4494 || places.sourcePackageSha256 !== data.source.sha256 ||
+          places.geometrySha256 !== frozenDigests.data || places.landmarks.length !== 9) {
+        throw new Error("The landscape and CAD references do not match.");
+      }
+      const details = validateCadDetails(rawDetails, frozenDigests.data);
+      if (details.bounds.some((coordinate, index) => coordinate !== landscape.bounds[index])) {
+        throw new Error("The CAD details and landscape use different map extents.");
+      }
+      return { data, landscape, places, details };
+    })().catch((reason) => {
+      cachedCorePromise = null;
+      throw reason;
+    });
   }
-  const details = validateCadDetails(rawDetails, frozenDigests.data);
-  if (details.bounds.some((coordinate, index) => coordinate !== landscape.bounds[index])) {
-    throw new Error("The CAD details and landscape use different map extents.");
+  return cachedCorePromise;
+}
+
+function loadPlanningCoordinates(core: PlanningCoreBundle): Promise<PlotCoordinateReferences> {
+  if (!cachedCoordinatesPromise) {
+    cachedCoordinatesPromise = verifiedJson("/phase2-planning/plot-coordinates.json", frozenDigests.coordinates)
+      .then((rawCoordinates) =>
+        validatePlotCoordinates(rawCoordinates, frozenDigests.data, [...core.data.layers.lawn, ...core.data.layers.estates]),
+      )
+      .catch((reason) => {
+        cachedCoordinatesPromise = null;
+        throw reason;
+      });
   }
-  const coordinates = validatePlotCoordinates(rawCoordinates, frozenDigests.data, [...data.layers.lawn, ...data.layers.estates]);
-  return { data, landscape, places, details, coordinates };
+  return cachedCoordinatesPromise;
+}
+
+export async function loadPlanningBundle(
+  signal?: AbortSignal,
+  options?: { includeCoordinates?: boolean; bypassCache?: boolean },
+): Promise<PlanningBundle> {
+  if (options?.bypassCache) clearPlanningBundleCache();
+  const includeCoordinates = Boolean(options?.includeCoordinates);
+  const work = (async () => {
+    const core = await loadPlanningCore();
+    const coordinates = includeCoordinates ? await loadPlanningCoordinates(core) : emptyCoordinates;
+    return { ...core, coordinates };
+  })();
+  if (!signal) return work;
+  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+  return new Promise<PlanningBundle>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    work.then(
+      (value) => { signal.removeEventListener("abort", onAbort); resolve(value); },
+      (reason) => { signal.removeEventListener("abort", onAbort); reject(reason); },
+    );
+  });
 }

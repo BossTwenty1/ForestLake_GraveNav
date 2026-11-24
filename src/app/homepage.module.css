@@ -23,7 +23,6 @@
   --home-on-green: #fff;
   --home-field-border: #748278;
   --home-accent: #004c22;
-  --home-park: url("/homepage/park-hero-poster.jpg");
   --home-tutorial: url("/homepage/tutorial-desktop-light.webp");
   --home-shadow: 0 2px 8px rgba(21, 40, 62, 0.08);
 
@@ -137,17 +136,10 @@
   pointer-events: none;
 }
 
-.hero::before,
 .hero::after {
   content: "";
   position: absolute;
   pointer-events: none;
-}
-
-.hero::before {
-  inset: 0;
-  z-index: -3;
-  background: var(--home-park) center center / cover no-repeat;
 }
 
 .hero::after {
