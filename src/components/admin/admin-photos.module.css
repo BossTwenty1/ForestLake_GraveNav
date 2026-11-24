@@ -252,6 +252,18 @@
   color: var(--admin-muted, var(--muted));
 }
 
+.skeletonRows {
+  display: grid;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.skeletonRow {
+  height: 56px;
+  width: 100%;
+  border-radius: 10px;
+}
+
 @media (max-width: 960px) {
   .kpiGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
