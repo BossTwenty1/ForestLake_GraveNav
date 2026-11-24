@@ -11,6 +11,7 @@ const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_
 const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,legacy_location_code,legacy_pa_number,status,length_m,width_m,px_loc_x,px_loc_y,location_geom,coordinate_accuracy_m,coordinate_status,coordinate_verified,coordinate_rejection_reason,updated_at,deleted_at";
 const OWNER_COLUMNS = "revision,lot_owner_id,first_name,middle_name,last_name,suffix,aliases,address,representative_name,representative_contact,representative_relation";
 const PHOTO_COLUMNS = "revision,photo_id,burial_id,file_name,caption,captured_at,approval_status,public_display,created_at";
+const PHOTO_COLUMNS_EXTENDED = `${PHOTO_COLUMNS},photo_kind,submitted_by_name,submitted_by_relation`;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
@@ -509,51 +510,95 @@ export async function uploadBurialPhoto(input: { burialId: number; file: File; c
   }
 }
 
-export async function getAdminPhotos(options: PageOptions & { status?: AdminPhoto["approvalStatus"] | "all" } = {}) {
-  const client = requireClient();
-  const { from, to } = pageRange(options);
-  let query = client.from("photo").select(PHOTO_COLUMNS, { count: "exact" });
-  if (options.status && options.status !== "all") query = query.eq("approval_status", options.status);
-  const { data, error, count } = await query.order("created_at", { ascending: false }).order("photo_id", { ascending: false }).range(from, to);
-  if (error) throw error;
-  const items = (data || []).map((photo) => ({
+function mapAdminPhoto(photo: {
+  revision: number;
+  photo_id: number;
+  burial_id: number;
+  file_name: string;
+  caption: string | null;
+  captured_at: string | null;
+  approval_status: string;
+  public_display: boolean;
+  created_at: string;
+  photo_kind?: "portrait" | "tribute";
+  submitted_by_name?: string | null;
+  submitted_by_relation?: string | null;
+}): AdminPhoto {
+  return {
     revision: photo.revision,
     photoId: photo.photo_id,
     burialId: photo.burial_id,
     fileName: photo.file_name,
     caption: photo.caption,
     capturedAt: photo.captured_at,
-    approvalStatus: photo.approval_status,
+    approvalStatus: photo.approval_status as AdminPhoto["approvalStatus"],
     publicDisplay: Boolean(photo.public_display),
     createdAt: photo.created_at,
-  })) as AdminPhoto[];
+    photoKind: photo.photo_kind === "tribute" ? "tribute" : "portrait",
+    submittedByName: photo.submitted_by_name ?? null,
+    submittedByRelation: photo.submitted_by_relation ?? null,
+  };
+}
+
+export async function getAdminPhotos(options: PageOptions & { status?: AdminPhoto["approvalStatus"] | "all" } = {}) {
+  const client = requireClient();
+  const { from, to } = pageRange(options);
+  let query = client.from("photo").select(PHOTO_COLUMNS_EXTENDED, { count: "exact" });
+  if (options.status && options.status !== "all") query = query.eq("approval_status", options.status);
+  const extended = await query.order("created_at", { ascending: false }).order("photo_id", { ascending: false }).range(from, to);
+  if (!extended.error) {
+    const items = (extended.data || []).map(mapAdminPhoto);
+    return { items, hasMore: hasMore(from, items.length, extended.count), total: extended.count } satisfies PageResult<AdminPhoto>;
+  }
+  let legacyQuery = client.from("photo").select(PHOTO_COLUMNS, { count: "exact" });
+  if (options.status && options.status !== "all") legacyQuery = legacyQuery.eq("approval_status", options.status);
+  const { data, error, count } = await legacyQuery.order("created_at", { ascending: false }).order("photo_id", { ascending: false }).range(from, to);
+  if (error) throw error;
+  const items = (data || []).map(mapAdminPhoto);
   return { items, hasMore: hasMore(from, items.length, count), total: count } satisfies PageResult<AdminPhoto>;
 }
 
 
 export async function getBurialPhotos(burialId: number): Promise<AdminPhoto[]> {
   const client = requireClient();
+  const extended = await client
+    .from("photo")
+    .select(PHOTO_COLUMNS_EXTENDED)
+    .eq("burial_id", burialId)
+    .order("photo_id", { ascending: true });
+  if (!extended.error) {
+    return (extended.data || []).map(mapAdminPhoto);
+  }
   const { data, error } = await client
     .from("photo")
     .select(PHOTO_COLUMNS)
     .eq("burial_id", burialId)
     .order("photo_id", { ascending: true });
   if (error) throw error;
-  return (data || []).map((photo) => ({
-    revision: photo.revision,
-    photoId: photo.photo_id,
-    burialId: photo.burial_id,
-    fileName: photo.file_name,
-    caption: photo.caption,
-    capturedAt: photo.captured_at,
-    approvalStatus: photo.approval_status,
-    publicDisplay: Boolean(photo.public_display),
-    createdAt: photo.created_at,
-  })) as AdminPhoto[];
+  return (data || []).map(mapAdminPhoto);
 }
 
 export async function updatePhotoReview(photoId: number, approvalStatus: AdminPhoto["approvalStatus"], revision: number) {
-  return saveStaffRecord("photo", photoId, revision, { status: approvalStatus }, "review");
+  let storagePathToDelete: string | null = null;
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET;
+  if (approvalStatus === "rejected" && bucket) {
+    const client = requireClient();
+    const { data: photo } = await client
+      .from("photo")
+      .select("storage_path,photo_kind")
+      .eq("photo_id", photoId)
+      .maybeSingle();
+    if (photo?.photo_kind === "tribute" && photo.storage_path) {
+      storagePathToDelete = photo.storage_path;
+    }
+  }
+
+  const result = await saveStaffRecord("photo", photoId, revision, { status: approvalStatus }, "review");
+
+  if (storagePathToDelete && bucket) {
+    await requireClient().storage.from(bucket).remove([storagePathToDelete]).catch(() => {});
+  }
+  return result;
 }
 
 export type StaffBurialOption = { burial_id: number; display_name: string; lot_code: string; area_name: string | null };

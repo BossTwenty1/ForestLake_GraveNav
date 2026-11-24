@@ -251,4 +251,7 @@ export type AdminPhoto = {
   approvalStatus: "pending" | "approved" | "rejected";
   publicDisplay: boolean;
   createdAt: string;
+  photoKind?: "portrait" | "tribute";
+  submittedByName?: string | null;
+  submittedByRelation?: string | null;
 };

@@ -1940,11 +1940,14 @@ export type Database = {
           created_at: string
           file_name: string
           photo_id: number
+          photo_kind: "portrait" | "tribute"
           public_display: boolean
           reviewed_by: string | null
           revision: number
           storage_path: string
-          uploaded_by: string
+          submitted_by_name: string | null
+          submitted_by_relation: string | null
+          uploaded_by: string | null
         }
         Insert: {
           approval_status?: string
@@ -1954,11 +1957,14 @@ export type Database = {
           created_at?: string
           file_name: string
           photo_id?: number
+          photo_kind?: "portrait" | "tribute"
           public_display?: boolean
           reviewed_by?: string | null
           revision?: number
           storage_path: string
-          uploaded_by: string
+          submitted_by_name?: string | null
+          submitted_by_relation?: string | null
+          uploaded_by?: string | null
         }
         Update: {
           approval_status?: string
@@ -1968,11 +1974,14 @@ export type Database = {
           created_at?: string
           file_name?: string
           photo_id?: number
+          photo_kind?: "portrait" | "tribute"
           public_display?: boolean
           reviewed_by?: string | null
           revision?: number
           storage_path?: string
-          uploaded_by?: string
+          submitted_by_name?: string | null
+          submitted_by_relation?: string | null
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -2164,7 +2173,10 @@ export type Database = {
           captured_at: string | null
           file_name: string | null
           photo_id: number | null
+          photo_kind: "portrait" | "tribute" | null
           storage_path: string | null
+          submitted_by_name: string | null
+          submitted_by_relation: string | null
         }
         Relationships: [
           {
@@ -2560,6 +2572,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_memorial_gallery_slots: {
+        Args: { p_burial_id: number }
+        Returns: Json
       }
       get_my_account: {
         Args: never

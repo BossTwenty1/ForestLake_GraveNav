@@ -5,7 +5,8 @@ import { MemorialMapPreview } from "@/components/visitor/memorial-map-preview";
 import { getMemorialInscription } from "@/lib/memorial-inscriptions";
 import { PARK_ADDRESS, PARK_NAME } from "@/lib/park-details";
 import type { SharedPlotBurials } from "@/lib/supabase/public-data";
-import type { PublicMemorialPhoto } from "@/lib/supabase/public-memorial-photos";
+import type { MemorialGallerySlots, PublicMemorialPhoto } from "@/lib/supabase/public-memorial-photos";
+import { splitMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 import { memorialMapHref, visitorPlotDetails, type GravesiteMapScope } from "@/lib/visitor-presentation";
 import { MemorialActions } from "./memorial-actions";
@@ -18,14 +19,16 @@ function recordedDate(value: string | null) {
   return Number.isNaN(date.valueOf()) ? null : new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" }).format(date);
 }
 
-export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, photos, returnTo }: {
+export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, photos, gallerySlots, returnTo }: {
   record: PublicBurialRecord;
   mapScope: GravesiteMapScope;
   planningPlot?: string | null;
   shared: SharedPlotBurials;
   photos: PublicMemorialPhoto[];
+  gallerySlots?: MemorialGallerySlots;
   returnTo: string;
 }) {
+  const { portrait, gallery } = splitMemorialPhotos(photos);
   const plot = visitorPlotDetails(record);
   const birth = recordedDate(record.birthDate);
   const passing = recordedDate(record.deathDate);
@@ -40,7 +43,7 @@ export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, 
   return (
     <article className={styles.content} aria-labelledby="memorial-name">
       <section className={styles.hero} aria-labelledby="memorial-name">
-        <div className={styles.heroPhoto}><MemorialPhoto name={record.name} photo={photos[0]} priority /></div>
+        <div className={styles.heroPhoto}><MemorialPhoto name={record.name} photo={portrait} priority /></div>
         <div className={styles.identity}>
           <p className={styles.recordContext}>Memorial record{plot.garden !== "Not recorded" ? <> · <span>{plot.garden}</span></> : null}</p>
           <h1 id="memorial-name">{record.name}</h1>
@@ -49,8 +52,8 @@ export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, 
         </div>
         <div className={styles.heroActions}>
           <Link className={styles.mapAction} href={memorialMapHref(record.id, mapScope, returnTo)}>
-            <Icon name={mapScope === "unavailable" ? "map" : "walk"} size={18} />
-            <span>{mapScope === "unavailable" ? "Browse Park Map" : "Open Gravesite Guide"}</span>
+            <Icon name={mapScope === "unavailable" ? "map" : "navigation"} size={18} />
+            <span>{mapScope === "unavailable" ? "Browse Park Map" : "Navigate to Gravesite"}</span>
           </Link>
           <MemorialActions id={record.id} key={record.id} name={record.name} />
         </div>
@@ -92,7 +95,15 @@ export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, 
             </li>)}
           </ul>}
         </section> : null}
-        {photos.length ? <MemorialGallery photos={photos} key={record.id} name={record.name} /> : null}
+        {gallery.length || gallerySlots ? (
+          <MemorialGallery
+            photos={gallery}
+            key={record.id}
+            name={record.name}
+            burialId={record.id}
+            initialSlots={gallerySlots}
+          />
+        ) : null}
       </div>
       <footer className={styles.footer}><Icon name="location" size={17} />{PARK_NAME}, {PARK_ADDRESS}</footer>
     </article>
