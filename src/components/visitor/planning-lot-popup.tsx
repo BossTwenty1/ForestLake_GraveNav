@@ -9,7 +9,12 @@ import type { CadFeature } from "@/lib/phase2-planning";
 import type { CapstonePlanningMemorial } from "@/lib/supabase/phase2-data";
 import styles from "./planning-lot-popup.module.css";
 
-export type PlanningLotPopupOptions = { preferredId?: string; returnTo?: string; onClose: () => void };
+export type PlanningLotPopupOptions = {
+  preferredId?: string;
+  returnTo?: string;
+  onClose: () => void;
+  project?: (xy: [number, number]) => L.LatLng;
+};
 
 const compactQuery = "(max-width: 899px)";
 const compactSnapshot = () => window.matchMedia(compactQuery).matches;
@@ -19,7 +24,7 @@ function subscribeToCompact(change: () => void) {
   return () => query.removeEventListener("change", change);
 }
 
-export function PlanningLotPopup({ feature, preferredId, returnTo, onClose }: PlanningLotPopupOptions & { feature: CadFeature }) {
+export function PlanningLotPopup({ feature, preferredId, returnTo, onClose, project }: PlanningLotPopupOptions & { feature: CadFeature }) {
   const map = useMap();
   const compact = useSyncExternalStore(subscribeToCompact, compactSnapshot, () => false);
   const heading = useId();
@@ -27,8 +32,9 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, onClose }: Pl
   const sheet = useRef<HTMLElement>(null);
   const anchor = useMemo(() => {
     const [minX, minY, maxX, maxY] = feature.bounds;
-    return L.latLng((minY + maxY) / 2, (minX + maxX) / 2);
-  }, [feature]);
+    const center: [number, number] = [(minX + maxX) / 2, (minY + maxY) / 2];
+    return project ? project(center) : L.latLng(center[1], center[0]);
+  }, [feature, project]);
   const [records, setRecords] = useState<CapstonePlanningMemorial[] | null>(null);
   const [chosenId, setChosenId] = useState<string | undefined>(preferredId);
   const [failed, setFailed] = useState(false);
