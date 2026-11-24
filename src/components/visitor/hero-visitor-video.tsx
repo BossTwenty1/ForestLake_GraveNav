@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./hero-visitor-video.module.css";
 
+const tutorialSrc = "/videos/visitor-journey-mobile.mp4";
+
 export function HeroVisitorVideo() {
   const video = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -19,46 +20,50 @@ export function HeroVisitorVideo() {
     return () => preference.removeEventListener("change", handlePreference);
   }, []);
 
-  function togglePlayback() {
-    const player = video.current;
-    if (!player) return;
-    if (player.paused) void player.play().catch(() => {});
-    else player.pause();
-  }
-
   return (
     <div className={styles.panel}>
-      <div className={styles.poster} aria-hidden="true" />
       <video
         ref={video}
         className={styles.media}
-        style={failed || !hasPlayed ? { visibility: "hidden" } : undefined}
-        aria-label="Visitor tutorial showing memorial search, gravesite selection and how to check for walking directions"
-        loop
-        muted
+        aria-label="GraveNav visitor tutorial"
+        src={tutorialSrc}
+        poster="/videos/visitor-journey-mobile-poster.jpg"
+        controls={hasPlayed}
+        tabIndex={hasPlayed ? 0 : -1}
         playsInline
-        poster="/videos/visitor-journey-poster.jpg"
         preload="none"
-        onPlay={() => { setHasPlayed(true); setPlaying(true); }}
-        onPause={() => setPlaying(false)}
-        onError={() => { setFailed(true); setPlaying(false); }}
+        onPlay={event => {
+          if (hasPlayed) return;
+          setHasPlayed(true);
+          event.currentTarget.focus();
+        }}
+        onError={() => setFailed(true)}
       >
-        <source src="/videos/visitor-journey.webm" type="video/webm" />
-        <source src="/videos/visitor-journey.mp4" type="video/mp4" />
+        <track
+          kind="captions"
+          src="/videos/visitor-journey-mobile.en.vtt"
+          srcLang="en"
+          label="English"
+        />
       </video>
-      {!failed && <button
-        aria-label={playing ? "Pause visitor tutorial" : "Play visitor tutorial"}
-        className={styles.control}
-        onClick={togglePlayback}
-        type="button"
-      >
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          {playing
-            ? <path d="M7 4h4v16H7zm6 0h4v16h-4z" />
-            : <path d="m8 4 13 8-13 8z" />}
-        </svg>
-        {!hasPlayed && <span aria-hidden="true" className={styles.controlLabel}>Watch Walkthrough</span>}
-      </button>}
+      {!hasPlayed && !failed && (
+        <button
+          type="button"
+          aria-label="Play visitor tutorial"
+          className={styles.control}
+          onClick={() => void video.current?.play().catch(() => setFailed(true))}
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="m8 4 13 8-13 8z" />
+          </svg>
+          <span aria-hidden="true" className={styles.controlLabel}>Watch Walkthrough</span>
+        </button>
+      )}
+      {failed && (
+        <p className={styles.fallback} role="status">
+          The video could not play here. <a href={tutorialSrc}>Open the tutorial video</a>.
+        </p>
+      )}
     </div>
   );
 }
