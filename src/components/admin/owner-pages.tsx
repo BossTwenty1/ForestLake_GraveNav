@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isSyntheticPlot, plotAvailabilityLabel, syntheticPlotDescription } from "@/lib/synthetic-plots";
+import { isSyntheticPlot, plotAvailabilityLabel } from "@/lib/synthetic-plots";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AdminPageFrame } from "./admin-page-content";
 import { useStaff } from "./staff-context";
@@ -38,7 +38,8 @@ function errorMessage(reason: unknown) {
 export function OwnerDirectory({ search = "", page = 0 }: { search?: string; page?: number }) {
   const canAdmin = useStaff()?.role === "ADMIN";
   const [result, setResult] = useState<Awaited<ReturnType<typeof getOwnerRecordsPage>> | null>(null);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const [target, setTarget] = useState<LotOwner | null>(null);
@@ -54,10 +55,10 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
         router.replace(directoryHref(search, page - 1));
       }
       setResult(next);
-      setError("");
+      setLoadError("");
       setLoading(false);
     }).catch((reason) => {
-      if (active) { setError(errorMessage(reason)); setLoading(false); }
+      if (active) { setLoadError(errorMessage(reason)); setLoading(false); }
     });
     return () => { active = false; };
   }, [search, page, revision, router]);
@@ -65,20 +66,29 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
   async function removeOwner() {
     if (!target || busy) return;
     setBusy(true);
+    setActionError("");
+    setMessage("");
     try {
       await deleteLotOwner(target.lotOwnerId, target.revision);
       setTarget(null);
       setMessage("Plot owner removed. Administrators can restore it in Recovery.");
       setLoading(true);
       setRevision((value) => value + 1);
-    } catch (reason) { setError(errorMessage(reason)); }
-    finally { setBusy(false); }
+    } catch (reason) {
+      setTarget(null);
+      setActionError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
   }
+
+  const totalPages = result?.total ? Math.max(1, Math.ceil(result.total / 20)) : 1;
 
   return (
     <AdminPageFrame
       title="Plot Owners"
       description="Find and maintain owner records. A plot or interment is not required to register an owner."
+      breadcrumbs={[{ label: "Dashboard", href: "/admin" }, { label: "Plot Owners" }]}
       actions={<Link className="button button--primary button--md" href={directory + "/new"}>Add Plot Owner</Link>}
     >
       <Card>
@@ -91,7 +101,7 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
               label="Search plot owners"
               maxLength={80}
               name="query"
-              placeholder="First name, last name or alias"
+              placeholder="Full name, alias, address, or representative…"
               type="search"
             />
             <Button type="submit">Search</Button>
@@ -100,54 +110,80 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
         </CardContent>
       </Card>
       {message ? <Alert title="Owner update" variant="success">{message}</Alert> : null}
-      {error ? <LoadError message={error} onRetry={() => setRevision((value) => value + 1)} /> : null}
+      {actionError ? <Alert title="Owner action failed" variant="danger">{actionError}</Alert> : null}
+      {loadError ? <LoadError message={loadError} onRetry={() => { setLoading(true); setRevision((value) => value + 1); }} /> : null}
       {loading ? <p role="status">Loading plot owners…</p> : null}
-      {!loading && !error && result ? (
+      {!loading && !loadError && result ? (
         <Card>
           <CardHeader>
             <CardTitle>{search ? "Search results" : "Owner directory"}</CardTitle>
             <span className="input-hint">{result.total ?? result.items.length} owners</span>
           </CardHeader>
           {result.items.length ? (
-            <Table caption="Plot owner directory">
-              <TableHead><TableRow>
-                <TableHeaderCell>Owner</TableHeaderCell>
-                <TableHeaderCell>Address</TableHeaderCell>
-                <TableHeaderCell>Representative</TableHeaderCell>
-                <TableHeaderCell>Actions</TableHeaderCell>
-              </TableRow></TableHead>
-              <TableBody>{result.items.map((owner) => (
-                <TableRow key={owner.lotOwnerId}>
-                  <TableCell><Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>
-                    {ownerName(owner)}
-                  </Link><small className={styles.secondary}>Owner #{owner.lotOwnerId}</small>
-                    {owner.aliases ? <small className={styles.secondary}>{owner.aliases}</small> : null}
-                  </TableCell>
-                  <TableCell>{owner.address || "Not recorded"}</TableCell>
-                  <TableCell>{owner.representativeName || "Not recorded"}</TableCell>
-                  <TableCell><div className={styles.actions}>
-                    <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
-                    <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
-                    {canAdmin ? <Button
-                      disabled={busy}
-                      onClick={() => setTarget(owner)}
-                      size="sm"
-                      variant="danger"
-                    >Delete</Button> : null}
-                  </div></TableCell>
-                </TableRow>
-              ))}</TableBody>
-            </Table>
+            <>
+              <div className={styles.desktopTable}>
+                <Table caption="Plot owner directory">
+                  <TableHead><TableRow>
+                    <TableHeaderCell>Owner</TableHeaderCell>
+                    <TableHeaderCell>Address</TableHeaderCell>
+                    <TableHeaderCell>Representative</TableHeaderCell>
+                    <TableHeaderCell>Actions</TableHeaderCell>
+                  </TableRow></TableHead>
+                  <TableBody>{result.items.map((owner) => (
+                    <TableRow key={owner.lotOwnerId}>
+                      <TableCell><Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>
+                        {ownerName(owner)}
+                      </Link><small className={styles.secondary}>Owner #{owner.lotOwnerId}</small>
+                        {owner.aliases ? <small className={styles.secondary}>{owner.aliases}</small> : null}
+                      </TableCell>
+                      <TableCell>{owner.address || "Not recorded"}</TableCell>
+                      <TableCell>{owner.representativeName || "Not recorded"}</TableCell>
+                      <TableCell><div className={styles.actions}>
+                        <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
+                        <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
+                        {canAdmin ? <Button
+                          disabled={busy}
+                          onClick={() => { setActionError(""); setTarget(owner); }}
+                          size="sm"
+                          variant="danger"
+                        >Delete</Button> : null}
+                      </div></TableCell>
+                    </TableRow>
+                  ))}</TableBody>
+                </Table>
+              </div>
+              <div className={styles.mobileCards}>
+                {result.items.map((owner) => (
+                  <article className={styles.mobileCard} key={owner.lotOwnerId}>
+                    <div>
+                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>
+                        <strong>{ownerName(owner)}</strong>
+                      </Link>
+                      <small className={styles.secondary}>Owner #{owner.lotOwnerId}{owner.aliases ? ` · ${owner.aliases}` : ""}</small>
+                    </div>
+                    <p className={styles.secondary}>{owner.address || "Address not recorded"}</p>
+                    {owner.representativeName ? <p className={styles.secondary}>Representative: {owner.representativeName}</p> : null}
+                    <div className={styles.actions}>
+                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
+                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
+                      {canAdmin ? <Button disabled={busy} onClick={() => { setActionError(""); setTarget(owner); }} size="sm" variant="danger">Delete</Button> : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           ) : <CardContent><EmptyState
             title={search ? "No matching plot owners" : "No plot owners yet"}
-            description={search ? "Try another name or alias, or clear the search." : "Use Add Plot Owner to register an owner without assigning a plot."}
+            description={search ? "Try another name, alias, or address, or clear the search." : "Use Add Plot Owner to register an owner without assigning a plot."}
             icon="userSearch"
           /></CardContent>}
-          <CardContent><nav aria-label="Owner directory pages" className={styles.actions}>
-            {page > 0 ? <Link className="subtle-link" href={directoryHref(search, page - 1)}>Previous</Link> : null}
-            <span>Page {page + 1}</span>
-            {result.hasMore ? <Link className="subtle-link" href={directoryHref(search, page + 1)}>Next</Link> : null}
-          </nav></CardContent>
+          {totalPages > 1 || page > 0 || result.hasMore ? (
+            <CardContent><nav aria-label="Owner directory pages" className={styles.actions}>
+              {page > 0 ? <Link className="subtle-link" href={directoryHref(search, page - 1)}>Previous</Link> : null}
+              <span>Page {page + 1} of {totalPages}</span>
+              {result.hasMore ? <Link className="subtle-link" href={directoryHref(search, page + 1)}>Next</Link> : null}
+            </nav></CardContent>
+          ) : null}
         </Card>
       ) : null}
       <ConfirmationDialog
@@ -164,7 +200,10 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
 }
 
 function directoryHref(search: string, page: number) {
-  return directory + "?" + new URLSearchParams({ query: search, page: String(page + 1) });
+  const params = new URLSearchParams();
+  if (search.trim()) params.set("query", search.trim());
+  if (page > 0) params.set("page", String(page + 1));
+  return directory + (params.size ? "?" + params : "");
 }
 
 function useOwner(id?: string) {
@@ -233,8 +272,16 @@ function OwnerForm({ owner }: { owner: LotOwner | null }) {
     setSaving(true);
     try {
       const input = {
-        ...form, firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(), address: form.address.trim(),
+        ...form,
+        firstName: form.firstName.trim(),
+        middleName: (form.middleName ?? "").trim(),
+        lastName: form.lastName.trim(),
+        suffix: (form.suffix ?? "").trim(),
+        aliases: (form.aliases ?? "").trim(),
+        address: form.address.trim(),
+        representativeName: (form.representativeName ?? "").trim(),
+        representativeContact: (form.representativeContact ?? "").trim(),
+        representativeRelation: (form.representativeRelation ?? "").trim(),
       };
       const receipt = owner
         ? await updateLotOwner(owner.lotOwnerId, input)
@@ -377,9 +424,8 @@ function OwnerRelationships({ ownerId }: { ownerId: number }) {
       <p className="input-hint">Existing associations are shown for reference. Linking is not available here.</p>
       {plots.items.length ? <ul className={styles.records}>{plots.items.map((plot) => (
         <li key={plot.lot_id}>
-          <strong>Internal Lot Code: {plot.lot_code}</strong>
+          <strong>{isSyntheticPlot(plot.lot_code) ? `Phase 2 Plot #${plot.lot_id}` : plot.lot_code}</strong>
           <span>{plot.area?.area_name || "Garden not recorded"} · {plotAvailabilityLabel(plot.lot_code, plot.status)}</span>
-          {isSyntheticPlot(plot.lot_code) ? <p className="input-hint">{syntheticPlotDescription}</p> : null}
         </li>
       ))}</ul> : <p>No associated plots yet.</p>}
       <RelationshipPages label="Associated plots" page={plotPage} hasMore={plots.hasMore} onChange={setPlotPage} />
@@ -388,11 +434,10 @@ function OwnerRelationships({ ownerId }: { ownerId: number }) {
       <p className="input-hint">Interments at this owner’s currently associated plots. This does not establish a family relationship.</p>
       {interments.items.length ? <ul className={styles.records}>{interments.items.map((record) => (
         <li key={record.burial_id}>
-          <Link className="subtle-link" href={"/admin/burial-records?record=" + record.burial_id}>
+          <Link className="subtle-link" href={"/admin/burial-records/" + record.burial_id}>
             {record.deceased?.display_name || "Name not recorded"} · Burial #{record.burial_id}
           </Link>
-          <span>Internal Lot Code: {record.lot.lot_code}</span>
-          {isSyntheticPlot(record.lot.lot_code) ? <p className="input-hint">{syntheticPlotDescription}</p> : null}
+          <span>{isSyntheticPlot(record.lot.lot_code) ? "Phase 2 Plot" : `Lot ${record.lot.lot_code}`}</span>
           <span>Interment: {record.interment_date || "Not recorded"} · Status: {record.record_status}</span>
         </li>
       ))}</ul> : <p>No related interments.</p>}

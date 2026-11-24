@@ -66,6 +66,54 @@
   margin-left: auto;
 }
 
+.searchBox {
+  width: min(280px, 100%);
+}
+
+.secondaryFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.memorialCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.thumbButton {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--admin-line, var(--border));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--admin-panel-muted, var(--surface-muted));
+  cursor: pointer;
+}
+
+.thumbButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.thumbButton img {
+  object-fit: cover;
+}
+
+.thumbPlaceholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--admin-muted, var(--muted));
+}
+
 .rowActions {
   display: inline-flex;
   align-items: center;

@@ -9,6 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow,
 } from "@/components/ui/table";
 import { buildReport } from "@/lib/admin-reports";
+import { PARK_NAME } from "@/lib/park-details";
 import { readStaffReport, requireReportClient } from "@/lib/supabase/staff-reports";
 import styles from "./reports.module.css";
 
@@ -17,6 +18,11 @@ export const metadata = { title: "Reports & Analytics | GraveNav", robots: { ind
 
 const countFormat = new Intl.NumberFormat("en-PH");
 const formatCount = (count: number) => countFormat.format(count);
+const generatedFormat = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Manila",
+});
 
 export default async function AdminReportsRoute({ searchParams }: {
   searchParams: Promise<{ year?: string | string[]; area?: string | string[] }>;
@@ -38,25 +44,31 @@ export default async function AdminReportsRoute({ searchParams }: {
     );
   }
 
-  const { area, year, years, areaOptions, plots, plotStatuses, coordinates, activity, months, gardens } = report;
+  const { area, year, years, areaOptions, plots, plotStatuses, activity, months, gardens } = report;
+  const periodLabel = year === "all" ? "All years" : year;
   const csvHref = (period: string) => "/admin/reports/export?" +
     new URLSearchParams({ area: area ? String(area.area_id) : "all", year: period });
-  const monthMax = Math.max(1, ...months.flatMap((month) => [month.confirmed, month.pending]));
-  const hasMonthlyActivity = activity.confirmed > 0 || activity.pending > 0;
-  const hasDates = activity.records > 0;
+  const monthMax = Math.max(1, ...months.flatMap((month) => [month.active, month.pending]));
+  const hasMonthlyActivity = months.some((month) => month.active > 0 || month.pending > 0);
+  const generatedAt = generatedFormat.format(new Date());
 
   return (
     <AdminShell active="Reports">
       <div className={styles.report}>
+        <div className={styles.printHeader} aria-hidden="true">
+          <strong>{PARK_NAME} — Cemetery Management Report</strong>
+          <span>{area?.area_name || "All gardens and areas"} · {periodLabel} · Generated {generatedAt}</span>
+        </div>
         <AdminPageFrame
           title="Reports & Analytics"
-          description="Review recorded interment activity and current cemetery inventory."
+          description="Reconciled interment activity, visitor visibility, and cemetery plot inventory."
           actions={<div className={styles.controls}><ReportPrintButton /></div>}
         >
           <form action="/admin/reports" method="get" className={styles.filters}>
             <label className="input-field">
               <span className="input-label">Interment year</span>
               <select className="input-control" name="year" defaultValue={year}>
+                <option value="all">All years</option>
                 {years.map((option) => <option value={option} key={option}>{option}</option>)}
               </select>
             </label>
@@ -73,23 +85,26 @@ export default async function AdminReportsRoute({ searchParams }: {
           </form>
 
           <p className={styles.scope}>
-            <strong>{area?.area_name || "All gardens and areas"} · {year}</strong>
-            {" "}· Activity uses the recorded interment date. Inventory and verification show current status.
+            <strong>{area?.area_name || "All gardens and areas"} · {periodLabel}</strong>
+            {" "}· Activity counts reflect recorded interments in the selected period. Plot totals show current inventory.
           </p>
 
           <Card>
             <CardHeader><CardTitle>Cemetery summary</CardTitle></CardHeader>
             <CardContent>
               <dl className={styles.summary}>
-                <Metric label="Physical lots" value={plots.physical} />
-                <Metric label="Synthetic project plots" value={plots.synthetic} />
-                <Metric label="Interment records in period" value={activity.records} />
-                <Metric label="Confirmed physical interments" value={activity.confirmed} />
-                <Metric label="Pending records in period" value={activity.pending} />
-                <Metric label="Synthetic records in period" value={activity.synthetic} />
+                <Metric label="Total plots" value={plots.total} />
+                <Metric label="Occupied plots" value={plots.occupied} />
+                <Metric label="Shared gravesites (2+)" value={plots.shared} />
+                <Metric label="Interment records" value={activity.records} />
+                <Metric label="Active records" value={activity.active} />
+                <Metric label="Pending records" value={activity.pending} />
+                <Metric label="Published to visitors" value={activity.publicVisible} />
               </dl>
               <p className={styles.note}>
-                Pending and synthetic records are tracked separately from confirmed physical burials.
+                Reconciliation: {formatCount(activity.active)} active + {formatCount(activity.pending)} pending
+                {activity.archived > 0 ? ` + ${formatCount(activity.archived)} archived` : ""} = {formatCount(activity.records)} records
+                {" "}({formatCount(activity.publicVisible)} public on Visitor site, {formatCount(activity.hiddenStaffOnly)} staff-only).
                 {activity.undated > 0 && ` Undated records in this area scope: ${formatCount(activity.undated)}.`}
               </p>
             </CardContent>
@@ -99,67 +114,65 @@ export default async function AdminReportsRoute({ searchParams }: {
             <CardHeader><CardTitle>Monthly interment activity</CardTitle></CardHeader>
             <CardContent>
               <p className={styles.note}>
-                Confirmed counts require an active record, explicit interment confirmation and a current physical lot.
-                Pending counts include dated synthetic drafts.
+                Dated interments grouped by calendar month ({periodLabel}). Active and pending statuses are shown separately.
               </p>
               {!hasMonthlyActivity ? (
                 <p className={styles.empty}>
-                  {hasDates
-                    ? "Dated records exist, but none qualify as confirmed physical interments or pending records in this period."
-                    : "No dated interment records match this period and area."}
+                  No dated active or pending interment records match this period and area.
                 </p>
               ) : (
-                <>
-                  {activity.confirmed === 0 && (
-                    <p className={styles.empty}>No explicitly confirmed physical interments in this period.</p>
-                  )}
-                  <Table caption={`Monthly interment activity for ${year}`} className={`${styles.table} ${styles.monthTable}`}>
-                    <TableHead>
-                      <TableRow>
-                        <TableHeaderCell scope="col">Month</TableHeaderCell>
-                        <TableHeaderCell scope="col">Confirmed physical</TableHeaderCell>
-                        <TableHeaderCell scope="col">Pending records</TableHeaderCell>
+                <Table caption={`Monthly interment activity for ${periodLabel}`} className={`${styles.table} ${styles.monthTable}`}>
+                  <TableHead>
+                    <TableRow>
+                      <TableHeaderCell scope="col">Month</TableHeaderCell>
+                      <TableHeaderCell scope="col">Active records</TableHeaderCell>
+                      <TableHeaderCell scope="col">Pending records</TableHeaderCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {months.map((month) => (
+                      <TableRow key={month.label}>
+                        <TableHeaderCell scope="row">{month.label}</TableHeaderCell>
+                        <TableCell><Bar count={month.active} max={monthMax} /></TableCell>
+                        <TableCell><Bar count={month.pending} max={monthMax} pending /></TableCell>
                       </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {months.map((month) => (
-                        <TableRow key={month.label}>
-                          <TableHeaderCell scope="row">{month.label}</TableHeaderCell>
-                          <TableCell><Bar count={month.confirmed} max={monthMax} /></TableCell>
-                          <TableCell><Bar count={month.pending} max={monthMax} pending /></TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
 
           <div className={styles.inventory}>
             <Card>
-              <CardHeader><CardTitle>Physical plot status</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Plot inventory status</CardTitle></CardHeader>
               <CardContent>
-                <p className={styles.note}>Stored administrative statuses. Surveyed vacancy and physical occupancy are unavailable here.</p>
-                {plots.physical ? (
-                  <Distribution total={plots.physical} rows={[
-                    ["On hold", plotStatuses.hold], ["Booked", plotStatuses.booked],
-                    ["Marked available", plotStatuses.available], ["Unknown", plotStatuses.unknown],
+                <p className={styles.note}>Occupied plots have at least one recorded interment. All statuses reconcile to total plots.</p>
+                {plots.total ? (
+                  <Distribution total={plots.total} rows={[
+                    ["Occupied", plotStatuses.occupied],
+                    ["Available", plotStatuses.available],
+                    ["Booked", plotStatuses.booked],
+                    ["On hold", plotStatuses.hold],
+                    ["Unknown", plotStatuses.unknown],
                     ...(plotStatuses.other ? [["Other status", plotStatuses.other] as const] : []),
                   ]} />
-                ) : <p className={styles.empty}>No current physical lots in this area.</p>}
+                ) : <p className={styles.empty}>No current plots in this area.</p>}
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle>Coordinate verification</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Visitor visibility &amp; record status</CardTitle></CardHeader>
               <CardContent>
-                <p className={styles.note}>Current physical lots only. A verified coordinate represents the recorded review status.</p>
-                {plots.physical ? (
-                  <Distribution total={plots.physical} rows={[
-                    ["Verified", coordinates.verified], ["Pending review", coordinates.pending],
-                    ["Rejected", coordinates.rejected], ["Missing coordinates", coordinates.missing],
+                <p className={styles.note}>Controls which records appear in public Visitor search and memorial profiles.</p>
+                {activity.records ? (
+                  <Distribution total={activity.records} rows={[
+                    ["Published to visitors", activity.publicVisible],
+                    ["Staff-only / hidden", activity.hiddenStaffOnly],
+                    ["Active records", activity.active],
+                    ["Pending review", activity.pending],
+                    ["Archived", activity.archived],
                   ]} />
-                ) : <p className={styles.empty}>No physical lot coordinates to report in this area.</p>}
+                ) : <p className={styles.empty}>No interment records in this period and area.</p>}
               </CardContent>
             </Card>
           </div>
@@ -169,26 +182,28 @@ export default async function AdminReportsRoute({ searchParams }: {
             <CardContent>
               {gardens.length > 0 ? (
                 <div className={styles.scroll} role="region" aria-label="Garden reports table" tabIndex={0}>
-                  <Table caption="Inventory, coordinate verification and interment activity by garden or area" className={styles.table}>
+                  <Table caption="Plot inventory, interment status, and visitor visibility by garden or area" className={styles.table}>
                     <TableHead>
                       <TableRow>
                         <TableHeaderCell scope="col">Garden or area</TableHeaderCell>
-                        <TableHeaderCell scope="col">Physical lots</TableHeaderCell>
-                        <TableHeaderCell scope="col">Verified coordinates</TableHeaderCell>
-                        <TableHeaderCell scope="col">Synthetic plots</TableHeaderCell>
-                        <TableHeaderCell scope="col">Confirmed physical</TableHeaderCell>
+                        <TableHeaderCell scope="col">Total plots</TableHeaderCell>
+                        <TableHeaderCell scope="col">Occupied</TableHeaderCell>
+                        <TableHeaderCell scope="col">Available</TableHeaderCell>
+                        <TableHeaderCell scope="col">Active records</TableHeaderCell>
                         <TableHeaderCell scope="col">Pending records</TableHeaderCell>
+                        <TableHeaderCell scope="col">Public on site</TableHeaderCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {gardens.map((garden) => (
                         <TableRow key={garden.id ?? "unassigned"}>
                           <TableHeaderCell scope="row">{garden.label}</TableHeaderCell>
-                          <TableCell>{formatCount(garden.physical)}</TableCell>
-                          <TableCell>{formatCount(garden.verified)}</TableCell>
-                          <TableCell>{formatCount(garden.synthetic)}</TableCell>
-                          <TableCell>{formatCount(garden.confirmed)}</TableCell>
-                          <TableCell>{formatCount(garden.pending)}</TableCell>
+                          <TableCell>{formatCount(garden.totalPlots)}</TableCell>
+                          <TableCell>{formatCount(garden.occupiedPlots)}</TableCell>
+                          <TableCell>{formatCount(garden.availablePlots)}</TableCell>
+                          <TableCell>{formatCount(garden.activeRecords)}</TableCell>
+                          <TableCell>{formatCount(garden.pendingRecords)}</TableCell>
+                          <TableCell>{formatCount(garden.publicRecords)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -202,12 +217,13 @@ export default async function AdminReportsRoute({ searchParams }: {
             <CardHeader><CardTitle>Record summary CSV</CardTitle></CardHeader>
             <CardContent>
               <p className={styles.note}>
-                Export the staff record summary for this area scope. The selected year includes dated records.
-                All dates also includes undated records.
+                Export a UTF-8 Excel-compatible spreadsheet with friendly plot references, interment dates, statuses, and visitor visibility.
               </p>
               <div className={styles.exports}>
-                <a className="button button--secondary button--md" href={csvHref(year)}>Export {year} CSV</a>
-                <a className="button button--quiet button--md" href={csvHref("all")}>Export all dates CSV</a>
+                {year !== "all" ? (
+                  <a className="button button--secondary button--md" href={csvHref(year)}>Export {year} CSV</a>
+                ) : null}
+                <a className="button button--primary button--md" href={csvHref("all")}>Export all records CSV</a>
               </div>
             </CardContent>
           </Card>
@@ -237,7 +253,7 @@ function Bar({ count, max, pending = false }: { count: number; max: number; pend
     <div className={styles.barValue}>
       <span>{formatCount(count)}</span>
       <span aria-hidden="true" className={styles.barTrack}>
-        <span className={pending ? styles.pendingBar : styles.bar} style={{ width: `${count / max * 100}%` }} />
+        <span className={pending ? styles.pendingBar : styles.bar} style={{ width: `${Math.min(100, (count / max) * 100)}%` }} />
       </span>
     </div>
   );

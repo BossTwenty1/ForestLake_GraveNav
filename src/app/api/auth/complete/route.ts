@@ -1,9 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getCurrentStaff } from "@/lib/auth";
 import { getServerSupabase } from "@/lib/supabase/server";
-
-const passwordSetupCookie = "gravenav_auth_flow";
 
 export async function POST() {
   const supabase = await getServerSupabase();
@@ -13,9 +10,17 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
   const staff = await getCurrentStaff();
-  const response = staff?.isActive && staff.accountStatus === "ACTIVE"
-    ? NextResponse.json({ destination: "/admin", role: staff.role })
-    : NextResponse.json({ destination: "/admin/unauthorized", error: "An active GraveNav account is required" }, { status: 403 });
-  (await cookies()).set(passwordSetupCookie, "", { maxAge: 0, path: "/" });
-  return response;
+  if (staff?.isActive && staff.accountStatus === "ACTIVE") {
+    return NextResponse.json({ destination: "/admin", role: staff.role, accountStatus: staff.accountStatus });
+  }
+  return NextResponse.json(
+    {
+      destination: staff?.accountStatus === "PENDING" ? null : "/admin/unauthorized",
+      accountStatus: staff?.accountStatus ?? "UNASSIGNED",
+      error: staff?.accountStatus === "PENDING"
+        ? "Your password is saved. An active administrator must approve and activate your account before you can enter the workspace."
+        : "An active GraveNav account is required",
+    },
+    { status: 403 },
+  );
 }

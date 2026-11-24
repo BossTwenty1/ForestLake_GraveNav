@@ -12,8 +12,8 @@ const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,lega
 const OWNER_COLUMNS = "revision,lot_owner_id,first_name,middle_name,last_name,suffix,aliases,address,representative_name,representative_contact,representative_relation";
 const PHOTO_COLUMNS = "revision,photo_id,burial_id,file_name,caption,captured_at,approval_status,public_display,created_at,uploaded_by";
 const PHOTO_COLUMNS_EXTENDED = `${PHOTO_COLUMNS},photo_kind,submitted_by_name,submitted_by_relation,submitted_by_contact`;
-const PHOTO_COLUMNS_V1_WITH_RECORD = `${PHOTO_COLUMNS},photo_kind,submitted_by_name,submitted_by_relation,burial_record(deceased(display_name),lot(lot_code))`;
-const PHOTO_COLUMNS_WITH_RECORD = `${PHOTO_COLUMNS_EXTENDED},burial_record(deceased(display_name),lot(lot_code))`;
+const PHOTO_COLUMNS_V1_WITH_RECORD = `${PHOTO_COLUMNS},photo_kind,submitted_by_name,submitted_by_relation,burial_record(lot_id,deceased(display_name),lot(lot_code))`;
+const PHOTO_COLUMNS_WITH_RECORD = `${PHOTO_COLUMNS_EXTENDED},burial_record(lot_id,deceased(display_name),lot(lot_code))`;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
@@ -294,10 +294,10 @@ export async function getPlotManagementPage(options: PlotManagementQuery): Promi
   const { data: references, error: referenceError } = await requireClient().rpc("staff_sample_plot_references", { p_lot_ids: lotIds });
   // Older databases retain their existing plot workflow until the local migration is approved.
   if (referenceError?.code === "PGRST202") return page;
-  if (referenceError) throw new Error("Synthetic plot references could not be loaded. Reload to try again.");
+  if (referenceError) throw new Error("Plot references could not be loaded. Reload to try again.");
   if (!Array.isArray(references) || !references.every(item => isObject(item) && typeof item.lotId === "string"
     && (item.reference === null || (typeof item.reference === "string" && item.reference.trim().length > 0 && item.reference.length <= 200)))) {
-    throw new Error("Synthetic plot references returned an unexpected response. Reload to try again.");
+    throw new Error("Plot references returned an unexpected response. Reload to try again.");
   }
   const byLot = new Map((references as { lotId: string; reference: string | null }[]).map(item => [item.lotId, item.reference]));
   return { ...page, items: page.items.map(item => ({ ...item, syntheticPlotReference: byLot.get(String(item.lotId)) ?? null })) };
@@ -382,11 +382,41 @@ export async function getLotOwnersPage(options: OwnerPageOptions = {}): Promise<
   const { from, to } = pageRange(options);
   let query = client.from("lot_owner").select(OWNER_COLUMNS, { count: "exact" }).is("deleted_at", null);
   const search = safeOwnerSearch(options.search);
-  if (search) query = query.or(`first_name.ilike.*${search}*,last_name.ilike.*${search}*,aliases.ilike.*${search}*`);
+  if (search) {
+    const tokens = search.split(/\s+/).filter(Boolean).slice(0, 4);
+    for (const token of tokens) {
+      query = query.or(
+        `first_name.ilike.*${token}*,middle_name.ilike.*${token}*,last_name.ilike.*${token}*,aliases.ilike.*${token}*,address.ilike.*${token}*,representative_name.ilike.*${token}*`,
+      );
+    }
+  }
   const { data, error, count } = await query.order("last_name").order("lot_owner_id").range(from, to);
   if (error) throw error;
   const items = data || [];
   return { items, hasMore: hasMore(from, items.length, count), total: count };
+}
+
+export async function getLotCoInterments(lotId: number, excludeBurialId?: number): Promise<{ burialId: number; name: string; recordStatus: AdminRecord["recordStatus"]; intermentDate: string | null }[]> {
+  if (!Number.isInteger(lotId) || lotId <= 0) return [];
+  const client = requireClient();
+  let query = client
+    .from("burial_record")
+    .select("burial_id,record_status,interment_date,deceased(display_name)")
+    .eq("lot_id", lotId)
+    .is("deleted_at", null)
+    .order("burial_id", { ascending: true });
+  if (excludeBurialId) query = query.neq("burial_id", excludeBurialId);
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return data.map((row) => {
+    const deceased = firstOne(row.deceased as { display_name?: string | null } | { display_name?: string | null }[] | null);
+    return {
+      burialId: row.burial_id,
+      name: deceased?.display_name || `Burial #${row.burial_id}`,
+      recordStatus: row.record_status as AdminRecord["recordStatus"],
+      intermentDate: row.interment_date,
+    };
+  });
 }
 
 export async function getOwnerRecords(options: OwnerPageOptions = {}) {
@@ -496,7 +526,7 @@ export async function uploadBurialPhoto(input: { burialId: number; file: File; c
   const storagePath = `burial/${input.burialId}/${crypto.randomUUID()}-${fileName}`;
   const { error: uploadError } = await client.storage.from(bucket).upload(storagePath, input.file, { contentType: input.file.type, upsert: false });
   if (uploadError) throw uploadError;
-  const { error: metadataError } = await client.from("photo").insert({
+  const { data: inserted, error: metadataError } = await client.from("photo").insert({
     burial_id: input.burialId,
     uploaded_by: userId,
     storage_path: storagePath,
@@ -505,11 +535,12 @@ export async function uploadBurialPhoto(input: { burialId: number; file: File; c
     captured_at: input.capturedAt || null,
     approval_status: "pending",
     public_display: false,
-  });
+  }).select("photo_id").single();
   if (metadataError) {
     await client.storage.from(bucket).remove([storagePath]);
     throw metadataError;
   }
+  return inserted?.photo_id ?? null;
 }
 
 type JoinedPhotoRow = {
@@ -528,9 +559,11 @@ type JoinedPhotoRow = {
   submitted_by_relation?: string | null;
   submitted_by_contact?: string | null;
   burial_record?: {
+    lot_id?: number | null;
     deceased?: { display_name?: string | null } | { display_name?: string | null }[] | null;
     lot?: { lot_code?: string | null } | { lot_code?: string | null }[] | null;
   } | {
+    lot_id?: number | null;
     deceased?: { display_name?: string | null } | { display_name?: string | null }[] | null;
     lot?: { lot_code?: string | null } | { lot_code?: string | null }[] | null;
   }[] | null;
@@ -541,16 +574,18 @@ function firstOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function mapAdminPhoto(photo: JoinedPhotoRow): AdminPhoto {
+function mapAdminPhoto(photo: JoinedPhotoRow, friendlyRefs?: Map<number, string>): AdminPhoto {
   const burial = firstOne(photo.burial_record);
   const deceased = firstOne(burial?.deceased);
   const lot = firstOne(burial?.lot);
+  const lotId = typeof burial?.lot_id === "number" ? burial.lot_id : null;
+  const resolvedLot = lotId !== null ? friendlyRefs?.get(lotId) ?? lot?.lot_code ?? null : lot?.lot_code ?? null;
   return {
     revision: photo.revision,
     photoId: photo.photo_id,
     burialId: photo.burial_id,
     deceasedName: deceased?.display_name ?? null,
-    lotCode: lot?.lot_code ?? null,
+    lotCode: resolvedLot,
     fileName: photo.file_name,
     caption: photo.caption,
     capturedAt: photo.captured_at,
@@ -563,6 +598,30 @@ function mapAdminPhoto(photo: JoinedPhotoRow): AdminPhoto {
     submittedByRelation: photo.submitted_by_relation ?? null,
     submittedByContact: photo.submitted_by_contact ?? null,
   };
+}
+
+async function resolvePhotoPlotReferences(client: SupabaseClient, rows: JoinedPhotoRow[]): Promise<Map<number, string>> {
+  const lotIds = Array.from(new Set(rows.map((row) => {
+    const burial = firstOne(row.burial_record);
+    const lot = firstOne(burial?.lot);
+    return typeof burial?.lot_id === "number" && lot?.lot_code && /^P2S-[0-9a-f]{64}$/i.test(lot.lot_code)
+      ? burial.lot_id
+      : null;
+  }).filter((id): id is number => id !== null)));
+  const refs = new Map<number, string>();
+  if (!lotIds.length) return refs;
+  const { data, error } = await client.rpc("staff_sample_plot_references", { p_lot_ids: lotIds });
+  if (error || !Array.isArray(data)) return refs;
+  for (const item of data) {
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const lotId = Number((item as { lotId?: unknown }).lotId);
+      const ref = (item as { reference?: unknown }).reference;
+      if (Number.isSafeInteger(lotId) && typeof ref === "string" && ref.trim()) {
+        refs.set(lotId, ref.trim());
+      }
+    }
+  }
+  return refs;
 }
 
 export type AdminPhotoCounts = {
@@ -589,26 +648,98 @@ export async function getAdminPhotoCounts(): Promise<AdminPhotoCounts> {
 }
 
 export async function getAdminPhotos(
-  options: PageOptions & { status?: AdminPhoto["approvalStatus"] | "all"; kind?: "all" | "portrait" | "tribute" } = {},
+  options: PageOptions & {
+    status?: AdminPhoto["approvalStatus"] | "all";
+    kind?: "all" | "portrait" | "tribute";
+    source?: "all" | "visitor" | "staff";
+    query?: string;
+  } = {},
 ) {
   const client = requireClient();
   const { from, to } = pageRange(options);
+  const trimmedQuery = options.query?.trim().slice(0, 120) || "";
+
+  let matchingBurialIds: number[] | null = null;
+  if (trimmedQuery) {
+    const idSet = new Set<number>();
+    if (/^[1-9]\d{0,9}$/.test(trimmedQuery)) {
+      idSet.add(Number(trimmedQuery));
+    }
+    const { data: burialMatches } = await client.rpc("search_staff_burials", { p_query: trimmedQuery, p_page: 1 });
+    if (burialMatches && typeof burialMatches === "object" && !Array.isArray(burialMatches) && Array.isArray((burialMatches as { items?: unknown }).items)) {
+      for (const item of (burialMatches as { items: { burial_id?: unknown }[] }).items) {
+        if (typeof item?.burial_id === "number") idSet.add(item.burial_id);
+      }
+    }
+    matchingBurialIds = Array.from(idSet);
+  }
+
   for (const columns of [PHOTO_COLUMNS_WITH_RECORD, PHOTO_COLUMNS_V1_WITH_RECORD]) {
     let query = client.from("photo").select(columns, { count: "exact" });
     if (options.status && options.status !== "all") query = query.eq("approval_status", options.status);
     if (options.kind && options.kind !== "all") query = query.eq("photo_kind", options.kind);
+    if (options.source === "visitor") query = query.is("uploaded_by", null);
+    if (options.source === "staff") query = query.not("uploaded_by", "is", null);
+    if (trimmedQuery) {
+      const escaped = trimmedQuery.replace(/[,()*\\]/g, " ").trim();
+      const clauses: string[] = [];
+      if (escaped) {
+        clauses.push(`submitted_by_name.ilike.*${escaped}*`);
+        clauses.push(`caption.ilike.*${escaped}*`);
+        clauses.push(`file_name.ilike.*${escaped}*`);
+      }
+      if (matchingBurialIds?.length) {
+        clauses.push(`burial_id.in.(${matchingBurialIds.join(",")})`);
+      }
+      if (clauses.length) {
+        query = query.or(clauses.join(","));
+      } else {
+        return { items: [], hasMore: false, total: 0 } satisfies PageResult<AdminPhoto>;
+      }
+    }
     const result = await query.order("created_at", { ascending: false }).order("photo_id", { ascending: false }).range(from, to);
     if (!result.error) {
-      const items = ((result.data || []) as unknown as JoinedPhotoRow[]).map(mapAdminPhoto);
+      const rows = (result.data || []) as unknown as JoinedPhotoRow[];
+      const friendlyRefs = await resolvePhotoPlotReferences(client, rows);
+      const items = rows.map((row) => mapAdminPhoto(row, friendlyRefs));
       return { items, hasMore: hasMore(from, items.length, result.count), total: result.count } satisfies PageResult<AdminPhoto>;
     }
   }
   let legacyQuery = client.from("photo").select(PHOTO_COLUMNS, { count: "exact" });
   if (options.status && options.status !== "all") legacyQuery = legacyQuery.eq("approval_status", options.status);
+  if (options.source === "visitor") legacyQuery = legacyQuery.is("uploaded_by", null);
+  if (options.source === "staff") legacyQuery = legacyQuery.not("uploaded_by", "is", null);
   const { data, error, count } = await legacyQuery.order("created_at", { ascending: false }).order("photo_id", { ascending: false }).range(from, to);
   if (error) throw error;
-  const items = ((data || []) as unknown as JoinedPhotoRow[]).map(mapAdminPhoto);
+  const items = ((data || []) as unknown as JoinedPhotoRow[]).map((row) => mapAdminPhoto(row));
   return { items, hasMore: hasMore(from, items.length, count), total: count } satisfies PageResult<AdminPhoto>;
+}
+
+export async function getAdminPhotoThumbnails(photoIds: number[]): Promise<Record<number, string>> {
+  const uniqueIds = Array.from(new Set(photoIds.filter((id) => Number.isInteger(id) && id > 0)));
+  if (!uniqueIds.length) return {};
+  const client = requireClient();
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET;
+  if (!bucket) return {};
+  const { data: rows, error } = await client
+    .from("photo")
+    .select("photo_id,storage_path")
+    .in("photo_id", uniqueIds);
+  if (error || !rows?.length) return {};
+  const validRows = rows.filter((row): row is { photo_id: number; storage_path: string } => Boolean(row.storage_path));
+  if (!validRows.length) return {};
+  const { data: signed, error: signError } = await client.storage
+    .from(bucket)
+    .createSignedUrls(validRows.map((row) => row.storage_path), 120);
+  if (signError || !signed) return {};
+  const urls: Record<number, string> = {};
+  signed.forEach((entry, index) => {
+    const id = validRows[index]?.photo_id;
+    if (id && entry.signedUrl && !entry.error) {
+      urls[id] = entry.signedUrl;
+    }
+  });
+  return urls;
 }
 
 
@@ -620,7 +751,7 @@ export async function getBurialPhotos(burialId: number): Promise<AdminPhoto[]> {
     .eq("burial_id", burialId)
     .order("photo_id", { ascending: true });
   if (!extended.error) {
-    return ((extended.data || []) as unknown as JoinedPhotoRow[]).map(mapAdminPhoto);
+    return ((extended.data || []) as unknown as JoinedPhotoRow[]).map((row) => mapAdminPhoto(row));
   }
   const { data, error } = await client
     .from("photo")
@@ -628,30 +759,36 @@ export async function getBurialPhotos(burialId: number): Promise<AdminPhoto[]> {
     .eq("burial_id", burialId)
     .order("photo_id", { ascending: true });
   if (error) throw error;
-  return ((data || []) as unknown as JoinedPhotoRow[]).map(mapAdminPhoto);
+  return ((data || []) as unknown as JoinedPhotoRow[]).map((row) => mapAdminPhoto(row));
 }
 
 export async function updatePhotoReview(photoId: number, approvalStatus: AdminPhoto["approvalStatus"], revision: number) {
   let storagePathToDelete: string | null = null;
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET;
-  if (approvalStatus === "rejected" && bucket) {
-    const client = requireClient();
-    const { data: photo } = await client
-      .from("photo")
-      .select("storage_path,photo_kind,uploaded_by")
-      .eq("photo_id", photoId)
-      .maybeSingle();
-    if ((photo?.photo_kind === "tribute" || photo?.uploaded_by === null) && photo?.storage_path) {
-      storagePathToDelete = photo.storage_path;
-    }
+  const client = requireClient();
+
+  const { data: photo } = await client
+    .from("photo")
+    .select("storage_path,photo_kind,uploaded_by,approval_status")
+    .eq("photo_id", photoId)
+    .maybeSingle();
+
+  const isVisitorPhoto = Boolean(photo && (photo.photo_kind === "tribute" || photo.uploaded_by === null));
+  if (approvalStatus === "approved" && isVisitorPhoto && photo?.approval_status === "rejected") {
+    throw new Error("Rejected visitor photos are permanently removed from storage and cannot be re-approved.");
+  }
+  if (approvalStatus === "rejected" && bucket && isVisitorPhoto && photo?.storage_path) {
+    storagePathToDelete = photo.storage_path;
   }
 
   const result = await saveStaffRecord("photo", photoId, revision, { status: approvalStatus }, "review");
 
+  let storageDeleted = false;
   if (storagePathToDelete && bucket) {
-    await requireClient().storage.from(bucket).remove([storagePathToDelete]).catch(() => {});
+    const { error: removeError } = await client.storage.from(bucket).remove([storagePathToDelete]);
+    storageDeleted = !removeError;
   }
-  return result;
+  return { result, storageDeleted };
 }
 
 export type StaffBurialOption = { burial_id: number; display_name: string; lot_code: string; area_name: string | null };

@@ -3,6 +3,9 @@ import { CoordinateReview } from "@/components/admin/coordinate-review";
 import { requireStaff } from "@/lib/auth";
 import type { CoordinateVerificationQuery } from "@/lib/supabase/admin-data";
 
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Coordinate Verification | GraveNav", robots: { index: false, follow: false } };
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function AdminCoordinateVerificationRoute({ searchParams }: { searchParams: SearchParams }) {

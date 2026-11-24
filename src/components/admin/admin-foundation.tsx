@@ -10,15 +10,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDashboardData } from "@/lib/supabase/admin-data";
+import { getAdminPhotoCounts, getDashboardData, type AdminPhotoCounts } from "@/lib/supabase/admin-data";
 import type { DashboardData } from "@/lib/supabase/types";
-import { useStaff } from "./staff-context";
 
 type Tone = "success" | "warning" | "danger" | "neutral";
 
 export function AdminFoundation() {
-  const canAdmin = useStaff()?.role === "ADMIN";
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [photoCounts, setPhotoCounts] = useState<AdminPhotoCounts | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +25,12 @@ export function AdminFoundation() {
     setLoading(true);
     setError("");
     try {
-      setDashboard(await getDashboardData());
+      const [nextDashboard, nextPhotos] = await Promise.all([
+        getDashboardData(),
+        getAdminPhotoCounts().catch(() => null),
+      ]);
+      setDashboard(nextDashboard);
+      setPhotoCounts(nextPhotos);
     } catch (reason) {
       setDashboard(null);
       setError(reason instanceof Error ? reason.message : "The operational data could not be loaded.");
@@ -37,9 +41,14 @@ export function AdminFoundation() {
 
   useEffect(() => {
     let active = true;
-    getDashboardData()
-      .then((data) => {
-        if (active) setDashboard(data);
+    Promise.all([
+      getDashboardData(),
+      getAdminPhotoCounts().catch(() => null),
+    ])
+      .then(([nextDashboard, nextPhotos]) => {
+        if (!active) return;
+        setDashboard(nextDashboard);
+        setPhotoCounts(nextPhotos);
       })
       .catch((reason: unknown) => {
         if (active) setError(reason instanceof Error ? reason.message : "The operational data could not be loaded.");
@@ -50,26 +59,24 @@ export function AdminFoundation() {
     return () => { active = false; };
   }, []);
 
-  const needsVerification = dashboard?.summary.needsVerification ?? 0;
+  const pendingPhotos = photoCounts?.pending ?? 0;
 
   return (
     <div className="admin-foundation">
       <PageHeading
         actions={(
           <>
-            <Link className="admin-page-action admin-page-action--primary" href="/admin/burial-records?add=1">
+            <Link className="admin-page-action admin-page-action--primary" href="/admin/burial-records/new">
               <Icon name="plus" size={17} />
               <span>Add burial record</span>
             </Link>
-            {canAdmin ? (
-              <Link
-                className={`admin-page-action ${needsVerification > 0 ? "admin-page-action--attention" : "admin-page-action--secondary"}`}
-                href="/admin/coordinate-verification"
-              >
-                <Icon name="verification" size={16} />
-                <span>Verify coordinates</span>
-              </Link>
-            ) : null}
+            <Link
+              className={`admin-page-action ${pendingPhotos > 0 ? "admin-page-action--attention" : "admin-page-action--secondary"}`}
+              href="/admin/photos"
+            >
+              <Icon name="photos" size={16} />
+              <span>Moderate photos{pendingPhotos > 0 ? ` (${pendingPhotos})` : ""}</span>
+            </Link>
             <Link className="admin-page-action admin-page-action--secondary" href="/admin/reports">
               <Icon name="reports" size={16} />
               <span>Generate report</span>
@@ -80,7 +87,7 @@ export function AdminFoundation() {
             </Link>
           </>
         )}
-        description="Current cemetery operations, plot occupancy, and coordinate readiness."
+        description="Manage visitor memorial records, submitted remembrance photos, plot inventory, and cemetery analytics."
         title="Dashboard"
       />
 
@@ -92,34 +99,24 @@ export function AdminFoundation() {
       ) : null}
 
       {loading ? <DashboardLoading /> : null}
-      {!loading && dashboard ? <DashboardContent canAdmin={canAdmin} data={dashboard} /> : null}
+      {!loading && dashboard ? <DashboardContent data={dashboard} photoCounts={photoCounts} /> : null}
     </div>
   );
 }
 
-function DashboardContent({ canAdmin, data }: { canAdmin: boolean; data: DashboardData }) {
+function DashboardContent({ data, photoCounts }: { data: DashboardData; photoCounts: AdminPhotoCounts | null }) {
   const { summary } = data;
+  const pendingPhotos = photoCounts?.pending ?? 0;
+  const publishedPhotos = photoCounts?.approved ?? 0;
+
   return (
     <>
       <section aria-label="Operational summary" className="admin-dashboard-metrics">
-        <AdminStatCard detail="Current records across all workflow states" href="/admin/burial-records" icon="records" label="Total burial records" value={summary.totalBurialRecords} />
-        <AdminStatCard detail="Current plots with a burial assignment" href="/admin/plot-management" icon="location" label="Occupied plots" tone="success" value={summary.occupiedPlots} />
-        <AdminStatCard detail="Available status with no burial assignment" href="/admin/plot-management" icon="grid" label="Available plots" value={summary.availablePlots} />
-        <AdminStatCard
-          detail="Missing, pending, or rejected coordinates"
-          href={canAdmin ? "/admin/coordinate-verification" : "/admin/plot-management"}
-          icon="verification"
-          label="Needs verification"
-          tone={summary.needsVerification > 0 ? "warning" : "success"}
-          value={summary.needsVerification}
-        />
+        <AdminStatCard detail="Active, pending, and archived memorial records" href="/admin/burial-records" icon="records" label="Total burial records" value={summary.totalBurialRecords} />
+        <AdminStatCard detail="Pending visitor portraits & gallery tributes" href="/admin/photos" icon="photos" label="Pending photo reviews" tone={pendingPhotos > 0 ? "warning" : "success"} value={pendingPhotos} />
+        <AdminStatCard detail="Approved portraits & gallery photos live on site" href="/admin/photos" icon="check" label="Published photos" tone="success" value={publishedPhotos} />
+        <AdminStatCard detail="Total cemetery plots in register" href="/admin/plot-management" icon="grid" label="Total plots" value={summary.occupiedPlots + summary.availablePlots + (summary.syntheticPlots ?? 0) + (data.occupancy.booked + data.occupancy.onHold + data.occupancy.unknown)} />
       </section>
-
-      <p className="input-hint">
-        Synthetic project plots: {summary.syntheticPlots ?? "Count requires the staff read-model update"}.
-        {summary.syntheticPlots !== undefined
-          ? " Physical plot totals and coordinate reviews exclude these samples." : ""}
-      </p>
 
       <div className="admin-dashboard-insights">
         <BurialsBySection sections={data.burialsBySection} />
@@ -129,8 +126,60 @@ function DashboardContent({ canAdmin, data }: { canAdmin: boolean; data: Dashboa
         </div>
       </div>
 
-      <VerificationQueue canAdmin={canAdmin} items={data.verificationItems} total={summary.needsVerification} />
+      <VisitorContentQuickPanel photoCounts={photoCounts} />
     </>
+  );
+}
+
+function VisitorContentQuickPanel({ photoCounts }: { photoCounts: AdminPhotoCounts | null }) {
+  const pending = photoCounts?.pending ?? 0;
+  const visitorPending = photoCounts?.visitorPending ?? 0;
+  return (
+    <Card className="admin-dashboard-panel">
+      <DashboardPanelHeader
+        action={pending > 0 ? <Badge variant="warning">{pending} awaiting review</Badge> : <Badge variant="success">All caught up</Badge>}
+        description="Dynamic controls for what visitors see on search results, memorial profiles, and the Phase 2 map"
+        icon="photos"
+        title="Visitor Site Controls"
+        tone={pending > 0 ? "warning" : "success"}
+      />
+      <CardContent>
+        <div className="admin-settings-grid">
+          <Link className="admin-stat-card admin-stat-card--neutral" href="/admin/burial-records">
+            <div className="admin-stat-card__header">
+              <span>Memorial Visibility &amp; Inscriptions</span>
+              <span className="admin-section-icon admin-section-icon--neutral"><Icon name="records" size={18} /></span>
+            </div>
+            <span className="admin-stat-card__detail">Publish or hide deceased profiles, edit life dates, inscriptions, and family portraits.</span>
+          </Link>
+          <Link className="admin-stat-card admin-stat-card--neutral" href="/admin/photos">
+            <div className="admin-stat-card__header">
+              <span>Visitor Photo Moderation</span>
+              <span className={`admin-section-icon admin-section-icon--${pending > 0 ? "warning" : "success"}`}><Icon name="photos" size={18} /></span>
+            </div>
+            <span className="admin-stat-card__detail">
+              {visitorPending > 0
+                ? `${visitorPending} visitor-submitted portrait or gallery photos waiting for approval.`
+                : "Approve or reject visitor remembrance photos and portrait requests before publication."}
+            </span>
+          </Link>
+          <Link className="admin-stat-card admin-stat-card--neutral" href="/admin/cemetery-map">
+            <div className="admin-stat-card__header">
+              <span>Interactive Phase 2 Map</span>
+              <span className="admin-section-icon admin-section-icon--neutral"><Icon name="map" size={18} /></span>
+            </div>
+            <span className="admin-stat-card__detail">Inspect Park Map and Esri Satellite view, click any occupied lot to open its memorial record.</span>
+          </Link>
+          <Link className="admin-stat-card admin-stat-card--neutral" href="/admin/site-settings">
+            <div className="admin-stat-card__header">
+              <span>Visitor Site Settings</span>
+              <span className="admin-section-icon admin-section-icon--neutral"><Icon name="settings" size={18} /></span>
+            </div>
+            <span className="admin-stat-card__detail">Update park hours, contact details, visitor announcement banners, and photo submission toggles live.</span>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -241,7 +290,7 @@ function RecentChanges({ changes }: { changes: DashboardData["recentChanges"] })
       {changes.length ? (
         <ol className="admin-activity-list">{changes.map((change) => <ActivityItem change={change} key={change.auditId} />)}</ol>
       ) : (
-        <CardContent><EmptyState description="Burial, plot, and coordinate events will appear here as staff work is recorded." icon="audit" title="No recent record changes" /></CardContent>
+        <CardContent><EmptyState description="Burial, plot, and photo events will appear here as staff work is recorded." icon="audit" title="No recent record changes" /></CardContent>
       )}
     </Card>
   );
@@ -256,52 +305,6 @@ function ActivityItem({ change }: { change: DashboardData["recentChanges"][numbe
       <time dateTime={change.createdAt}>{formatAuditTime(change.createdAt)}</time>
     </li>
   );
-}
-
-function VerificationQueue({ canAdmin, items, total }: { canAdmin: boolean; items: DashboardData["verificationItems"]; total: number }) {
-  return (
-    <Card className="admin-dashboard-panel admin-verification-panel">
-      <DashboardPanelHeader
-        action={total > 0 && canAdmin ? <Badge variant="warning">{total.toLocaleString()} need attention</Badge> : undefined}
-        description="Current plots with missing, pending, or rejected coordinate work"
-        icon="verification"
-        title="Items Needing Verification"
-        tone={total > 0 ? "warning" : "success"}
-      />
-      {items.length ? (
-        <div className="admin-verification-table-wrap">
-          <table className="admin-verification-table">
-            <caption className="sr-only">Plots that need coordinate verification</caption>
-            <thead><tr><th scope="col">Plot</th><th scope="col">Issue</th><th scope="col">Updated</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Action</span></th></tr></thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.lotId}>
-                  <td data-label="Plot"><strong>{item.plot}</strong></td>
-                  <td data-label="Issue"><span>{item.issue}</span>{item.rejectionReason ? <small>{item.rejectionReason}</small> : null}</td>
-                  <td data-label="Updated"><time dateTime={item.updatedAt}>{formatAuditTime(item.updatedAt)}</time></td>
-                  <td data-label="Status"><VerificationBadge status={item.status} /></td>
-                  <td data-label="Action">
-                    {canAdmin ? (
-                      <Link className="admin-row-action" href={`/admin/coordinate-verification?plot=${encodeURIComponent(item.plot)}`}>Review<span className="sr-only"> {item.plot}</span></Link>
-                    ) : <span className="admin-readonly-label">Administrator review</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {total > items.length && canAdmin ? <div className="admin-panel-footer"><span>Showing {items.length.toLocaleString()} of {total.toLocaleString()} items</span><Link href="/admin/coordinate-verification">Open full queue</Link></div> : null}
-        </div>
-      ) : (
-        <CardContent><EmptyState action={<Link className="text-button" href="/admin/plot-management">Review plot inventory</Link>} description="No current plots have missing, pending, or rejected coordinates." icon="check" title="Coordinate work is up to date" /></CardContent>
-      )}
-    </Card>
-  );
-}
-
-function VerificationBadge({ status }: { status: DashboardData["verificationItems"][number]["status"] }) {
-  const labels = { missing: "Missing", pending: "Pending", rejected: "Rejected" } as const;
-  const variants = { missing: "danger", pending: "warning", rejected: "danger" } as const;
-  return <Badge variant={variants[status]}>{labels[status]}</Badge>;
 }
 
 function DashboardPanelHeader({ title, description, icon, action, tone = "neutral" }: { title: string; description: string; icon: IconName; action?: ReactNode; tone?: Tone }) {

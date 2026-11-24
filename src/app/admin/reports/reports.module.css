@@ -1,4 +1,5 @@
 .report { min-width: 0; }
+.printHeader { display: none; }
 
 .filters, .exports {
   display: flex;
@@ -89,6 +90,15 @@
     margin: 0;
   }
   .report { --admin-muted: #222; --admin-ink: #111; color: #111; }
+  .printHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+    font-size: 0.9rem;
+  }
   .report :global(:is(.page-breadcrumbs, .page-actions)), .filters, .controls, .barTrack {
     display: none !important;
   }

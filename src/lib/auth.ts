@@ -82,7 +82,8 @@ export async function requireStaff(
   if (!user) redirect("/admin/login");
   const staff = await readCurrentStaff(supabase, user);
   if (!staff) redirect("/admin/unauthorized");
-  if (!staff.isActive || staff.accountStatus !== "ACTIVE" || (requiredRole && staff.role !== requiredRole)) redirect("/admin/unauthorized");
+  if (!staff.isActive || staff.accountStatus !== "ACTIVE") redirect("/admin/unauthorized");
+  if (requiredRole && staff.role !== requiredRole) redirect("/admin/unauthorized?reason=role");
   return staff;
 }
 

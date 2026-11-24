@@ -11,7 +11,11 @@ export const localSupabaseConfig = {
   publishableKey: supabasePublishableKey,
   configured: Boolean(supabasePublishableKey),
   environment: isLocalSupabaseUrl ? "local" : "hosted",
-  environmentLabel: isLocalSupabaseUrl ? "LOCAL" : "HOSTED DEVELOPMENT",
+  environmentLabel: isLocalSupabaseUrl
+    ? "LOCAL"
+    : process.env.NODE_ENV === "production"
+      ? "PRODUCTION"
+      : "HOSTED DEV",
 };
 
 export const publicAppOrigin = getPublicAppOrigin();
@@ -40,9 +44,10 @@ function isLocalUrl(value: string) {
 }
 
 function getPublicAppOrigin() {
-  const configuredOrigin = process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : process.env.NEXT_PUBLIC_APP_ORIGIN || "http://localhost:3000";
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL.replace(/^https?:\/\//, "")}`
+    : "";
+  const configuredOrigin = process.env.NEXT_PUBLIC_APP_ORIGIN || vercelUrl || "http://localhost:3000";
   try {
     const url = new URL(configuredOrigin);
     if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Unsupported application origin");

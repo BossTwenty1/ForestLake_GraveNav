@@ -65,7 +65,7 @@ export function RecordVisibility({ record, onReload }: {
     <CardHeader><CardTitle>Visitor visibility</CardTitle></CardHeader>
     <CardContent>
       <p aria-live="polite"><strong>{summary}</strong></p>
-      {blocker ? <p>{blocker}</p> : null}
+      {blocker && visible !== true ? <p>{blocker}</p> : null}
       {!blocker && visible === false && !record.publicDisplay
         ? <p>This record is hidden. Review the visitor preview before publishing.</p> : null}
       {!blocker && visible === false && record.publicDisplay
@@ -87,7 +87,7 @@ export function RecordVisibility({ record, onReload }: {
           disabled={busy} onClick={() => setConfirm("hide")} variant="secondary"
         >Hide Record</Button> : null}
         <Button disabled={busy} onClick={() => {
-          setVisible(null); setAttempt((value) => value + 1); onReload();
+          setError(""); setMessage(""); setVisible(null); setAttempt((value) => value + 1); onReload();
         }} variant="quiet">Reload status</Button>
       </div>
       <ConfirmationDialog

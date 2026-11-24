@@ -93,8 +93,17 @@ export function AdminShellClient({ children, active, staff }: AdminShellClientPr
   async function logout() {
     if (loggingOut) return;
     setLoggingOut(true);
-    await signOut();
-    router.push("/admin/login");
+    try {
+      const { error } = await signOut();
+      if (error) {
+        setLoggingOut(false);
+        return;
+      }
+      router.push("/admin/login");
+      router.refresh();
+    } catch {
+      setLoggingOut(false);
+    }
   }
 
   function closeDrawer() {
