@@ -242,7 +242,7 @@ export function AdminAuditLogPage() {
 }
 
 type PendingAccountAction = {
-  action: "approve" | "activate" | "deactivate" | "role";
+  action: "approve" | "activate" | "deactivate" | "role" | "remove";
   account: AdminAccount;
   value?: string;
   title: string;
@@ -260,12 +260,21 @@ type CredentialHandoff = {
   password: string;
 };
 
+function initialsFor(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "ST";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
 export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boolean }) {
   const currentStaff = useStaff();
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"ALL" | AdminAccount["accountStatus"]>(pendingOnly ? "PENDING" : "ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "PENDING" | "SUSPENDED">(pendingOnly ? "PENDING" : "ALL");
   const [search, setSearch] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
@@ -309,14 +318,39 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
     return () => { active = false; };
   }, []);
 
+  // Close row overflow menu on outside click or Escape
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-account-menu]")) return;
+      setOpenMenuId(null);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenuId]);
+
+  // Exclude permanently removed (REVOKED) accounts from the active directory display
+  const activeDirectoryAccounts = useMemo(
+    () => accounts.filter((account) => account.accountStatus !== "REVOKED"),
+    [accounts],
+  );
+
   const displayedAccounts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return accounts.filter((account) => {
+    return activeDirectoryAccounts.filter((account) => {
       if (statusFilter !== "ALL" && account.accountStatus !== statusFilter) return false;
       if (!term) return true;
       return account.username.toLowerCase().includes(term) || account.role.toLowerCase().includes(term);
     });
-  }, [accounts, statusFilter, search]);
+  }, [activeDirectoryAccounts, statusFilter, search]);
 
   const passwordCheck = useMemo(() => validateStaffPassword(password), [password]);
   const resetPasswordCheck = useMemo(() => validateStaffPassword(resetPassword), [resetPassword]);
@@ -328,9 +362,30 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
     setMessage("");
     setConfirmAction(null);
     try {
-      await accountAction(pending.action, pending.account.accountId, pending.account.revision, pending.value);
-      setMessage(`Account "${pending.account.username}" updated successfully.`);
-      await refresh();
+      if (pending.action === "remove") {
+        const response = await fetch("/api/admin/accounts/remove", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: pending.account.accountId }),
+        });
+        let result: { error?: string } = {};
+        try {
+          result = await response.json() as { error?: string };
+        } catch {
+          // Safe fallback below.
+        }
+        if (!response.ok) {
+          setError(result.error || "The staff account could not be deleted.");
+          return;
+        }
+        setAccounts((prev) => prev.filter((item) => item.accountId !== pending.account.accountId));
+        setMessage(`Account "${pending.account.username}" has been deleted.`);
+        await refresh();
+      } else {
+        await accountAction(pending.action, pending.account.accountId, pending.account.revision, pending.value);
+        setMessage(`Account "${pending.account.username}" updated successfully.`);
+        await refresh();
+      }
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -439,6 +494,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
       setPassword("");
       setConfirmPassword("");
       setShowPassword(false);
+      setShowCreateForm(false);
       setMessage(
         result.notice ||
           (finalStatus === "ACTIVE"
@@ -531,14 +587,23 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
     }
   }
 
-  const pendingCount = accounts.filter((a) => a.accountStatus === "PENDING").length;
-  const activeCount = accounts.filter((a) => a.accountStatus === "ACTIVE").length;
-  const suspendedCount = accounts.filter((a) => a.accountStatus === "SUSPENDED").length;
+  const pendingCount = activeDirectoryAccounts.filter((a) => a.accountStatus === "PENDING").length;
+  const activeCount = activeDirectoryAccounts.filter((a) => a.accountStatus === "ACTIVE").length;
+  const suspendedCount = activeDirectoryAccounts.filter((a) => a.accountStatus === "SUSPENDED").length;
 
   return (
     <AdminPageFrame
       title="Account Management"
-      description="Create ADMIN or MANAGER accounts directly with an initial password, reset staff passwords, manage roles, and control access."
+      description="Add ADMIN or MANAGER accounts, set passwords, change roles, or delete staff accounts."
+      actions={
+        <Button
+          icon={showCreateForm ? "x" : "plus"}
+          onClick={() => setShowCreateForm((v) => !v)}
+          variant={showCreateForm ? "secondary" : "primary"}
+        >
+          {showCreateForm ? "Close form" : "Add staff account"}
+        </Button>
+      }
     >
       {error ? <DataError message={error} /> : null}
       {message ? <Alert icon="check" title="Account update" variant="success">{message}</Alert> : null}
@@ -552,7 +617,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
         >
           <span className={accountStyles.summaryPillText}>
             <span>Total staff</span>
-            <strong>{accounts.length}</strong>
+            <strong>{activeDirectoryAccounts.length}</strong>
           </span>
           <Icon name="users" size={18} />
         </button>
@@ -640,315 +705,419 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
         </section>
       ) : null}
 
-      {/* Direct Staff Account Creation Form (No Email Invite Needed) */}
-      <Card className="admin-form-card">
-        <CardHeader>
-          <CardTitle>Add staff account</CardTitle>
-          <Badge variant="success">Direct password setup · No email required</Badge>
-        </CardHeader>
-        <CardContent>
-          <form className="admin-form" onSubmit={createStaffAccount}>
-            <div className={accountStyles.createGrid}>
-              <Input
-                autoComplete="off"
-                label="Display name / Username"
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="e.g., Maria Santos"
-                required
-                value={username}
-              />
-              <Input
-                autoComplete="off"
-                label="Email address"
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="staff@forestlake.ph"
-                required
-                type="email"
-                value={email}
-              />
-              <label className="input-field">
-                <span className="input-label">Staff role</span>
-                <select
-                  className="input-control"
-                  onChange={(event) => setRole(event.target.value as "ADMIN" | "MANAGER")}
-                  value={role}
-                >
-                  <option value="MANAGER">MANAGER — Records, Photos, Plots &amp; Reports</option>
-                  <option value="ADMIN">ADMIN — Full System &amp; Account Administration</option>
-                </select>
-              </label>
-
-              <div className={accountStyles.passwordField}>
-                <div className={accountStyles.passwordHeader}>
-                  <label className="input-label" htmlFor="new-staff-password" style={{ marginBottom: 0 }}>
-                    Initial password
-                  </label>
-                  <button
-                    className={accountStyles.generateBtn}
-                    disabled={createBusy}
-                    onClick={handleGenerateCreatePassword}
-                    type="button"
+      {/* Expandable Direct Staff Account Creation Form */}
+      {showCreateForm ? (
+        <Card className="admin-form-card">
+          <CardHeader>
+            <CardTitle>Add staff account</CardTitle>
+            <Badge variant="success">Set password directly · No email needed</Badge>
+          </CardHeader>
+          <CardContent>
+            <form className="admin-form" onSubmit={createStaffAccount}>
+              <div className={accountStyles.createGrid}>
+                <Input
+                  autoComplete="off"
+                  label="Display name / Username"
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="e.g., Maria Santos"
+                  required
+                  value={username}
+                />
+                <Input
+                  autoComplete="off"
+                  label="Email address"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="staff@forestlake.ph"
+                  required
+                  type="email"
+                  value={email}
+                />
+                <label className="input-field">
+                  <span className="input-label">Staff role</span>
+                  <select
+                    className="input-control"
+                    onChange={(event) => setRole(event.target.value as "ADMIN" | "MANAGER")}
+                    value={role}
                   >
-                    Generate strong password
-                  </button>
+                    <option value="MANAGER">MANAGER — Records, Photos, Plots &amp; Reports</option>
+                    <option value="ADMIN">ADMIN — Full System &amp; Account Administration</option>
+                  </select>
+                </label>
+
+                <div className={accountStyles.passwordField}>
+                  <div className={accountStyles.passwordHeader}>
+                    <label className="input-label" htmlFor="new-staff-password" style={{ marginBottom: 0 }}>
+                      Initial password
+                    </label>
+                    <button
+                      className={accountStyles.generateBtn}
+                      disabled={createBusy}
+                      onClick={handleGenerateCreatePassword}
+                      type="button"
+                    >
+                      Generate strong password
+                    </button>
+                  </div>
+                  <div className={accountStyles.passwordInputWrap}>
+                    <input
+                      autoComplete="new-password"
+                      className={`input-control ${accountStyles.passwordInput}`}
+                      disabled={createBusy}
+                      id="new-staff-password"
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Minimum 8 characters"
+                      required
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                    />
+                    <button
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className={accountStyles.eyeToggle}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      type="button"
+                    >
+                      <Icon name="eye" size={17} />
+                    </button>
+                  </div>
+                  <div className={accountStyles.policyRow}>
+                    <span className={`${accountStyles.policyChip} ${passwordCheck.checks.minLength ? accountStyles.policyChipMet : ""}`}>
+                      8+ chars
+                    </span>
+                    <span className={`${accountStyles.policyChip} ${passwordCheck.checks.hasLetter ? accountStyles.policyChipMet : ""}`}>
+                      Letter
+                    </span>
+                    <span className={`${accountStyles.policyChip} ${passwordCheck.checks.hasNumber ? accountStyles.policyChipMet : ""}`}>
+                      Number
+                    </span>
+                  </div>
                 </div>
-                <div className={accountStyles.passwordInputWrap}>
+
+                <div className={accountStyles.passwordField}>
+                  <label className="input-label" htmlFor="new-staff-password-confirm" style={{ marginBottom: 0 }}>
+                    Confirm initial password
+                  </label>
                   <input
                     autoComplete="new-password"
                     className={`input-control ${accountStyles.passwordInput}`}
                     disabled={createBusy}
-                    id="new-staff-password"
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Minimum 8 characters"
+                    id="new-staff-password-confirm"
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Re-enter password"
                     required
                     type={showPassword ? "text" : "password"}
-                    value={password}
+                    value={confirmPassword}
                   />
-                  <button
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    className={accountStyles.eyeToggle}
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    type="button"
-                  >
-                    <Icon name="eye" size={17} />
-                  </button>
+                  {confirmPassword && confirmPassword !== password ? (
+                    <span style={{ color: "var(--admin-danger)", fontSize: "0.72rem", fontWeight: 620 }}>
+                      Passwords do not match.
+                    </span>
+                  ) : null}
                 </div>
-                <div className={accountStyles.policyRow}>
-                  <span className={`${accountStyles.policyChip} ${passwordCheck.checks.minLength ? accountStyles.policyChipMet : ""}`}>
-                    8+ chars
-                  </span>
-                  <span className={`${accountStyles.policyChip} ${passwordCheck.checks.hasLetter ? accountStyles.policyChipMet : ""}`}>
-                    Letter
-                  </span>
-                  <span className={`${accountStyles.policyChip} ${passwordCheck.checks.hasNumber ? accountStyles.policyChipMet : ""}`}>
-                    Number
-                  </span>
-                </div>
-              </div>
 
-              <div className={accountStyles.passwordField}>
-                <label className="input-label" htmlFor="new-staff-password-confirm" style={{ marginBottom: 0 }}>
-                  Confirm initial password
+                <label className={accountStyles.activateToggle}>
+                  <input
+                    checked={activateImmediately}
+                    disabled={createBusy}
+                    onChange={(event) => setActivateImmediately(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span className={accountStyles.activateToggleText}>
+                    <strong>Activate account immediately</strong>
+                    <span>Staff member can sign in right away at /admin/login without a separate approval step.</span>
+                  </span>
                 </label>
-                <input
-                  autoComplete="new-password"
-                  className={`input-control ${accountStyles.passwordInput}`}
-                  disabled={createBusy}
-                  id="new-staff-password-confirm"
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="Re-enter password"
-                  required
-                  type={showPassword ? "text" : "password"}
-                  value={confirmPassword}
-                />
-                {confirmPassword && confirmPassword !== password ? (
-                  <span style={{ color: "var(--admin-danger)", fontSize: "0.72rem", fontWeight: 620 }}>
-                    Passwords do not match.
-                  </span>
-                ) : null}
               </div>
 
-              <label className={accountStyles.activateToggle}>
-                <input
-                  checked={activateImmediately}
-                  disabled={createBusy}
-                  onChange={(event) => setActivateImmediately(event.target.checked)}
-                  type="checkbox"
-                />
-                <span className={accountStyles.activateToggleText}>
-                  <strong>Activate account immediately</strong>
-                  <span>Staff member can sign in right away at /admin/login without a separate approval step.</span>
-                </span>
-              </label>
-            </div>
+              <div className={accountStyles.formFooter}>
+                <p className={accountStyles.formHint}>
+                  This account will be ready right away — no email confirmation needed.
+                </p>
+                <div className={accountStyles.formFooterActions}>
+                  <Button disabled={createBusy} onClick={() => setShowCreateForm(false)} type="button" variant="quiet">
+                    Cancel
+                  </Button>
+                  <Button disabled={createBusy} icon="shield" type="submit">
+                    {createBusy ? "Creating account…" : "Create staff account"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
-            <div className={accountStyles.formFooter}>
-              <p className={accountStyles.formHint}>
-                Credentials are confirmed directly in Authentication — no email delivery needed.
-              </p>
-              <Button disabled={createBusy} icon="shield" type="submit">
-                {createBusy ? "Creating account…" : "Create staff account"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
+      {/* Redesigned Staff Accounts Directory */}
       <Card>
         <CardHeader>
           <CardTitle>Staff accounts</CardTitle>
           <Badge variant="info">{displayedAccounts.length} shown · {pendingCount} pending</Badge>
         </CardHeader>
         <CardContent>
-          <div className="filter-grid" style={{ marginBottom: 14 }}>
-            <Input
-              aria-label="Search accounts"
-              icon="search"
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search username or role…"
-              type="search"
-              value={search}
-            />
-            <label className="input-field">
-              <span className="input-label">Account status</span>
-              <select
-                className="input-control"
-                onChange={(e) => setStatusFilter(e.target.value as "ALL" | AdminAccount["accountStatus"])}
-                value={statusFilter}
-              >
-                <option value="ALL">All statuses ({accounts.length})</option>
-                <option value="PENDING">Pending ({pendingCount})</option>
-                <option value="ACTIVE">Active ({activeCount})</option>
-                <option value="SUSPENDED">Suspended ({suspendedCount})</option>
-                <option value="REVOKED">Revoked ({accounts.filter((a) => a.accountStatus === "REVOKED").length})</option>
-              </select>
+          <div className={accountStyles.directoryToolbar}>
+            <label className={accountStyles.searchWrap}>
+              <span className="sr-only">Search staff accounts</span>
+              <span aria-hidden="true" className={accountStyles.searchIcon}>
+                <Icon name="search" size={16} />
+              </span>
+              <input
+                className={accountStyles.searchInput}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by username or role…"
+                type="search"
+                value={search}
+              />
             </label>
+
+            <div aria-label="Filter by status" className={accountStyles.filterTabs} role="group">
+              {(
+                [
+                  ["ALL", `All (${activeDirectoryAccounts.length})`],
+                  ["ACTIVE", `Active (${activeCount})`],
+                  ["PENDING", `Pending (${pendingCount})`],
+                  ["SUSPENDED", `Suspended (${suspendedCount})`],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  aria-pressed={statusFilter === key}
+                  className={`${accountStyles.filterTab} ${statusFilter === key ? accountStyles.filterTabActive : ""}`}
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {loading ? (
             <div style={{ display: "grid", gap: 10 }} role="status" aria-label="Loading staff accounts">
-              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} style={{ height: 48, borderRadius: 8 }} />)}
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} style={{ height: 54, borderRadius: 10 }} />)}
             </div>
           ) : displayedAccounts.length ? (
-            <Table caption="Administrator accounts">
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell>Username</TableHeaderCell>
-                  <TableHeaderCell>Role</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>Created</TableHeaderCell>
-                  <TableHeaderCell>Actions</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {displayedAccounts.map((account) => {
-                  const isSelf = currentStaff?.accountId === account.accountId;
-                  const isRevoked = account.accountStatus === "REVOKED";
-                  const targetRole = account.role === "ADMIN" ? "MANAGER" : "ADMIN";
-                  return (
-                    <TableRow key={account.accountId}>
-                      <TableCell>
-                        <strong>{account.username}</strong>
-                        {isSelf ? <span style={{ marginLeft: 8 }}><Badge variant="neutral">You</Badge></span> : null}
-                      </TableCell>
-                      <TableCell><Badge variant="info">{account.role}</Badge></TableCell>
-                      <TableCell>
-                        <Badge variant={account.accountStatus === "ACTIVE" ? "success" : account.accountStatus === "PENDING" ? "warning" : "danger"}>
-                          {account.accountStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatShortDate(account.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="table-actions">
-                          {account.accountStatus === "PENDING" && !account.approvedAt ? (
-                            <Button size="sm" variant="secondary" disabled={actionBusy} onClick={() => void runDirect("approve", account)}>
-                              Approve
-                            </Button>
-                          ) : null}
-                          {account.accountStatus === "PENDING" && account.approvedAt ? (
-                            <Button size="sm" variant="primary" disabled={actionBusy} onClick={() => void runDirect("activate", account)}>
-                              Activate
-                            </Button>
-                          ) : null}
-                          {account.accountStatus === "SUSPENDED" && !isSelf ? (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              disabled={actionBusy}
-                              onClick={() => setConfirmAction({
-                                action: "activate",
-                                account,
-                                title: `Reactivate ${account.username}?`,
-                                description: "Reactivating restores workspace access for this suspended staff account.",
-                                confirmLabel: "Reactivate account",
-                                variant: "primary",
-                              })}
+            <div className={accountStyles.directoryTableWrap}>
+              <table className={accountStyles.directoryTable}>
+                <caption className="sr-only">Active and manageable staff accounts</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Staff member</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Added</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedAccounts.map((account) => {
+                    const isSelf = currentStaff?.accountId === account.accountId;
+                    const targetRole = account.role === "ADMIN" ? "MANAGER" : "ADMIN";
+                    const menuOpen = openMenuId === account.accountId;
+                    return (
+                      <tr key={account.accountId}>
+                        <td>
+                          <div className={accountStyles.memberCell}>
+                            <span
+                              aria-hidden="true"
+                              className={`${accountStyles.memberAvatar} ${account.role === "MANAGER" ? accountStyles.memberAvatarManager : ""}`}
                             >
-                              Reactivate
-                            </Button>
-                          ) : null}
-                          {!isRevoked && !isSelf ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={actionBusy}
-                              onClick={() => {
-                                setPasswordModalAccount(account);
-                                setResetPassword("");
-                                setResetConfirmPassword("");
-                                setShowResetPassword(false);
-                                setResetError("");
-                              }}
-                            >
-                              Set password
-                            </Button>
-                          ) : null}
-                          {account.accountStatus === "ACTIVE" && !isSelf ? (
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              disabled={actionBusy}
-                              onClick={() => setConfirmAction({
-                                action: "deactivate",
-                                account,
-                                value: "SUSPENDED",
-                                title: `Suspend ${account.username}?`,
-                                description: "Suspending immediately blocks workspace access for this staff account.",
-                                confirmLabel: "Suspend account",
-                                variant: "danger",
-                              })}
-                            >
-                              Suspend
-                            </Button>
-                          ) : null}
-                          {!isRevoked && !isSelf ? (
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              disabled={actionBusy}
-                              onClick={() => setConfirmAction({
-                                action: "deactivate",
-                                account,
-                                value: "REVOKED",
-                                title: `Permanently revoke ${account.username}?`,
-                                description: "Revoking permanently terminates this staff account's access. This cannot be undone.",
-                                confirmLabel: "Revoke permanently",
-                                variant: "danger",
-                              })}
-                            >
-                              Revoke
-                            </Button>
-                          ) : null}
-                          {!isRevoked && !isSelf ? (
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              disabled={actionBusy}
-                              onClick={() => setConfirmAction({
-                                action: "role",
-                                account,
-                                value: targetRole,
-                                title: `Change ${account.username} to ${targetRole}?`,
-                                description: targetRole === "ADMIN"
-                                  ? "Granting ADMIN allows photo moderation, account provisioning, deletion, and recovery."
-                                  : "Switching to MANAGER removes ADMIN-only account, deletion, and photo approval privileges.",
-                                confirmLabel: `Make ${targetRole.toLowerCase()}`,
-                                variant: "primary",
-                              })}
-                            >
-                              Make {targetRole.toLowerCase()}
-                            </Button>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                              {initialsFor(account.username)}
+                            </span>
+                            <div className={accountStyles.memberInfo}>
+                              <strong>{account.username}</strong>
+                              {isSelf ? <span className={accountStyles.youChip}>You</span> : null}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className={`${accountStyles.rolePill} ${account.role === "ADMIN" ? accountStyles.roleAdmin : accountStyles.roleManager}`}
+                          >
+                            {account.role}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`${accountStyles.statusPill} ${
+                              account.accountStatus === "ACTIVE"
+                                ? accountStyles.statusActive
+                                : account.accountStatus === "PENDING"
+                                  ? accountStyles.statusPending
+                                  : accountStyles.statusSuspended
+                            }`}
+                          >
+                            <span aria-hidden="true" className={accountStyles.statusDot} />
+                            {account.accountStatus === "ACTIVE"
+                              ? "Active"
+                              : account.accountStatus === "PENDING"
+                                ? "Pending"
+                                : "Suspended"}
+                          </span>
+                        </td>
+                        <td className={accountStyles.dateCell}>{formatShortDate(account.createdAt)}</td>
+                        <td>
+                          <div className={accountStyles.rowActions}>
+                            {isSelf ? (
+                              <span className={accountStyles.selfMuted}>Current session</span>
+                            ) : (
+                              <>
+                                {account.accountStatus === "PENDING" && !account.approvedAt ? (
+                                  <Button
+                                    disabled={actionBusy}
+                                    onClick={() => void runDirect("approve", account)}
+                                    size="sm"
+                                    variant="primary"
+                                  >
+                                    Approve
+                                  </Button>
+                                ) : null}
+                                {account.accountStatus === "PENDING" && account.approvedAt ? (
+                                  <Button
+                                    disabled={actionBusy}
+                                    onClick={() => void runDirect("activate", account)}
+                                    size="sm"
+                                    variant="primary"
+                                  >
+                                    Activate
+                                  </Button>
+                                ) : null}
+                                {account.accountStatus === "SUSPENDED" ? (
+                                  <Button
+                                    disabled={actionBusy}
+                                    onClick={() => setConfirmAction({
+                                      action: "activate",
+                                      account,
+                                      title: `Reactivate ${account.username}?`,
+                                      description: "Reactivating restores workspace access for this suspended staff account.",
+                                      confirmLabel: "Reactivate account",
+                                      variant: "primary",
+                                    })}
+                                    size="sm"
+                                    variant="primary"
+                                  >
+                                    Reactivate
+                                  </Button>
+                                ) : null}
+
+                                <Button
+                                  disabled={actionBusy}
+                                  icon="lock"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setPasswordModalAccount(account);
+                                    setResetPassword("");
+                                    setResetConfirmPassword("");
+                                    setShowResetPassword(false);
+                                    setResetError("");
+                                  }}
+                                  size="sm"
+                                  variant="secondary"
+                                >
+                                  Set password
+                                </Button>
+
+                                <div className={accountStyles.menuWrap} data-account-menu>
+                                  <button
+                                    aria-expanded={menuOpen}
+                                    aria-haspopup="menu"
+                                    aria-label={`More actions for ${account.username}`}
+                                    className={accountStyles.menuTrigger}
+                                    disabled={actionBusy}
+                                    onClick={() => setOpenMenuId(menuOpen ? null : account.accountId)}
+                                    type="button"
+                                  >
+                                    <Icon name="more" size={16} />
+                                  </button>
+
+                                  {menuOpen ? (
+                                    <div className={accountStyles.menuPopover} role="menu">
+                                      <button
+                                        className={accountStyles.menuItem}
+                                        onClick={() => {
+                                          setOpenMenuId(null);
+                                          setConfirmAction({
+                                            action: "role",
+                                            account,
+                                            value: targetRole,
+                                            title: `Change ${account.username} to ${targetRole}?`,
+                                            description: targetRole === "ADMIN"
+                                              ? "Granting ADMIN allows account management, visitor site settings, deletion, and recovery."
+                                              : "Switching to MANAGER removes ADMIN-only account, site settings, and deletion privileges.",
+                                            confirmLabel: `Make ${targetRole.toLowerCase()}`,
+                                            variant: "primary",
+                                          });
+                                        }}
+                                        role="menuitem"
+                                        type="button"
+                                      >
+                                        <Icon name="shield" size={15} />
+                                        <span>Change to {targetRole}</span>
+                                      </button>
+
+                                      {account.accountStatus === "ACTIVE" ? (
+                                        <button
+                                          className={accountStyles.menuItem}
+                                          onClick={() => {
+                                            setOpenMenuId(null);
+                                            setConfirmAction({
+                                              action: "deactivate",
+                                              account,
+                                              value: "SUSPENDED",
+                                              title: `Suspend ${account.username}?`,
+                                              description: "Suspending temporarily blocks workspace sign-in until reactivated.",
+                                              confirmLabel: "Suspend access",
+                                              variant: "danger",
+                                            });
+                                          }}
+                                          role="menuitem"
+                                          type="button"
+                                        >
+                                          <Icon name="clock" size={15} />
+                                          <span>Suspend access</span>
+                                        </button>
+                                      ) : null}
+
+                                      <div className={accountStyles.menuDivider} />
+
+                                      <button
+                                        className={`${accountStyles.menuItem} ${accountStyles.menuItemDanger}`}
+                                        onClick={() => {
+                                          setOpenMenuId(null);
+                                          setConfirmAction({
+                                            action: "remove",
+                                            account,
+                                            title: `Delete ${account.username}?`,
+                                            description: "This permanently deletes this staff account so they can no longer sign in or appear in the list.",
+                                            confirmLabel: "Delete account",
+                                            variant: "danger",
+                                          });
+                                        }}
+                                        role="menuitem"
+                                        type="button"
+                                      >
+                                        <Icon name="trash" size={15} />
+                                        <span>Delete account</span>
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <EmptyState
-              description="No staff accounts match the active filter."
+              action={statusFilter !== "ALL" || search ? (
+                <Button onClick={() => { setStatusFilter("ALL"); setSearch(""); }} variant="secondary">
+                  Show all staff
+                </Button>
+              ) : undefined}
+              description={search || statusFilter !== "ALL" ? "No staff accounts match the current search or filter." : "No other staff accounts have been added yet."}
               icon="shield"
               title="No matching accounts"
             />
