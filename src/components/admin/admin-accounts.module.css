@@ -1,0 +1,358 @@
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summaryPill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  background: var(--admin-panel);
+  padding: 13px 15px;
+  color: var(--admin-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.summaryPill:hover {
+  border-color: var(--admin-accent);
+  background: var(--admin-panel-muted);
+  transform: translateY(-1px);
+}
+
+.summaryPill:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.summaryPillActive {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+}
+
+.summaryPillText {
+  display: grid;
+  gap: 2px;
+}
+
+.summaryPillText span {
+  font-size: 0.72rem;
+  font-weight: 660;
+  color: var(--admin-muted);
+}
+
+.summaryPillText strong {
+  font-size: 1.38rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* Create Staff Account Form */
+.createGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.passwordField {
+  display: grid;
+  gap: 6px;
+}
+
+.passwordHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.generateBtn {
+  border: 1px solid var(--admin-line);
+  border-radius: 7px;
+  background: var(--admin-panel-muted);
+  padding: 3px 9px;
+  color: var(--admin-accent);
+  font: inherit;
+  font-size: 0.71rem;
+  font-weight: 720;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.generateBtn:hover:not(:disabled) {
+  background: var(--admin-accent-soft);
+  border-color: var(--admin-accent);
+}
+
+.generateBtn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.passwordInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordInput {
+  padding-right: 44px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.eyeToggle {
+  position: absolute;
+  right: 4px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.eyeToggle:hover {
+  background: var(--admin-panel-muted);
+  color: var(--admin-ink);
+}
+
+.eyeToggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.policyRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.policyChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 680;
+  background: var(--admin-panel-muted);
+  color: var(--admin-muted);
+}
+
+.policyChipMet {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.activateToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: var(--admin-panel-muted);
+  padding: 11px 13px;
+  cursor: pointer;
+}
+
+.activateToggle input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #166534;
+  cursor: pointer;
+}
+
+.activateToggleText {
+  display: grid;
+  gap: 2px;
+}
+
+.activateToggleText strong {
+  color: var(--admin-ink);
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+
+.activateToggleText span {
+  color: var(--admin-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.formFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.formHint {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.73rem;
+}
+
+/* One-Time Credentials Handoff Card */
+.handoffCard {
+  border: 1.5px solid var(--admin-accent);
+  border-radius: 14px;
+  background: var(--admin-panel);
+  padding: 18px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.handoffTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.handoffTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.handoffTitleWrap strong {
+  color: var(--admin-ink);
+  font-size: 0.94rem;
+}
+
+.handoffOnceBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: #f3de2c;
+  color: #142019;
+  font-size: 0.7rem;
+  font-weight: 760;
+}
+
+.handoffGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 16px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: var(--admin-panel-muted);
+  padding: 12px 14px;
+}
+
+.handoffItem {
+  display: grid;
+  gap: 3px;
+}
+
+.handoffItem span {
+  color: var(--admin-muted);
+  font-size: 0.69rem;
+  font-weight: 680;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.handoffItem code,
+.handoffItem strong {
+  color: var(--admin-ink);
+  font-size: 0.84rem;
+  font-weight: 720;
+  word-break: break-all;
+}
+
+.handoffActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.handoffActionsLeft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.handoffNote {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.73rem;
+}
+
+/* Set Password Modal */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--overlay, rgba(15, 32, 23, 0.5));
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.modalDialog {
+  width: 100%;
+  max-width: 460px;
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  background: var(--admin-panel);
+  padding: 22px 24px;
+  display: grid;
+  gap: 16px;
+  box-shadow: var(--shadow-elevated);
+}
+
+.modalHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  color: var(--admin-ink);
+  font-size: 1.05rem;
+  font-weight: 780;
+}
+
+.modalHeader p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+@media (max-width: 820px) {
+  .summaryStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .createGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
