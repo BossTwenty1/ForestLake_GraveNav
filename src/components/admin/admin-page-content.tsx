@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Icon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { PageHeading, type PageBreadcrumb } from "@/components/ui/page-heading";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,8 +16,10 @@ import { AdminCemeteryMap } from "@/components/admin/admin-cemetery-map";
 import { AdminPhotoUploader } from "@/components/admin/admin-photo-uploader";
 import { useStaff } from "@/components/admin/staff-context";
 import { csvCell } from "@/lib/csv";
+import { generateStaffPassword, validateStaffPassword } from "@/lib/staff-password";
 import { accountAction, getAdminAccounts, getAuditLog, getAuditLogPage } from "@/lib/supabase/admin-data";
 import type { AdminAccount, AuditLogEntry } from "@/lib/supabase/types";
+import accountStyles from "./admin-accounts.module.css";
 
 export function AdminCemeteryMapPage({ hasPlanningMap = false }: { hasPlanningMap?: boolean }) {
   return (
@@ -248,6 +251,15 @@ type PendingAccountAction = {
   variant: "primary" | "danger";
 };
 
+type CredentialHandoff = {
+  heading: string;
+  username: string;
+  email: string | null;
+  role: "ADMIN" | "MANAGER";
+  status: string;
+  password: string;
+};
+
 export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boolean }) {
   const currentStaff = useStaff();
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
@@ -259,9 +271,24 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<"ADMIN" | "MANAGER">("MANAGER");
-  const [inviteBusy, setInviteBusy] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [activateImmediately, setActivateImmediately] = useState(true);
+  const [createBusy, setCreateBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [confirmAction, setConfirmAction] = useState<PendingAccountAction | null>(null);
+  const [handoff, setHandoff] = useState<CredentialHandoff | null>(null);
+  const [showHandoffPassword, setShowHandoffPassword] = useState(false);
+  const [copiedHandoff, setCopiedHandoff] = useState(false);
+
+  // Set New Password modal state for existing staff rows
+  const [passwordModalAccount, setPasswordModalAccount] = useState<AdminAccount | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   async function refresh() {
     try {
@@ -290,6 +317,9 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
       return account.username.toLowerCase().includes(term) || account.role.toLowerCase().includes(term);
     });
   }, [accounts, statusFilter, search]);
+
+  const passwordCheck = useMemo(() => validateStaffPassword(password), [password]);
+  const resetPasswordCheck = useMemo(() => validateStaffPassword(resetPassword), [resetPassword]);
 
   async function executeAccountAction(pending: PendingAccountAction) {
     if (actionBusy) return;
@@ -326,70 +356,420 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
     }
   }
 
-  async function invite(event: FormEvent<HTMLFormElement>) {
+  function handleGenerateCreatePassword() {
+    const generated = generateStaffPassword(14);
+    setPassword(generated);
+    setConfirmPassword(generated);
+    setShowPassword(true);
+  }
+
+  function handleGenerateResetPassword() {
+    const generated = generateStaffPassword(14);
+    setResetPassword(generated);
+    setResetConfirmPassword(generated);
+    setShowResetPassword(true);
+    setResetError("");
+  }
+
+  async function createStaffAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inviteBusy) return;
+    if (createBusy) return;
     setError("");
     setMessage("");
-    setInviteBusy(true);
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedUsername = username.trim();
+    if (!trimmedEmail || !trimmedUsername) {
+      setError("Enter both the staff member's display name and email address.");
+      return;
+    }
+    if (!passwordCheck.valid) {
+      setError(passwordCheck.error || "Enter a stronger initial password.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Initial password and confirmation password do not match.");
+      return;
+    }
+
+    setCreateBusy(true);
     try {
       const response = await fetch("/api/admin/accounts/provision", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, username, role }),
+        body: JSON.stringify({
+          email: trimmedEmail,
+          username: trimmedUsername,
+          role,
+          password,
+          activateImmediately,
+        }),
       });
-      let result: { error?: string } = {};
+      let result: {
+        error?: string;
+        accountStatus?: string;
+        email?: string;
+        username?: string;
+        role?: "ADMIN" | "MANAGER";
+        notice?: string | null;
+      } = {};
       try {
-        result = await response.json() as { error?: string };
+        result = await response.json() as typeof result;
       } catch {
         // Safe fallback below.
       }
       if (!response.ok) {
-        setError(result.error || "The protected invitation could not be created.");
+        setError(result.error || "The staff account could not be created.");
         return;
       }
+
+      const finalStatus = result.accountStatus || (activateImmediately ? "ACTIVE" : "PENDING");
+      setHandoff({
+        heading: "Staff account created",
+        username: result.username || trimmedUsername,
+        email: result.email || trimmedEmail,
+        role: result.role || role,
+        status: finalStatus,
+        password,
+      });
+      setShowHandoffPassword(false);
+      setCopiedHandoff(false);
       setEmail("");
       setUsername("");
-      setMessage("Invitation sent. Approve and activate the account below once verified.");
+      setPassword("");
+      setConfirmPassword("");
+      setShowPassword(false);
+      setMessage(
+        result.notice ||
+          (finalStatus === "ACTIVE"
+            ? `Account "${trimmedUsername}" is active and ready to sign in immediately.`
+            : `Account "${trimmedUsername}" created as PENDING. Approve and activate below when ready.`),
+      );
       await refresh();
     } catch {
-      setError("The invitation request could not reach the server. Check your connection and try again.");
+      setError("The account request could not reach the server. Check your connection and try again.");
     } finally {
-      setInviteBusy(false);
+      setCreateBusy(false);
+    }
+  }
+
+  async function submitResetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!passwordModalAccount || resetBusy) return;
+    setResetError("");
+
+    if (!resetPasswordCheck.valid) {
+      setResetError(resetPasswordCheck.error || "Enter a stronger password.");
+      return;
+    }
+    if (resetPassword !== resetConfirmPassword) {
+      setResetError("New password and confirmation do not match.");
+      return;
+    }
+
+    setResetBusy(true);
+    try {
+      const response = await fetch("/api/admin/accounts/reset-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          accountId: passwordModalAccount.accountId,
+          password: resetPassword,
+        }),
+      });
+      let result: { error?: string; email?: string | null; username?: string } = {};
+      try {
+        result = await response.json() as typeof result;
+      } catch {
+        // Safe fallback below.
+      }
+      if (!response.ok) {
+        setResetError(result.error || "The password could not be updated.");
+        return;
+      }
+
+      const target = passwordModalAccount;
+      setHandoff({
+        heading: "Staff password updated",
+        username: result.username || target.username,
+        email: result.email ?? null,
+        role: target.role,
+        status: target.accountStatus,
+        password: resetPassword,
+      });
+      setShowHandoffPassword(false);
+      setCopiedHandoff(false);
+      setPasswordModalAccount(null);
+      setResetPassword("");
+      setResetConfirmPassword("");
+      setShowResetPassword(false);
+      setMessage(`Password updated for "${target.username}".`);
+    } catch {
+      setResetError("Could not reach the server. Try again.");
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
+  async function copyHandoffCredentials() {
+    if (!handoff) return;
+    const loginUrl = `${window.location.origin}/admin/login`;
+    const lines = [
+      `GraveNav Staff Access (${handoff.role})`,
+      `Sign in: ${loginUrl}`,
+      `Name: ${handoff.username}`,
+      ...(handoff.email ? [`Email: ${handoff.email}`] : []),
+      `Password: ${handoff.password}`,
+      `Status: ${handoff.status}`,
+      "Note: Please change your password after signing in via Account Menu -> Change Password.",
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopiedHandoff(true);
+    } catch {
+      setError("Could not copy automatically. Reveal and copy the password manually.");
     }
   }
 
   const pendingCount = accounts.filter((a) => a.accountStatus === "PENDING").length;
+  const activeCount = accounts.filter((a) => a.accountStatus === "ACTIVE").length;
+  const suspendedCount = accounts.filter((a) => a.accountStatus === "SUSPENDED").length;
 
   return (
     <AdminPageFrame
       title="Account Management"
-      description="Invite staff accounts, approve pending users, manage roles, and suspend or revoke access."
+      description="Create ADMIN or MANAGER accounts directly with an initial password, reset staff passwords, manage roles, and control access."
     >
       {error ? <DataError message={error} /> : null}
       {message ? <Alert icon="check" title="Account update" variant="success">{message}</Alert> : null}
 
+      {/* Summary Strip */}
+      <div className={accountStyles.summaryStrip}>
+        <button
+          className={`${accountStyles.summaryPill} ${statusFilter === "ALL" ? accountStyles.summaryPillActive : ""}`}
+          onClick={() => setStatusFilter("ALL")}
+          type="button"
+        >
+          <span className={accountStyles.summaryPillText}>
+            <span>Total staff</span>
+            <strong>{accounts.length}</strong>
+          </span>
+          <Icon name="users" size={18} />
+        </button>
+        <button
+          className={`${accountStyles.summaryPill} ${statusFilter === "ACTIVE" ? accountStyles.summaryPillActive : ""}`}
+          onClick={() => setStatusFilter("ACTIVE")}
+          type="button"
+        >
+          <span className={accountStyles.summaryPillText}>
+            <span>Active</span>
+            <strong>{activeCount}</strong>
+          </span>
+          <Icon name="check" size={18} />
+        </button>
+        <button
+          className={`${accountStyles.summaryPill} ${statusFilter === "PENDING" ? accountStyles.summaryPillActive : ""}`}
+          onClick={() => setStatusFilter("PENDING")}
+          type="button"
+        >
+          <span className={accountStyles.summaryPillText}>
+            <span>Pending approval</span>
+            <strong>{pendingCount}</strong>
+          </span>
+          <Icon name="clock" size={18} />
+        </button>
+        <button
+          className={`${accountStyles.summaryPill} ${statusFilter === "SUSPENDED" ? accountStyles.summaryPillActive : ""}`}
+          onClick={() => setStatusFilter("SUSPENDED")}
+          type="button"
+        >
+          <span className={accountStyles.summaryPillText}>
+            <span>Suspended</span>
+            <strong>{suspendedCount}</strong>
+          </span>
+          <Icon name="lock" size={18} />
+        </button>
+      </div>
+
+      {/* One-Time Credential Handoff Card */}
+      {handoff ? (
+        <section aria-label="New staff login credentials" className={accountStyles.handoffCard}>
+          <div className={accountStyles.handoffTop}>
+            <div className={accountStyles.handoffTitleWrap}>
+              <Icon className="text-green" name="check" size={20} />
+              <strong>{handoff.heading}</strong>
+            </div>
+            <span className={accountStyles.handoffOnceBadge}>Shown once — copy before closing</span>
+          </div>
+          <div className={accountStyles.handoffGrid}>
+            <div className={accountStyles.handoffItem}>
+              <span>Display name</span>
+              <strong>{handoff.username}</strong>
+            </div>
+            {handoff.email ? (
+              <div className={accountStyles.handoffItem}>
+                <span>Email</span>
+                <code>{handoff.email}</code>
+              </div>
+            ) : null}
+            <div className={accountStyles.handoffItem}>
+              <span>Role &amp; Status</span>
+              <strong>{handoff.role} · {handoff.status}</strong>
+            </div>
+            <div className={accountStyles.handoffItem}>
+              <span>Password</span>
+              <code>{showHandoffPassword ? handoff.password : "•".repeat(Math.min(handoff.password.length, 14))}</code>
+            </div>
+          </div>
+          <div className={accountStyles.handoffActions}>
+            <div className={accountStyles.handoffActionsLeft}>
+              <Button icon="check" onClick={() => void copyHandoffCredentials()} size="sm" variant="primary">
+                {copiedHandoff ? "Copied login details!" : "Copy login details"}
+              </Button>
+              <Button onClick={() => setShowHandoffPassword((v) => !v)} size="sm" variant="secondary">
+                {showHandoffPassword ? "Hide password" : "Reveal password"}
+              </Button>
+              <Button onClick={() => setHandoff(null)} size="sm" variant="quiet">
+                Done
+              </Button>
+            </div>
+            <p className={accountStyles.handoffNote}>
+              Share privately with the staff member. They can update it anytime via Account Menu → Change Password.
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Direct Staff Account Creation Form (No Email Invite Needed) */}
       <Card className="admin-form-card">
         <CardHeader>
-          <CardTitle>Invite staff account</CardTitle>
-          <Badge variant="info">Protected Auth Admin setup</Badge>
+          <CardTitle>Add staff account</CardTitle>
+          <Badge variant="success">Direct password setup · No email required</Badge>
         </CardHeader>
         <CardContent>
-          <form className="admin-form" onSubmit={invite}>
-            <div className="filter-grid">
-              <Input label="Email address" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} />
-              <Input label="Username" onChange={(event) => setUsername(event.target.value)} required value={username} />
+          <form className="admin-form" onSubmit={createStaffAccount}>
+            <div className={accountStyles.createGrid}>
+              <Input
+                autoComplete="off"
+                label="Display name / Username"
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="e.g., Maria Santos"
+                required
+                value={username}
+              />
+              <Input
+                autoComplete="off"
+                label="Email address"
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="staff@forestlake.ph"
+                required
+                type="email"
+                value={email}
+              />
               <label className="input-field">
-                <span className="input-label">Role</span>
-                <select className="input-control" onChange={(event) => setRole(event.target.value as "ADMIN" | "MANAGER")} value={role}>
-                  <option value="MANAGER">MANAGER</option>
-                  <option value="ADMIN">ADMIN</option>
+                <span className="input-label">Staff role</span>
+                <select
+                  className="input-control"
+                  onChange={(event) => setRole(event.target.value as "ADMIN" | "MANAGER")}
+                  value={role}
+                >
+                  <option value="MANAGER">MANAGER — Records, Photos, Plots &amp; Reports</option>
+                  <option value="ADMIN">ADMIN — Full System &amp; Account Administration</option>
                 </select>
               </label>
+
+              <div className={accountStyles.passwordField}>
+                <div className={accountStyles.passwordHeader}>
+                  <label className="input-label" htmlFor="new-staff-password" style={{ marginBottom: 0 }}>
+                    Initial password
+                  </label>
+                  <button
+                    className={accountStyles.generateBtn}
+                    disabled={createBusy}
+                    onClick={handleGenerateCreatePassword}
+                    type="button"
+                  >
+                    Generate strong password
+                  </button>
+                </div>
+                <div className={accountStyles.passwordInputWrap}>
+                  <input
+                    autoComplete="new-password"
+                    className={`input-control ${accountStyles.passwordInput}`}
+                    disabled={createBusy}
+                    id="new-staff-password"
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Minimum 8 characters"
+                    required
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                  />
+                  <button
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className={accountStyles.eyeToggle}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    type="button"
+                  >
+                    <Icon name="eye" size={17} />
+                  </button>
+                </div>
+                <div className={accountStyles.policyRow}>
+                  <span className={`${accountStyles.policyChip} ${passwordCheck.checks.minLength ? accountStyles.policyChipMet : ""}`}>
+                    8+ chars
+                  </span>
+                  <span className={`${accountStyles.policyChip} ${passwordCheck.checks.hasLetter ? accountStyles.policyChipMet : ""}`}>
+                    Letter
+                  </span>
+                  <span className={`${accountStyles.policyChip} ${passwordCheck.checks.hasNumber ? accountStyles.policyChipMet : ""}`}>
+                    Number
+                  </span>
+                </div>
+              </div>
+
+              <div className={accountStyles.passwordField}>
+                <label className="input-label" htmlFor="new-staff-password-confirm" style={{ marginBottom: 0 }}>
+                  Confirm initial password
+                </label>
+                <input
+                  autoComplete="new-password"
+                  className={`input-control ${accountStyles.passwordInput}`}
+                  disabled={createBusy}
+                  id="new-staff-password-confirm"
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Re-enter password"
+                  required
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                />
+                {confirmPassword && confirmPassword !== password ? (
+                  <span style={{ color: "var(--admin-danger)", fontSize: "0.72rem", fontWeight: 620 }}>
+                    Passwords do not match.
+                  </span>
+                ) : null}
+              </div>
+
+              <label className={accountStyles.activateToggle}>
+                <input
+                  checked={activateImmediately}
+                  disabled={createBusy}
+                  onChange={(event) => setActivateImmediately(event.target.checked)}
+                  type="checkbox"
+                />
+                <span className={accountStyles.activateToggleText}>
+                  <strong>Activate account immediately</strong>
+                  <span>Staff member can sign in right away at /admin/login without a separate approval step.</span>
+                </span>
+              </label>
             </div>
-            <Button disabled={inviteBusy} icon="shield" type="submit">
-              {inviteBusy ? "Creating invitation…" : "Send staff invitation"}
-            </Button>
+
+            <div className={accountStyles.formFooter}>
+              <p className={accountStyles.formHint}>
+                Credentials are confirmed directly in Authentication — no email delivery needed.
+              </p>
+              <Button disabled={createBusy} icon="shield" type="submit">
+                {createBusy ? "Creating account…" : "Create staff account"}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -418,8 +798,8 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
               >
                 <option value="ALL">All statuses ({accounts.length})</option>
                 <option value="PENDING">Pending ({pendingCount})</option>
-                <option value="ACTIVE">Active ({accounts.filter((a) => a.accountStatus === "ACTIVE").length})</option>
-                <option value="SUSPENDED">Suspended ({accounts.filter((a) => a.accountStatus === "SUSPENDED").length})</option>
+                <option value="ACTIVE">Active ({activeCount})</option>
+                <option value="SUSPENDED">Suspended ({suspendedCount})</option>
                 <option value="REVOKED">Revoked ({accounts.filter((a) => a.accountStatus === "REVOKED").length})</option>
               </select>
             </label>
@@ -485,6 +865,22 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
                               })}
                             >
                               Reactivate
+                            </Button>
+                          ) : null}
+                          {!isRevoked && !isSelf ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={actionBusy}
+                              onClick={() => {
+                                setPasswordModalAccount(account);
+                                setResetPassword("");
+                                setResetConfirmPassword("");
+                                setShowResetPassword(false);
+                                setResetError("");
+                              }}
+                            >
+                              Set password
                             </Button>
                           ) : null}
                           {account.accountStatus === "ACTIVE" && !isSelf ? (
@@ -559,6 +955,107 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
           )}
         </CardContent>
       </Card>
+
+      {/* Set New Password Modal for Existing Staff Accounts */}
+      {passwordModalAccount ? (
+        <div
+          aria-labelledby="reset-staff-password-title"
+          aria-modal="true"
+          className={accountStyles.modalBackdrop}
+          role="dialog"
+        >
+          <form className={accountStyles.modalDialog} onSubmit={submitResetPassword}>
+            <div className={accountStyles.modalHeader}>
+              <h2 id="reset-staff-password-title">Set new password for {passwordModalAccount.username}</h2>
+              <p>
+                Updates this staff member&apos;s sign-in password immediately with no email needed. Share the new
+                password privately.
+              </p>
+            </div>
+
+            {resetError ? <Alert icon="alert" title="Password not updated" variant="danger">{resetError}</Alert> : null}
+
+            <div className={accountStyles.passwordField}>
+              <div className={accountStyles.passwordHeader}>
+                <label className="input-label" htmlFor="reset-staff-pw" style={{ marginBottom: 0 }}>
+                  New password
+                </label>
+                <button
+                  className={accountStyles.generateBtn}
+                  disabled={resetBusy}
+                  onClick={handleGenerateResetPassword}
+                  type="button"
+                >
+                  Generate strong password
+                </button>
+              </div>
+              <div className={accountStyles.passwordInputWrap}>
+                <input
+                  autoComplete="new-password"
+                  className={`input-control ${accountStyles.passwordInput}`}
+                  disabled={resetBusy}
+                  id="reset-staff-pw"
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  required
+                  type={showResetPassword ? "text" : "password"}
+                  value={resetPassword}
+                />
+                <button
+                  aria-label={showResetPassword ? "Hide password" : "Show password"}
+                  className={accountStyles.eyeToggle}
+                  onClick={() => setShowResetPassword((v) => !v)}
+                  type="button"
+                >
+                  <Icon name="eye" size={17} />
+                </button>
+              </div>
+              <div className={accountStyles.policyRow}>
+                <span className={`${accountStyles.policyChip} ${resetPasswordCheck.checks.minLength ? accountStyles.policyChipMet : ""}`}>
+                  8+ chars
+                </span>
+                <span className={`${accountStyles.policyChip} ${resetPasswordCheck.checks.hasLetter ? accountStyles.policyChipMet : ""}`}>
+                  Letter
+                </span>
+                <span className={`${accountStyles.policyChip} ${resetPasswordCheck.checks.hasNumber ? accountStyles.policyChipMet : ""}`}>
+                  Number
+                </span>
+              </div>
+            </div>
+
+            <div className={accountStyles.passwordField}>
+              <label className="input-label" htmlFor="reset-staff-pw-confirm" style={{ marginBottom: 0 }}>
+                Confirm new password
+              </label>
+              <input
+                autoComplete="new-password"
+                className={`input-control ${accountStyles.passwordInput}`}
+                disabled={resetBusy}
+                id="reset-staff-pw-confirm"
+                onChange={(e) => setResetConfirmPassword(e.target.value)}
+                placeholder="Re-enter new password"
+                required
+                type={showResetPassword ? "text" : "password"}
+                value={resetConfirmPassword}
+              />
+            </div>
+
+            <div className={accountStyles.modalActions}>
+              <Button
+                disabled={resetBusy}
+                onClick={() => setPasswordModalAccount(null)}
+                type="button"
+                variant="quiet"
+              >
+                Cancel
+              </Button>
+              <Button disabled={resetBusy} icon="lock" type="submit">
+                {resetBusy ? "Updating…" : "Update password"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       <ConfirmationDialog
         open={Boolean(confirmAction)}
