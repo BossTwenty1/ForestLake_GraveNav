@@ -472,6 +472,7 @@ export function MapExplorer({
               type="button"
               role="switch"
               aria-checked={preferPaved}
+              title="Stick to concrete roads and flat paths instead of grass"
               className={layout.pavedToggle + (preferPaved ? " " + layout.pavedToggleActive : "")}
               onClick={() => {
                 const nextPaved = !preferPaved;
@@ -485,7 +486,7 @@ export function MapExplorer({
               <span className={layout.pavedToggleTrack} aria-hidden="true">
                 <span className={layout.pavedToggleThumb} />
               </span>
-              <span>Paved / Accessible</span>
+              <span>Smooth Paths Only</span>
             </button>
           </div>
           <div className={layout.routeModeGrid} role="radiogroup" aria-label="Choose how to start walking directions">
@@ -835,9 +836,9 @@ export function MapExplorer({
                       {arrivedByGps
                         ? "Arrived near gravesite"
                         : usingLiveGps
-                          ? `~${activeRoute.estimatedMinutes} min walk · ${preferPaved ? "Paved" : "Live GPS"}`
+                          ? `~${activeRoute.estimatedMinutes} min walk · ${preferPaved ? "Smooth paths" : "Live GPS"}`
                           : preferPaved
-                            ? "Paved / accessible route"
+                            ? "Smooth paths route"
                             : "Shortest walking route"}
                     </span>
                   </div>

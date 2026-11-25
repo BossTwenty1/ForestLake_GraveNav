@@ -54,6 +54,349 @@
   line-height: 1.1;
 }
 
+/* Directory Toolbar — Clean single-row alignment */
+.directoryToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.searchWrap {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 380px;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--admin-muted);
+  pointer-events: none;
+  display: inline-flex;
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: var(--admin-panel-muted);
+  padding: 0 12px 0 36px;
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: 0.84rem;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.searchInput::placeholder {
+  color: var(--admin-subtle);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  background: var(--admin-panel);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 18%, transparent);
+}
+
+.filterTabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel-muted);
+}
+
+.filterTab {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  min-height: 32px;
+  padding: 0 11px;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 680;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.filterTab:hover {
+  color: var(--admin-ink);
+}
+
+.filterTab:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.filterTabActive {
+  background: var(--admin-panel);
+  color: var(--admin-ink);
+  box-shadow: 0 1px 2px rgba(15, 35, 24, 0.08);
+}
+
+/* Polished Staff Directory Table */
+.directoryTableWrap {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.directoryTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.directoryTable th {
+  border-bottom: 1px solid var(--admin-line);
+  padding: 10px 14px;
+  color: var(--admin-subtle);
+  font-size: 0.69rem;
+  font-weight: 740;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.directoryTable th:last-child {
+  text-align: right;
+}
+
+.directoryTable td {
+  border-bottom: 1px solid var(--admin-line);
+  padding: 13px 14px;
+  vertical-align: middle;
+  font-size: 0.84rem;
+}
+
+.directoryTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.directoryTable tbody tr:hover td {
+  background: var(--admin-panel-muted);
+}
+
+.memberCell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.memberAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  border: 1px solid color-mix(in srgb, var(--admin-accent) 24%, var(--admin-line));
+}
+
+.memberAvatarManager {
+  background: var(--info-soft, #e9f2f8);
+  color: var(--info, #345f7f);
+  border-color: color-mix(in srgb, var(--info, #345f7f) 24%, var(--admin-line));
+}
+
+.memberInfo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.memberInfo strong {
+  color: var(--admin-ink);
+  font-size: 0.86rem;
+  font-weight: 740;
+}
+
+.youChip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #f3de2c;
+  color: #142019;
+  font-size: 0.66rem;
+  font-weight: 780;
+}
+
+.rolePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.03em;
+}
+
+.roleAdmin {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.roleManager {
+  background: var(--info-soft, #e9f2f8);
+  color: var(--info, #345f7f);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.71rem;
+  font-weight: 720;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.statusActive {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.statusPending {
+  background: var(--admin-warning-soft);
+  color: var(--admin-warning);
+}
+
+.statusSuspended {
+  background: var(--admin-danger-soft);
+  color: var(--admin-danger);
+}
+
+.dateCell {
+  color: var(--admin-muted);
+  font-size: 0.79rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.selfMuted {
+  color: var(--admin-subtle);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+/* Clean Overflow Action Menu */
+.menuWrap {
+  position: relative;
+}
+
+.menuTrigger {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: var(--admin-panel);
+  color: var(--admin-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.menuTrigger:hover {
+  border-color: var(--admin-line-strong);
+  background: var(--admin-panel-muted);
+  color: var(--admin-ink);
+}
+
+.menuTrigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.menuPopover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 196px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  background: var(--admin-panel);
+  box-shadow: var(--shadow-elevated);
+  padding: 5px;
+  display: grid;
+  gap: 2px;
+}
+
+.menuItem {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 10px;
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 660;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--admin-panel-muted);
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.menuDivider {
+  height: 1px;
+  margin: 4px 4px;
+  background: var(--admin-line);
+}
+
+.menuItemDanger {
+  color: var(--admin-danger);
+}
+
+.menuItemDanger:hover {
+  background: var(--admin-danger-soft);
+}
+
 /* Create Staff Account Form */
 .createGrid {
   display: grid;
@@ -199,6 +542,12 @@
   justify-content: space-between;
   gap: 12px;
   padding-top: 4px;
+}
+
+.formFooterActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .formHint {
@@ -354,5 +703,13 @@
 
   .createGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directoryToolbar {
+    align-items: stretch;
+  }
+
+  .searchWrap {
+    max-width: none;
   }
 }

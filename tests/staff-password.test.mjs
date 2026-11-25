@@ -23,11 +23,12 @@ test("generateStaffPassword produces valid strong passwords", () => {
   }
 });
 
-test("provision and reset-password API routes enforce active ADMIN role, no-store headers, and server-only keys", async () => {
+test("provision, reset-password, and remove API routes enforce active ADMIN role, no-store headers, and server-only keys", async () => {
   const provision = await readFile(new URL("../src/app/api/admin/accounts/provision/route.ts", import.meta.url), "utf8");
   const reset = await readFile(new URL("../src/app/api/admin/accounts/reset-password/route.ts", import.meta.url), "utf8");
+  const remove = await readFile(new URL("../src/app/api/admin/accounts/remove/route.ts", import.meta.url), "utf8");
 
-  for (const source of [provision, reset]) {
+  for (const source of [provision, reset, remove]) {
     assert.match(source, /staff\.role !== "ADMIN"/);
     assert.match(source, /getServerServiceSupabase/);
     assert.doesNotMatch(source, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
@@ -38,4 +39,6 @@ test("provision and reset-password API routes enforce active ADMIN role, no-stor
   assert.match(provision, /admin_create_account/);
   assert.match(reset, /auth\.admin\.updateUserById/);
   assert.match(reset, /accountId === staff\.accountId/);
+  assert.match(remove, /accountId === staff\.accountId/);
+  assert.match(remove, /admin_deactivate_account/);
 });

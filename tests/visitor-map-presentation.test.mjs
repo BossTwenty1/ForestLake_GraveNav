@@ -211,7 +211,7 @@ test("Gravesite guide renders two-mode chooser and floating Route Preview card w
   assert.match(html, /Minimize route preview/);
   assert.match(html, /Clear route/);
   assert.match(html, /Full screen/);
-  assert.match(html, /Paved \/ Accessible/);
+  assert.match(html, /Smooth Paths Only/);
   assert.match(html, /Route to gravesite/);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, " "), /CAD|candidate|planning reference|unverified|concept|Illustrative/i);
 });
