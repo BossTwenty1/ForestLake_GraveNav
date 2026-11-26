@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1200,8 +1201,8 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
   );
 }
 
-export function AdminPageFrame({ title, description, actions, breadcrumbs, children }: { title: string; description?: string; actions?: ReactNode; breadcrumbs?: PageBreadcrumb[]; children: ReactNode }) {
-  return <div className="admin-page-frame"><PageHeading actions={actions} breadcrumbs={breadcrumbs ?? [{ label: "Dashboard", href: "/admin" }, { label: title }]} description={description} title={title} />{children}</div>;
+export function AdminPageFrame({ title, description, actions, breadcrumbs, backLink, children }: { title: string; description?: string; actions?: ReactNode; breadcrumbs?: PageBreadcrumb[]; backLink?: PageBreadcrumb; children: ReactNode }) {
+  return <div className="admin-page-frame">{backLink ? <Link className="admin-page-backlink" href={backLink.href ?? "/admin"}><Icon name="arrowLeft" size={15} />{backLink.label}</Link> : null}<PageHeading actions={actions} breadcrumbs={breadcrumbs ?? [{ label: "Dashboard", href: "/admin" }, { label: title }]} description={description} title={title} />{children}</div>;
 }
 
 function DataError({ message }: { message: string }) {

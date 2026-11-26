@@ -6,6 +6,8 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboard
 import { Icon } from "@/components/ui/icons";
 
 export function AdminEditMenu({
+  viewHref,
+  viewLabel = "View",
   actionLabel,
   href,
   label,
@@ -13,6 +15,8 @@ export function AdminEditMenu({
   deleteLabel,
   onDelete,
 }: {
+  viewHref?: string;
+  viewLabel?: string;
   actionLabel: string;
   href: string;
   label: string;
@@ -73,6 +77,7 @@ export function AdminEditMenu({
   }
 
   const menu = open ? <div className="admin-record-menu__popover admin-record-menu__popover--portal" id={id} onKeyDown={navigateMenu} ref={panel} role="menu" style={position}>
+    {viewHref ? <Link href={viewHref} onClick={() => setOpen(false)} role="menuitem"><Icon name="eye" size={16} />{viewLabel}</Link> : null}
     <Link href={href} onClick={() => setOpen(false)} role="menuitem"><Icon name="edit" size={16} />{actionLabel}</Link>
     {deleteLabel && onDelete ? <><span className="admin-record-menu__separator" /><button className="admin-record-menu__danger" disabled={disabled} onClick={() => { setOpen(false); trigger.current?.focus(); onDelete(); }} role="menuitem" type="button"><Icon name="trash" size={16} />{deleteLabel}</button></> : null}
   </div> : null;

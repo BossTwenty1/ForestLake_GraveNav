@@ -140,7 +140,7 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
                       <TableCell>{owner.address || "Not recorded"}</TableCell>
                       <TableCell>{owner.representativeName || "Not recorded"}</TableCell>
                       <TableCell><div className={styles.actions}>
-                        <AdminEditMenu actionLabel="Edit Plot Owner" deleteLabel="Delete owner" disabled={busy} href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} onDelete={canAdmin ? () => { setActionError(""); setTarget(owner); } : undefined} />
+                        <AdminEditMenu viewHref={directory + "/" + owner.lotOwnerId} viewLabel="View Plot Owner" actionLabel="Edit Plot Owner" deleteLabel="Delete owner" disabled={busy} href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} onDelete={canAdmin ? () => { setActionError(""); setTarget(owner); } : undefined} />
                       </div></TableCell>
                     </TableRow>
                   ))}</TableBody>
@@ -158,7 +158,7 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
                     <p className={styles.secondary}>{owner.address || "Address not recorded"}</p>
                     {owner.representativeName ? <p className={styles.secondary}>Representative: {owner.representativeName}</p> : null}
                     <div className={styles.actions}>
-                      <AdminEditMenu actionLabel="Edit Plot Owner" deleteLabel="Delete owner" disabled={busy} href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} onDelete={canAdmin ? () => { setActionError(""); setTarget(owner); } : undefined} />
+                      <AdminEditMenu viewHref={directory + "/" + owner.lotOwnerId} viewLabel="View Plot Owner" actionLabel="Edit Plot Owner" deleteLabel="Delete owner" disabled={busy} href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} onDelete={canAdmin ? () => { setActionError(""); setTarget(owner); } : undefined} />
                     </div>
                   </article>
                 ))}
@@ -372,6 +372,7 @@ export function OwnerProfile({ ownerId }: { ownerId: string }) {
       title={owner ? ownerName(owner) : "Plot Owner"}
       description={owner ? "Owner #" + owner.lotOwnerId + " · Restricted staff record" : undefined}
       breadcrumbs={[...breadcrumbs, { label: "Owner profile" }]}
+      backLink={{ href: directory, label: "Back to Plot Owners" }}
       actions={owner ? <AdminEditMenu actionLabel="Edit Plot Owner"
         href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} /> : null}
     >

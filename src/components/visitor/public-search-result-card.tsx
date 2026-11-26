@@ -49,7 +49,6 @@ export function PublicSearchResultCard({
   if (!preview) {
     return (
       <article className="search-memorial-card">
-        <div className="search-memorial-badges">{status}{match}</div>
         {photo?.src ? (
           <div className="search-memorial-photo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
