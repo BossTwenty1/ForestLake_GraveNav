@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import Form from "next/form";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Icon, type IconName } from "@/components/ui/icons";
@@ -9,6 +8,7 @@ import { HeroBackgroundVideo } from "@/components/visitor/hero-background-video"
 import { HeroVisitorVideo } from "@/components/visitor/hero-visitor-video";
 import { HomepageParkMap } from "@/components/visitor/homepage-park-map";
 import { SearchSubmitButton } from "@/components/visitor/search-submit-button";
+import { RequiredSearchForm } from "@/components/visitor/required-search-form";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
 import { getCachedPublicGardenNames } from "@/lib/supabase/cached-public-data";
 import { getCachedPublicSiteSettings } from "@/lib/supabase/site-settings";
@@ -75,15 +75,16 @@ export default async function HomePage() {
             <p className={styles.parkLabel}><Icon name="location" size={15} />{parkName}</p>
             <h1>Find a Loved One’s <span className={styles.heroTitleAccent}>Resting Place</span></h1>
             <p className={styles.intro}>Search memorial records, discover gravesite information, and explore {parkName} with care.</p>
-            <Form action="/results" className={styles.searchCard} role="search" aria-label="Memorial search">
+            <RequiredSearchForm className={styles.searchCard}>
               <label className={styles.searchLabel} htmlFor="homepage-query"><span className={styles.mobileSearchLabel}>Name or plot identifier</span><span className={styles.desktopSearchLabel}>Search by deceased name or plot reference</span></label>
               <div className={styles.searchRow}>
                 <Input id="homepage-query" autoComplete="off" enterKeyHint="search" maxLength={160} name="query"
-                  placeholder="Enter a name or plot reference" type="search" icon="search" aria-describedby="homepage-search-hint" />
+                  placeholder="Enter a name or plot reference" type="search" icon="search" aria-describedby="homepage-search-hint"
+                  required pattern={".*\\S.*"} title="Enter a name or plot reference to search." />
                 <SearchSubmitButton label="Search Memorials" />
               </div>
               <p id="homepage-search-hint" className={styles.searchHint}><Icon name="info" size={17} />Search by first name, last name, or known plot code.</p>
-            </Form>
+            </RequiredSearchForm>
           </div>
           <ul className={styles.quickFacts}>
             <li>
