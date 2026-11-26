@@ -23,22 +23,22 @@ test("generateStaffPassword produces valid strong passwords", () => {
   }
 });
 
-test("provision, reset-password, and remove API routes enforce active ADMIN role, no-store headers, and server-only keys", async () => {
+test("staff onboarding and password recovery use email and require an active Administrator", async () => {
   const provision = await readFile(new URL("../src/app/api/admin/accounts/provision/route.ts", import.meta.url), "utf8");
   const reset = await readFile(new URL("../src/app/api/admin/accounts/reset-password/route.ts", import.meta.url), "utf8");
   const remove = await readFile(new URL("../src/app/api/admin/accounts/remove/route.ts", import.meta.url), "utf8");
 
-  for (const source of [provision, reset, remove]) {
-    assert.match(source, /staff\.role !== "ADMIN"/);
-    assert.match(source, /getServerServiceSupabase/);
-    assert.doesNotMatch(source, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
-    assert.match(source, /private, no-store/);
+  const helper = await readFile(new URL("../src/lib/supabase/staff-account-server.ts", import.meta.url), "utf8");
+  for (const source of [provision, reset]) {
+    assert.match(source, /await activeStaffAdministrator\(\)/);
+    assert.doesNotMatch(source, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)|auth\.admin\.(?:createUser|updateUserById)/);
   }
-  assert.match(provision, /auth\.admin\.createUser/);
-  assert.match(provision, /email_confirm:\s*true/);
-  assert.match(provision, /admin_create_account/);
-  assert.match(reset, /auth\.admin\.updateUserById/);
-  assert.match(reset, /accountId === staff\.accountId/);
-  assert.match(remove, /accountId === staff\.accountId/);
-  assert.match(remove, /admin_deactivate_account/);
+  assert.match(helper, /staff\.role === "ADMIN"/);
+  assert.match(helper, /private, no-store/);
+  assert.match(provision, /auth\.admin\.inviteUserByEmail/);
+  assert.match(provision, /staff_begin_invitation/);
+  assert.match(provision, /staff_finish_invitation/);
+  assert.match(reset, /resetPasswordForEmail\(target.email/);
+  assert.match(reset, /accountId === actor\.accountId/);
+  assert.match(remove, /410/);
 });

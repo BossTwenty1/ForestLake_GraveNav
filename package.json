@@ -7,10 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node tests/run-suites.mjs standard",
+    "test:integration": "node tests/run-suites.mjs integration",
+    "test:private-gis": "node tests/run-suites.mjs private-gis",
     "map:rebuild": "node scripts/rebuild-phase1-routing-network.mjs",
     "security:audit": "npm audit --omit=dev",
-    "validate": "npm run lint && npx tsc --noEmit && npm test && npm run build"
+    "validate": "npm run lint && npx tsc --noEmit && npm test && npm run test:integration && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

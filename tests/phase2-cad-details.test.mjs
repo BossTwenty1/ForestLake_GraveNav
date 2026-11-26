@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import ts from "typescript";
 
@@ -55,23 +54,5 @@ test("Only the versioned local SVG assets and finite distinct labels can load", 
   ]) {
     const data = fixture(); change(data);
     assert.throws(() => validateCadDetails(data, dataDigest), /CAD detail layers do not match/);
-  }
-});
-
-const manifestUrl = new URL("../public/phase2-planning/cad-details/manifest.json", import.meta.url);
-test("Installed local detail assets keep the original plot geometry and verified hashes", { skip: !existsSync(manifestUrl) }, () => {
-  const manifest = JSON.parse(readFileSync(manifestUrl, "utf8"));
-  const sourceUrl = new URL("../public/phase2-viewer/data/phase2.local.json", import.meta.url);
-  const digest = bytes => createHash("sha256").update(bytes).digest("hex");
-  const bytes = readFileSync(sourceUrl);
-  assert.equal(digest(bytes), "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77");
-  validateCadDetails(manifest, digest(bytes));
-  const original = JSON.parse(bytes);
-  assert.equal(original.layers.lawn.length + original.layers.estates.length, 4494);
-  for (const role of cadDetailRoles) {
-    const asset = readFileSync(new URL(manifest.layers[role].image, manifestUrl));
-    assert.equal(digest(asset), manifest.layers[role].sha256);
-    assert.equal(asset.length, manifest.layers[role].bytes);
-    assert.doesNotMatch(asset.toString("utf8"), /<script|<foreignObject|(?:href|src)=["']https?:/i);
   }
 });

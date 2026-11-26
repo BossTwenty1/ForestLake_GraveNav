@@ -1,155 +1,74 @@
-import { NextResponse } from "next/server";
-import { getCurrentStaff } from "@/lib/auth";
-import { validateStaffPassword } from "@/lib/staff-password";
-import { getServerSupabase } from "@/lib/supabase/server";
 import { getServerServiceSupabase } from "@/lib/supabase/server-admin";
+import { activeStaffAdministrator, isStaffJsonRequest, staffAccountIdPattern, staffEmailCallback, staffReply } from "@/lib/supabase/staff-account-server";
 
-const NO_STORE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
-  const actorClient = await getServerSupabase();
-  if (!actorClient) {
-    return NextResponse.json({ error: "Supabase is not configured" }, { status: 503, headers: NO_STORE_HEADERS });
+  const actor = await activeStaffAdministrator();
+  if (!actor) return staffReply({ error: "Sign in as an active Administrator to send an invitation." }, 403);
+  if (!isStaffJsonRequest(request)) return staffReply({ error: "Open Staff Accounts and try again." }, 400);
+
+  const client = getServerServiceSupabase();
+  const redirectTo = staffEmailCallback("invite");
+  if (!client || !redirectTo || process.env.GRAVENAV_PAUSE_STAFF_INVITATIONS === "1") {
+    return staffReply({ error: "Staff invitations are unavailable. Check the email settings and try again." }, 503);
   }
 
-  const { data: { user } } = await actorClient.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401, headers: NO_STORE_HEADERS });
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || "password" in body || "activateImmediately" in body) {
+    return staffReply({ error: "Use the invitation form to add staff." }, 400);
   }
 
-  const staff = await getCurrentStaff();
-  if (!staff) {
-    return NextResponse.json({ error: "An active GraveNav account is required" }, { status: 403, headers: NO_STORE_HEADERS });
-  }
-  if (staff.role !== "ADMIN" || staff.accountStatus !== "ACTIVE" || !staff.isActive) {
-    return NextResponse.json(
-      { error: "Only active ADMIN accounts may provision accounts" },
-      { status: 403, headers: NO_STORE_HEADERS },
-    );
-  }
-
-  const adminClient = getServerServiceSupabase();
-  if (!adminClient) {
-    return NextResponse.json(
-      { error: "Protected Auth Admin provisioning is not configured for this environment" },
-      { status: 503, headers: NO_STORE_HEADERS },
-    );
+  const resend = "accountId" in body;
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const username = typeof body.username === "string" ? body.username.trim() : "";
+  const role = body.role;
+  const accountId = typeof body.accountId === "string" ? body.accountId : "";
+  const revision = body.revision;
+  if (resend ? !staffAccountIdPattern.test(accountId) || !Number.isSafeInteger(revision) :
+    !emailPattern.test(email) || email.length > 254 || username.length < 2 || username.length > 80 ||
+      (role !== "ADMIN" && role !== "MANAGER")) {
+    return staffReply({ error: "Check the staff name, work email, and role." }, 400);
   }
 
-  let body: {
-    email?: string;
-    username?: string;
-    role?: string;
-    password?: string;
-    activateImmediately?: boolean;
-  };
+  const { data: attempt, error: startError } = await client.rpc("staff_begin_invitation", {
+    p_actor: actor.accountId,
+    ...(resend ? { p_account_id: accountId, p_revision: revision } : {
+      p_email: email, p_username: username, p_role: role,
+    }),
+  });
+  if (startError || !attempt) {
+    return staffReply({ error: startError?.code === "P0001"
+      ? startError.message : "The invitation could not be started. Try again." }, startError?.code === "P0001" ? 409 : 503);
+  }
+  if (attempt.state === "sent") return staffReply({ ok: true, alreadySent: true });
+  if (attempt.state === "sending") {
+    return staffReply({ error: "This invitation is being processed. Wait a moment before trying again." }, 409);
+  }
+
+  let invitedId: string | undefined;
   try {
-    body = (await request.json()) as typeof body;
-  } catch {
-    return NextResponse.json({ error: "A valid JSON request body is required" }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-
-  const email = body.email?.trim().toLowerCase() || "";
-  const username = body.username?.trim() || "";
-  const role = body.role?.trim().toUpperCase() || "";
-  const password = typeof body.password === "string" ? body.password : "";
-  const activateImmediately = body.activateImmediately !== false;
-
-  if (!email || !EMAIL_RE.test(email)) {
-    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-  if (username.length < 2 || username.length > 80) {
-    return NextResponse.json({ error: "Username must be between 2 and 80 characters." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-  if (role !== "ADMIN" && role !== "MANAGER") {
-    return NextResponse.json({ error: "Role must be ADMIN or MANAGER." }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-
-  const passwordCheck = validateStaffPassword(password);
-  if (!passwordCheck.valid) {
-    return NextResponse.json(
-      { error: passwordCheck.error || "Enter a stronger password." },
-      { status: 400, headers: NO_STORE_HEADERS },
-    );
-  }
-
-  const { data: created, error: createError } = await adminClient.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { username, role },
-  });
-
-  if (createError || !created.user) {
-    const alreadyExists = /already|registered|exists/i.test(createError?.message || "");
-    return NextResponse.json(
-      {
-        error: alreadyExists
-          ? "An account with this email address already exists."
-          : "The staff authentication account could not be created. Check settings and try again.",
-      },
-      { status: 400, headers: NO_STORE_HEADERS },
-    );
-  }
-
-  const accountId = created.user.id;
-  const { error: accountError } = await actorClient.rpc("admin_create_account", {
-    p_account_id: accountId,
-    p_username: username,
-    p_role_name: role,
-  });
-
-  if (accountError) {
-    const { error: cleanupError } = await adminClient.auth.admin.deleteUser(accountId);
-    if (cleanupError) {
-      return NextResponse.json(
-        { error: "The account record could not be created and the Auth user needs administrator cleanup." },
-        { status: 500, headers: NO_STORE_HEADERS },
-      );
-    }
-    const duplicateName = /duplicate|unique/i.test(accountError.message || "");
-    return NextResponse.json(
-      {
-        error: duplicateName
-          ? "That username is already in use. Choose another display name."
-          : "The staff account could not be created because the account record failed to save.",
-      },
-      { status: 400, headers: NO_STORE_HEADERS },
-    );
-  }
-
-  let accountStatus: "ACTIVE" | "PENDING" = "PENDING";
-  let activationNotice: string | null = null;
-
-  if (activateImmediately) {
-    const { error: approveError } = await actorClient.rpc("admin_approve_account", {
-      p_account_id: accountId,
+    const { data, error } = await client.auth.admin.inviteUserByEmail(attempt.email, {
+      redirectTo,
+      // Used only to reconcile an interrupted provider response. Roles come from the database.
+      data: { gravenav_invitation_id: attempt.id },
     });
-    if (!approveError) {
-      const { error: activateError } = await actorClient.rpc("admin_activate_account", {
-        p_account_id: accountId,
-      });
-      if (!activateError) {
-        accountStatus = "ACTIVE";
-      } else {
-        activationNotice = "Account created and approved, but still needs activation below.";
-      }
-    } else {
-      activationNotice = "Account created as PENDING. Click Approve and Activate below to enable sign-in.";
-    }
+    if (!error && data.user) invitedId = data.user.id;
+  } catch {
+    // Finalize a failed or ambiguous attempt without exposing provider response details.
   }
 
-  return NextResponse.json(
-    {
-      ok: true,
-      accountId,
-      email,
-      username,
-      role,
-      accountStatus,
-      notice: activationNotice,
-    },
-    { status: 200, headers: NO_STORE_HEADERS },
-  );
+  const { data: receipt, error: finishError } = await client.rpc("staff_finish_invitation", {
+    p_actor: actor.accountId,
+    p_invitation_id: attempt.id,
+    p_attempt_id: attempt.attemptId,
+    p_sent: Boolean(invitedId),
+    ...(invitedId ? { p_user_id: invitedId } : {}),
+  });
+  if (finishError || receipt?.state !== "sent") {
+    return staffReply({ error: finishError
+      ? "Delivery could not be confirmed. Wait two minutes, then retry with the same email and role."
+      : "The invitation email could not be sent. Check the email settings and try again." }, 502);
+  }
+  return staffReply({ ok: true });
 }

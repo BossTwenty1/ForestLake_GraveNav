@@ -33,6 +33,8 @@ async function restoreSessionFromAuthUrlOnce(): Promise<AuthCallbackResult> {
   const query = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const code = query.get("code");
+  const tokenHash = query.get("token_hash");
+  const passwordSetup = ["invite", "recovery", "password_setup"].includes((query.get("type") || hash.get("type") || "").toLowerCase());
   const accessToken = hash.get("access_token");
   const refreshToken = hash.get("refresh_token");
   const flowType = (query.get("type") || hash.get("type") || "").toLowerCase();
@@ -46,16 +48,21 @@ async function restoreSessionFromAuthUrlOnce(): Promise<AuthCallbackResult> {
 
   if (hash.has("error") || query.has("error")) return { ok: false, flowType };
 
-  if (code) {
+  if (tokenHash && (flowType === "invite" || flowType === "recovery")) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: flowType });
+    if (error) return { ok: false, flowType };
+  } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) return { ok: false, flowType };
   } else if (accessToken && refreshToken) {
     const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
     if (error) return { ok: false, flowType };
+  } else if (passwordSetup) {
+    return { ok: false, flowType };
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  return { ok: Boolean(session), flowType };
+  const { data: { user } } = await supabase.auth.getUser();
+  return { ok: Boolean(user), flowType };
 }
 
 export function getAuthFlowType() {

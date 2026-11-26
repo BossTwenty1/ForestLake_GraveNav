@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
@@ -69,18 +68,4 @@ test("Coordinate disclosure shows CAD centres without offering unverified GPS di
   assert.match(html, /not a verified GPS location or walking destination/);
   assert.match(html, /Source datum unresolved/);
   assert.doesNotMatch(html, /<a |latitude|longitude|google|navigator|geolocation/i);
-});
-
-const coordinatesUrl = new URL("../public/phase2-planning/plot-coordinates.json", import.meta.url);
-test("Installed coordinate references cover all original candidates with the pinned data hash", { skip: !existsSync(coordinatesUrl) }, () => {
-  const raw = readFileSync(coordinatesUrl);
-  const dataBytes = readFileSync(new URL("../public/phase2-viewer/data/phase2.local.json", import.meta.url));
-  const hash = bytes => createHash("sha256").update(bytes).digest("hex");
-  assert.equal(hash(dataBytes), "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77");
-  const source = JSON.parse(dataBytes);
-  const value = validatePlotCoordinates(JSON.parse(raw), hash(dataBytes), [...source.layers.lawn, ...source.layers.estates]);
-  assert.equal(Object.keys(value.entries).length, 4494);
-  const loader = readFileSync(new URL("../src/lib/phase2-planning.ts", import.meta.url), "utf8");
-  assert.ok(loader.includes(`coordinates: "${hash(raw)}"`));
-  assert.doesNotMatch(raw.toString("utf8"), /latitude|longitude|centreLonLat/);
 });

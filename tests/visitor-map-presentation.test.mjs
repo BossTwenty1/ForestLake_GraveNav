@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import * as parkDetails from "../src/lib/park-details.ts";
 import ts from "typescript";
@@ -113,28 +113,6 @@ test("Mobile search expands for results and selected memorials retain their iden
   const planning = render({ view: "planning", destination: memorial, geography, requestedId: "17", returnTo: results });
   assert.doesNotMatch(planning, />Get Directions<|The highlighted plot/);
   assert.match(planning, /returnTo=%2Fresults%3Fquery%3DTest%26page%3D3/);
-});
-
-const manifestUrl = new URL("../public/phase2-planning/cad-details/manifest.json", import.meta.url);
-test("Wayfinding labels cover parking and six compact lights follow the existing walkway centreline", { skip: !existsSync(manifestUrl) }, () => {
-  const manifest = JSON.parse(readFileSync(manifestUrl));
-  const parking = manifest.labels.filter(label => label.name === "Parking");
-  const instances = parking.flatMap(label => label.sourcePaths);
-  assert.equal(instances.length, 81);
-  assert.equal(new Set(instances).size, 81);
-  assert.ok(manifest.labels.some(label => label.name === "Walkway"));
-  assert.equal(manifest.streetLights.length, 6);
-  const landscape = JSON.parse(readFileSync(new URL("../public/phase2-viewer/landscape/manifest.json", import.meta.url)));
-  const ends = landscape.pathways.find(path => path.id === "broad-pathwalk").provisionalEnds.map(pair => pair[0].map((n, i) => (n + pair[1][i]) / 2));
-  const [a, b] = ends;
-  for (const light of manifest.streetLights) {
-    const [x, y] = light.displayCadXY;
-    const cross = (x - a[0]) * (b[1] - a[1]) - (y - a[1]) * (b[0] - a[0]);
-    assert.ok(Math.abs(cross) < 1e-7);
-    assert.ok(light.centrelineOffsetUnits < 5);
-  }
-  const site = readFileSync(new URL(manifest.layers.site.image, manifestUrl), "utf8");
-  assert.equal((site.match(/data-kind="street-light"/g) || []).length, 6);
 });
 
 test("park directory groups exact source anchors and keeps unreviewed geographic paths out", () => {

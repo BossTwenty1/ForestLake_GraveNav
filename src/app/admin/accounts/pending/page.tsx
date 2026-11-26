@@ -3,5 +3,5 @@ import { requireStaff } from "@/lib/auth";
 
 export default async function AdminPendingAccountsRoute() {
   await requireStaff("ADMIN");
-  redirect("/admin/accounts");
+  redirect("/admin/accounts?status=pending");
 }

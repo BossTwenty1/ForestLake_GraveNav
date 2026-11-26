@@ -151,7 +151,8 @@ test("database migrations and operational contracts", async (t) => {
     await t.test("account actions preserve administrator-only and stale-session protection", async () => {
       const target = "00000000-0000-0000-0000-000000000003";
       await db.exec("reset role");
-      await db.query("insert into auth.users values($1)", [target]);
+      await db.query(`insert into auth.users(id,email,email_confirmed_at,encrypted_password)
+        values($1,'legacy-manager@example.test',now(),'fixture-hash')`, [target]);
       await db.query("insert into public.account(account_id,role_id,username) select $1,role_id,'pending-staff' from public.role where role_name='MANAGER'", [target]);
       await login(manager);
       await assert.rejects(save("account", target, 1, {}, "approve"), /Only administrators/);
@@ -344,13 +345,8 @@ test("database migrations and operational contracts", async (t) => {
       const hiddenPath = "burial/" + privateId + "/hidden.jpg";
       const wrongFolder = "burial/" + privateId + "/unrelated.jpg";
       await db.exec(`
-        create schema storage;
-        create table storage.buckets (id text primary key, public boolean not null);
-        create table storage.objects (bucket_id text, name text);
-        alter table storage.objects enable row level security;
-        grant usage on schema storage to anon;
-        grant select on storage.objects to anon;
-        insert into storage.buckets values ('gravenav-memorial-photos', false), ('other-photos', false);
+        insert into storage.buckets(id,name) values
+          ('gravenav-memorial-photos','gravenav-memorial-photos'), ('other-photos','other-photos');
       `);
       await db.query(`
         insert into public.photo(burial_id, uploaded_by, storage_path, file_name, approval_status, public_display)

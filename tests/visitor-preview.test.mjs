@@ -130,6 +130,7 @@ test("existing staff guard denies anonymous, inactive and unauthorized accounts"
   const client = { auth: { getUser: async () => ({ data: { user } }) },
     rpc: async (name) => ({ data: name === "get_my_account" ? [row] : false, error: null }) };
   const auth = load("src/lib/auth.ts", {
+    react: { cache: callback => callback },
     "next/navigation": { redirect: (path) => { throw Error(path); } },
     "./supabase/server": { getServerSupabase: async () => client },
   });

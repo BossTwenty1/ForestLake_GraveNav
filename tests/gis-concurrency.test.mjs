@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
+import { testAuthSchema, testStorageSchema } from "./supabase-test-schema.mjs";
 
 const MIGRATION = "20260928220000_gis_import_validation.sql";
 const MIGRATIONS = new URL("../supabase/migrations/", import.meta.url);
@@ -350,10 +351,10 @@ test("shared regular grave serializes two real PostgreSQL sessions competing for
   }
   const create = docker(["exec", container, "createdb", "-U", "postgres", DATABASE]);
   assert.equal(create.status, 0, create.stderr);
-  sql(container, "create role anon; create role authenticated; create role service_role bypassrls;"
-    + "create schema auth; create table auth.users(id uuid primary key);"
-    + "create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;"
-    + "grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;");
+  sql(container, `create role anon; create role authenticated; create role service_role bypassrls;
+    ${testAuthSchema}
+    ${testStorageSchema}
+  `);
   for (const file of (await readdir(MIGRATIONS)).filter((name) => name.endsWith(".sql")).sort()) {
     sql(container, await readFile(new URL(file, MIGRATIONS), "utf8"));
   }
@@ -401,4 +402,59 @@ test("shared regular grave serializes two real PostgreSQL sessions competing for
   assert.match(retried.stderr, /no remaining approved interment capacity/);
   assert.equal(sql(container, "select count(*) from public.burial_record where lot_id=1 and interment_confirmed"), "6");
   assert.equal(sql(container, "select count(*) from public.deceased"), "6");
+
+  await t.test("last Administrator survives competing account changes without a database deadlock", async () => {
+    const otherAdmin = "10000000-0000-0000-0000-000000000002";
+    sql(container, `
+      insert into auth.users(id) values ('${otherAdmin}');
+      insert into public.account(account_id,role_id,username,is_active,account_status,approved_at)
+      select '${otherAdmin}',role_id,'fictional-second-admin',true,'ACTIVE',now()
+      from public.role where role_name='ADMIN';
+    `);
+    const activeAdmins = `select count(*) from public.account a join public.role r using(role_id)
+      where a.is_active and a.account_status='ACTIVE' and r.role_name='ADMIN';`;
+    assert.equal(sql(container, activeAdmins), "2");
+
+    const change = (actor, target, operation, value) =>
+      `set application_name='staff-race-${operation}'; set request.jwt.claim.sub='${actor}'; set role authenticated;
+      select public.staff_save_record('account','${target}',1,'${JSON.stringify({ value })}','${randomUUID()}','${operation}');`;
+    const gate = spawn("docker", ["exec", "-i", container, "psql", "-U", "postgres", "-d", DATABASE, "-v", "ON_ERROR_STOP=1", "-X", "-Atq"]);
+    const gateClosed = new Promise((resolve) => gate.once("close", resolve));
+    let gateError = "";
+    gate.stderr.on("data", data => { gateError += data; });
+    try {
+      const gateReady = new Promise((resolve, reject) => {
+        let output = "";
+        gate.stdout.on("data", data => { output += data; if (output.includes("STAFF_LOCKED")) resolve(); });
+        gate.once("error", reject);
+        gate.once("close", code => reject(new Error("Staff race barrier closed: " + code + " " + gateError)));
+      });
+      gate.stdin.write("begin; update staff_private.lifecycle_guard set version=version+1;\n\\echo STAFF_LOCKED\n");
+      await gateReady;
+      const racers = Promise.all([
+        asyncSql(container, change(ADMIN, otherAdmin, "role", "MANAGER")),
+        asyncSql(container, change(otherAdmin, ADMIN, "deactivate", "SUSPENDED")),
+      ]);
+      let waiting = 0;
+      for (let attempt = 0; attempt < 25 && waiting < 2; attempt++) {
+        waiting = Number(sql(container, `select count(*) from pg_stat_activity
+          where application_name in ('staff-race-role','staff-race-deactivate') and wait_event_type='Lock';`));
+        if (waiting < 2) await new Promise(resolve => setTimeout(resolve, 120));
+      }
+      gate.stdin.end("commit;\n");
+      const outcomes = await racers;
+      assert.equal(await gateClosed, 0, gateError);
+      assert.equal(waiting, 2);
+      assert.equal(outcomes.filter(outcome => outcome.status === 0).length, 1, JSON.stringify(outcomes));
+      assert.match(outcomes.find(outcome => outcome.status !== 0).stderr, /active Administrator is required/);
+      assert.equal(sql(container, activeAdmins), "1");
+      const remaining = outcomes[0].status === 0 ? ADMIN : otherAdmin;
+      const self = await asyncSql(container, change(remaining, remaining, "deactivate", "SUSPENDED"));
+      assert.notEqual(self.status, 0);
+      assert.match(self.stderr, /cannot suspend your own account/);
+    } finally {
+      if (!gate.stdin.writableEnded) gate.stdin.end("rollback;\n");
+      await gateClosed;
+    }
+  });
 });

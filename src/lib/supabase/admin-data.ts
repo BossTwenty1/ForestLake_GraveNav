@@ -3,10 +3,11 @@
 import { getBrowserSupabase } from "./config";
 import { acknowledgeRequest, mutationFingerprint, pendingRequestId } from "./mutation-receipts";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Json } from "./database.types";
+import type { Database, Json } from "./database.types";
 import type { AdminAccount, AdminLot, AdminPhoto, AdminRecord, GraveType, AuditLogEntry, BurialPlotOption, CoordinateVerificationItem, CoordinateVerificationSummary, DashboardData, LotOwner, PlotAreaOption, PlotManagementItem, PlotManagementSummary } from "./types";
 
 const RECORD_COLUMNS = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,inscription,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
+const RECORD_COLUMNS_LEGACY = "revision,burial_id,deceased_id,lot_id,interment_date,record_status,interment_status,remains_type,reference_no,service_provider,record_source,quality_notes,created_by,updated_by,updated_at,interment_order_number,interment_confirmed";
 const DECEASED_COLUMNS = "deceased_id,display_name,birth_date,death_date,public_display";
 const LOT_COLUMNS = "revision,lot_id,lot_code,area_id,block_id,lot_owner_id,legacy_location_code,legacy_pa_number,status,length_m,width_m,px_loc_x,px_loc_y,location_geom,coordinate_accuracy_m,coordinate_status,coordinate_verified,coordinate_rejection_reason,updated_at,deleted_at";
 const OWNER_COLUMNS = "revision,lot_owner_id,first_name,middle_name,last_name,suffix,aliases,address,representative_name,representative_contact,representative_relation";
@@ -76,6 +77,7 @@ export type CoordinateVerificationPage = {
   areas: PlotAreaOption[];
 };
 export type LotRow = { revision: number; coordinate_rejection_reason: string | null; lot_id: number; lot_code: string; area_id: number; block_id: number | null; lot_owner_id: number | null; legacy_location_code: string | null; legacy_pa_number: string | null; status: "UNKNOWN" | "AVAILABLE" | "BOOKED" | "HOLD"; length_m: number | null; width_m: number | null; px_loc_x: number | null; px_loc_y: number | null; location_geom: unknown; coordinate_accuracy_m: number | null; coordinate_status: "pending" | "verified" | "rejected"; coordinate_verified: boolean; updated_at: string; location: { longitude: number; latitude: number } | null };
+type BurialRecordRead = Omit<Database["public"]["Tables"]["burial_record"]["Row"], "inscription"> & { inscription?: string | null };
 type OwnerRow = { revision: number; lot_owner_id: number; first_name: string; middle_name: string | null; last_name: string; suffix: string | null; aliases: string | null; address: string; representative_name: string | null; representative_contact: string | null; representative_relation: string | null };
 
 export async function getAdminRecords(options: PageOptions = {}) {
@@ -99,12 +101,20 @@ export async function getAdminRecordsPage(
 ): Promise<PageResult<AdminRecord>> {
   const client = requireClient();
   const { from, to } = pageRange(options);
-  let query = client.from("burial_record").select(RECORD_COLUMNS, { count: "exact" })
-    .is("deleted_at", null);
-  if (options.recordId !== undefined) query = query.eq("burial_id", options.recordId);
-  const { data: records, error, count } = await query
-    .order("updated_at", { ascending: false }).order("burial_id", { ascending: false })
-    .range(from, to);
+  const readRecords = (columns: typeof RECORD_COLUMNS | typeof RECORD_COLUMNS_LEGACY) => {
+    let query = client.from("burial_record").select(columns, { count: "exact" })
+      .is("deleted_at", null);
+    if (options.recordId !== undefined) query = query.eq("burial_id", options.recordId);
+    return query.order("updated_at", { ascending: false })
+      .order("burial_id", { ascending: false }).range(from, to)
+      .overrideTypes<BurialRecordRead[], { merge: false }>();
+  };
+  let result = await readRecords(RECORD_COLUMNS);
+  if (result.error?.code === "42703" &&
+      (!result.error.message || /\binscription\b/i.test(result.error.message))) {
+    result = await readRecords(RECORD_COLUMNS_LEGACY);
+  }
+  const { data: records, error, count } = result;
   if (error) throw error;
   if (!records?.length) return { items: [], hasMore: false, total: count };
 
@@ -149,7 +159,7 @@ export async function getAdminRecordsPage(
       serviceProvider: record.service_provider || null,
       recordSource: record.record_source || null,
       qualityNotes: record.quality_notes || null,
-      inscription: record.inscription || null,
+      inscription: "inscription" in record ? record.inscription || null : undefined,
       updatedAt: record.updated_at,
       location: parsePoint(lot?.location_geom),
       pixelLocation: lot?.px_loc_x !== null && lot?.px_loc_x !== undefined && lot?.px_loc_y !== null && lot?.px_loc_y !== undefined ? { x: lot.px_loc_x, y: lot.px_loc_y } : null,

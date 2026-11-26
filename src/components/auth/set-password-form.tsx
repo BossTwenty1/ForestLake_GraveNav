@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { BrandLockup } from "@/components/brand-lockup";
-import { getBrowserSupabase, localSupabaseConfig } from "@/lib/supabase/config";
+import { localSupabaseConfig } from "@/lib/supabase/config";
+import { validateStaffPassword } from "@/lib/staff-password";
 
 export function SetPasswordForm() {
   const [password, setPassword] = useState("");
@@ -19,40 +20,34 @@ export function SetPasswordForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setError("");
     setPendingNotice("");
-    if (password.length < 8) {
-      setError("Your password must be at least 8 characters.");
+    const strength = validateStaffPassword(password);
+    if (!strength.valid) {
+      setError(strength.error || "Choose a stronger password.");
       return;
     }
     if (password !== confirmation) {
       setError("The password confirmation does not match.");
       return;
     }
-    const supabase = getBrowserSupabase();
-    if (!supabase) {
-      setError("Supabase is not configured. Restart the frontend after setting the public Supabase variables.");
-      return;
-    }
-
     setBusy(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError) {
-        setError("The password could not be saved. Please reopen the link and try again.");
-        return;
-      }
-
-      const response = await fetch("/api/auth/complete", { method: "POST" });
-      let result: { destination?: string | null; accountStatus?: string; error?: string } = {};
+      const response = await fetch("/api/auth/complete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      let result: { destination?: string | null; accountStatus?: string; notice?: string; error?: string } = {};
       try {
-        result = await response.json() as { destination?: string | null; accountStatus?: string; error?: string };
+        result = await response.json() as typeof result;
       } catch {
         // Fallback handled below.
       }
       if (result.accountStatus === "PENDING") {
         setPendingNotice(
-          result.error || "Your password was saved. An active administrator must approve and activate your account before you sign in.",
+          result.notice || "Your password was saved. An Administrator must grant access before you can sign in.",
         );
         return;
       }
@@ -94,7 +89,7 @@ export function SetPasswordForm() {
               </div>
             ) : (
               <form className="admin-form" onSubmit={submit}>
-                <Input autoComplete="new-password" hint="Use at least 8 characters." label="New password" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
+                <Input autoComplete="new-password" hint="Use at least 8 characters, including a letter and a number." label="New password" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
                 <Input autoComplete="new-password" label="Confirm password" minLength={8} onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} />
                 {error ? <Alert icon="alert" title="Password setup unavailable" variant="danger">{error}</Alert> : null}
                 <Button className="button--full" disabled={busy} icon="shield" size="lg" type="submit">{busy ? "Saving password…" : "Set password"}</Button>
