@@ -2800,11 +2800,13 @@ textarea.input-control { height: auto; min-height: 92px; padding: 10px 14px; lin
 }
 
 .admin-form-card {
+  max-width: 704px;
   border-color: #a6d5b4;
   background: #fbfffc;
 }
 
 .admin-form {
+  container: admin-form / inline-size;
   display: grid;
   gap: 16px;
   max-width: 640px;
@@ -2993,6 +2995,22 @@ textarea.input-control { height: auto; min-height: 92px; padding: 10px 14px; lin
   gap: 16px;
 }
 
+@container admin-form (max-width: 560px) {
+  .admin-form .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container admin-form (max-width: 420px) {
+  .admin-form .admin-form-actions {
+    align-items: stretch;
+  }
+
+  .admin-form .admin-form-actions > * {
+    flex: 1 1 100%;
+  }
+}
+
 .checkbox-field {
   display: flex;
   align-items: flex-start;
@@ -3169,10 +3187,6 @@ html[data-theme="dark"] .result-media--lawn {
   .theme-toggle--compact .theme-toggle__option {
     width: 34px;
     padding: 0;
-  }
-
-  .admin-form .filter-grid {
-    grid-template-columns: 1fr;
   }
 }
 

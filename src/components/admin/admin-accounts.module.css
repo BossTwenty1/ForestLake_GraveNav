@@ -546,6 +546,7 @@
 
 .formFooterActions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -691,9 +692,22 @@
 
 .modalActions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   padding-top: 4px;
+}
+
+@media (max-width: 560px) {
+  .formFooterActions,
+  .modalActions {
+    width: 100%;
+  }
+
+  .formFooterActions > *,
+  .modalActions > * {
+    flex: 1 1 120px;
+  }
 }
 
 @media (max-width: 820px) {
