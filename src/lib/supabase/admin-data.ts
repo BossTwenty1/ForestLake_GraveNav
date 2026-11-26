@@ -399,7 +399,7 @@ export async function getAdminAccounts() {
     revision: account.revision,
     accountId: account.account_id,
     username: account.username,
-    role: roleById.get(account.role_id) === "ADMIN" ? "ADMIN" : "MANAGER",
+    role: roleById.get(account.role_id) === "SUPER_ADMIN" ? "SUPER_ADMIN" : roleById.get(account.role_id) === "ADMIN" ? "ADMIN" : "MANAGER",
     accountStatus: account.account_status,
     isActive: account.is_active,
     createdAt: account.created_at,

@@ -40,7 +40,7 @@ export function AdminPhotosPage() {
 }
 
 export function AdminAuditLogPage() {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [actors, setActors] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);

@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "./supabase/server";
 import type { AccountStatus, StaffAccount, StaffRole } from "./supabase/types";
+import { hasRequiredStaffRole, isStaffRole } from "./staff-roles";
 
 type StaffCheckResult =
   | { kind: "unconfigured" }
@@ -105,12 +106,8 @@ export async function requireStaff(
   const staff = result.staff;
   if (!staff) redirect("/admin/unauthorized");
   if (!staff.isActive || staff.accountStatus !== "ACTIVE") redirect("/admin/unauthorized");
-  if (requiredRole && staff.role !== requiredRole) redirect("/admin/unauthorized?reason=role");
+  if (!hasRequiredStaffRole(staff.role, requiredRole)) redirect("/admin/unauthorized?reason=role");
   return staff;
-}
-
-function isStaffRole(role: string): role is StaffRole {
-  return role === "ADMIN" || role === "MANAGER";
 }
 
 function isBooleanTrue(value: unknown) {

@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { getCurrentStaff } from "@/lib/auth";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { localSupabaseConfig, publicAppOrigin } from "./config";
 
 export const staffAccountIdPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -24,7 +25,13 @@ export function staffReply(body: object, status = 200) {
 
 export async function activeStaffAdministrator() {
   const staff = await getCurrentStaff();
-  return staff?.isActive && staff.accountStatus === "ACTIVE" && staff.role === "ADMIN" ? staff : null;
+  if (!staff?.isActive || staff.accountStatus !== "ACTIVE") return null;
+  const client = await getServerSupabase();
+  if (!client) return null;
+  const { data, error } = await client.rpc("can_manage_staff_accounts");
+  // Keep the existing ADMIN workflow until the matching migration is installed.
+  if (error?.code === "PGRST202") return staff.role === "ADMIN" ? staff : null;
+  return !error && data === true ? staff : null;
 }
 
 export function staffEmailCallback(type: "invite" | "recovery") {

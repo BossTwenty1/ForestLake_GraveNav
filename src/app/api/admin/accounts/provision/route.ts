@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const revision = body.revision;
   if (resend ? !staffAccountIdPattern.test(accountId) || !Number.isSafeInteger(revision) :
     !emailPattern.test(email) || email.length > 254 || username.length < 2 || username.length > 80 ||
-      (role !== "ADMIN" && role !== "MANAGER")) {
+      (role !== "SUPER_ADMIN" && role !== "ADMIN" && role !== "MANAGER")) {
     return staffReply({ error: "Check the staff name, work email, and role." }, 400);
   }
 

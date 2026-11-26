@@ -1,6 +1,6 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
-import { getCurrentStaff } from "@/lib/auth";
+import { activeStaffAdministrator } from "@/lib/supabase/staff-account-server";
 import { normalizeSiteSettings, type SiteSettingsRow } from "@/lib/site-settings";
 import { fetchPublicSiteSettingsUncached } from "@/lib/supabase/site-settings";
 import { getServerSupabase } from "@/lib/supabase/server";
@@ -13,8 +13,8 @@ const privateHeaders = {
 };
 
 export async function GET() {
-  const staff = await getCurrentStaff();
-  if (!staff || !staff.isActive || staff.accountStatus !== "ACTIVE" || staff.role !== "ADMIN") {
+  const staff = await activeStaffAdministrator();
+  if (!staff) {
     return NextResponse.json({ error: "Active ADMIN access is required." }, { status: 403, headers: privateHeaders });
   }
   const { settings, tableReady } = await fetchPublicSiteSettingsUncached();
@@ -22,8 +22,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const staff = await getCurrentStaff();
-  if (!staff || !staff.isActive || staff.accountStatus !== "ACTIVE" || staff.role !== "ADMIN") {
+  const staff = await activeStaffAdministrator();
+  if (!staff) {
     return NextResponse.json({ error: "Only active ADMIN accounts may update visitor site settings." }, { status: 403, headers: privateHeaders });
   }
   const client = await getServerSupabase();

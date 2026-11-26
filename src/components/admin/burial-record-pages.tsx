@@ -125,7 +125,7 @@ export function BurialRecordEditor({ recordId, returnTo }: PageProps) {
 function BurialRecordForm({ record, availablePlots, back }: {
   record: AdminRecord | null; availablePlots: BurialPlotOption[]; back: string;
 }) {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const router = useRouter();
   const [form, setForm] = useState<BurialRecordInput>(() => record
     ? recordInputFromRecord(record)
@@ -506,7 +506,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
 }
 
 function RecordPortraitCard({ record }: { record: AdminRecord }) {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [previewUrl, setPreviewUrl] = useState("");
@@ -806,7 +806,7 @@ function SharedGravesiteCard({ lotId, burialId, back }: { lotId: number; burialI
 export function BurialRecordDetail({ recordId, returnTo, saved = false, photoStatus }: {
   recordId: string; returnTo?: string; saved?: boolean; photoStatus?: string;
 }) {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const router = useRouter();
   const state = useRecord(recordId);
   const record = state.data?.record;

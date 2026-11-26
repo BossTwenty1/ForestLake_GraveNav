@@ -52,7 +52,7 @@ function formatShortDate(value: string) {
 }
 
 export function AdminPhotoUploader() {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const [counts, setCounts] = useState<AdminPhotoCounts>({ pending: 0, approved: 0, rejected: 0, visitorPending: 0, total: 0 });
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});

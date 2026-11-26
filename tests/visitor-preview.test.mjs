@@ -133,6 +133,7 @@ test("existing staff guard denies anonymous, inactive and unauthorized accounts"
     react: { cache: callback => callback },
     "next/navigation": { redirect: (path) => { throw Error(path); } },
     "./supabase/server": { getServerSupabase: async () => client },
+    "./staff-roles": load("src/lib/staff-roles.ts"),
   });
   await assert.rejects(auth.requireStaff(), /login/);
   user = { id: "isolated-unit-user" };

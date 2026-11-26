@@ -115,7 +115,7 @@ function OwnerActions({ owner, canAdmin, busy, onDelete }: {
 }
 
 export function OwnerDirectory({ search = "", page = 0 }: { search?: string; page?: number }) {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const [result, setResult] = useState<Awaited<ReturnType<typeof getOwnerRecordsPage>> | null>(null);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");

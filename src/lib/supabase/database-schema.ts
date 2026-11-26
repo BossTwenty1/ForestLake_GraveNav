@@ -7,6 +7,7 @@ type Functions = GeneratedDatabase["public"]["Functions"];
 export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<GeneratedDatabase["public"], "Functions"> & {
     Functions: Omit<Functions, "staff_save_record"> & {
+      can_manage_staff_accounts: { Args: Record<string, never>; Returns: boolean };
       staff_account_directory: {
         Args: { p_search?: string; p_role?: string; p_status?: string; p_page?: number };
         Returns: StaffDirectory;

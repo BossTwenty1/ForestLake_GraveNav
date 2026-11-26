@@ -29,17 +29,17 @@ export default async function UnauthorizedPage({
         <Card>
           <CardContent>
             <div className="unauthorized-card">
-              <h1>{isRoleBlocked ? "Administrator permission required" : "Administrator access unavailable"}</h1>
+              <h1>{isRoleBlocked ? "Additional permission required" : "Staff access unavailable"}</h1>
               <p>
                 {isRoleBlocked
-                  ? "This section requires an active ADMIN account. Your current MANAGER account can continue using records, plots, owners, map, and reports."
+                  ? "Your account does not have permission to open this section. Contact a Super Administrator if you need access."
                   : staff?.accountStatus === "PENDING"
                     ? "Your staff account is pending administrator approval and activation."
-                    : "Your account is not an active ADMIN or MANAGER account. Contact an active ADMIN if your access should be restored."}
+                    : "Your account is not an active staff account. Contact a Super Administrator if your access should be restored."}
               </p>
               <Alert icon="shield" title="Permission check enforced" variant="warning">
                 {isRoleBlocked
-                  ? "Role-based access control restricts account management, recovery, and system actions to ADMIN accounts."
+                  ? "Your staff role determines which sections and actions are available to you."
                   : "This page is shown for pending, suspended, revoked, inactive, or unassigned accounts."}
               </Alert>
               <UnauthorizedActions isActiveStaff={isActiveStaff} />

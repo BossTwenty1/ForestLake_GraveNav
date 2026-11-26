@@ -17,7 +17,7 @@ export function RecordVisibility({ record, onReload }: {
 }) {
   const staff = useStaff();
   const allowed = staff?.isActive && staff.accountStatus === "ACTIVE" &&
-    (staff.role === "ADMIN" || staff.role === "MANAGER");
+    (staff.role === "SUPER_ADMIN" || staff.role === "ADMIN" || staff.role === "MANAGER");
   const [visible, setVisible] = useState<boolean | null>(null);
   const [readError, setReadError] = useState("");
   const [attempt, setAttempt] = useState(0);

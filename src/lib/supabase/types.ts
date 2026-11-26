@@ -1,4 +1,4 @@
-export type StaffRole = "ADMIN" | "MANAGER";
+export type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER";
 export type AccountStatus = "PENDING" | "ACTIVE" | "SUSPENDED" | "REVOKED";
 
 export type StaffAccount = {
@@ -7,6 +7,7 @@ export type StaffAccount = {
   role: StaffRole;
   accountStatus: AccountStatus;
   isActive: boolean;
+  canManageStaff?: boolean;
 };
 
 export type PublicBurialRecord = {

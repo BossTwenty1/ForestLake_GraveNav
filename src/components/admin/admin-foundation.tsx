@@ -101,7 +101,8 @@ function saveStoredPeriod(period: DashboardPeriod) {
 
 export function AdminFoundation() {
   const staff = useStaff();
-  const canAdmin = staff?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(staff?.role ?? "");
+  const canManageStaff = staff?.canManageStaff === true;
   const [state, setState] = useState<DashboardState>(EMPTY_STATE);
   const [fatalError, setFatalError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -130,11 +131,11 @@ export function AdminFoundation() {
       getDashboardPhotoMetrics(),
       getAdminPhotos({ status: "pending", pageSize: 4 }),
       getAuditLogPage({ page: 0, pageSize: 10 }),
-      canAdmin ? getPendingAccountCount() : Promise.resolve(0),
-      fetch("/api/admin/site-settings", { cache: "no-store" }).then(async (res) => {
+      canManageStaff ? getPendingAccountCount() : Promise.resolve(0),
+      canManageStaff ? fetch("/api/admin/site-settings", { cache: "no-store" }).then(async (res) => {
         if (!res.ok) throw new Error("Site settings unavailable");
         return (await res.json()) as SiteSettingsPayload;
-      }),
+      }) : Promise.resolve(null),
     ]);
 
     if (dashboardRes.status === "rejected") {
@@ -190,7 +191,7 @@ export function AdminFoundation() {
 
     setLoading(false);
     setRefreshing(false);
-  }, [canAdmin, periodTouched]);
+  }, [canManageStaff, periodTouched]);
 
   useEffect(() => {
     let active = true;
@@ -272,9 +273,9 @@ export function AdminFoundation() {
         pendingPhotoTotal: photoSummary.pending,
         pendingBurialsCount,
         pendingAccountsCount: state.pendingAccountsCount,
-        canAdmin,
+        canAdmin: canManageStaff,
       }),
-    [state.pendingPhotos, state.photoThumbnails, photoSummary.pending, pendingBurialsCount, state.pendingAccountsCount, canAdmin],
+    [state.pendingPhotos, state.photoThumbnails, photoSummary.pending, pendingBurialsCount, state.pendingAccountsCount, canManageStaff],
   );
 
   const asOfTime = useMemo(() => {
@@ -713,7 +714,7 @@ export function AdminFoundation() {
                   <div className={styles.trendEmpty} role="status">
                     <p className={styles.trendEmptyTitle}>No pending reviews right now</p>
                     <p className={styles.trendEmptyDesc}>
-                      All submitted photos, pending burial records{canAdmin ? ", and staff account requests" : ""} have been addressed.
+                      All submitted photos, pending burial records{canManageStaff ? ", and staff account requests" : ""} have been addressed.
                     </p>
                   </div>
                 ) : (
@@ -815,7 +816,7 @@ export function AdminFoundation() {
                   statusTone="green"
                   title="Interactive Cemetery Map"
                 />
-                <SiteControlCard
+                {canManageStaff && <SiteControlCard
                   description="Update park hours, contact details, visitor announcements, and photo submission toggles."
                   href="/admin/site-settings"
                   icon="settings"
@@ -836,7 +837,7 @@ export function AdminFoundation() {
                         : "neutral"
                   }
                   title="Visitor Site Settings"
-                />
+                />}
               </div>
             </div>
           </section>

@@ -125,13 +125,15 @@ test("protected routes enforce staff authentication and role checks", async () =
   const auth = await read("src/lib/auth.ts");
   assert.match(auth, /redirect\("\/admin\/login"\)/);
   assert.match(auth, /redirect\("\/admin\/unauthorized"\)/);
-  assert.match(auth, /staff\.role !== requiredRole/);
+  assert.match(auth, /hasRequiredStaffRole\(staff\.role, requiredRole\)/);
+  const roleChecks = await read("src/lib/staff-roles.ts");
+  assert.match(roleChecks, /role === "SUPER_ADMIN" && requiredRole === "ADMIN"/);
 
   const provision = await read("src/app/api/admin/accounts/provision/route.ts");
   const serverAdmin = await read("src/lib/supabase/server-admin.ts");
   const staffAccounts = await read("src/lib/supabase/staff-account-server.ts");
   assert.match(provision, /activeStaffAdministrator/);
-  assert.match(staffAccounts, /staff\.role === "ADMIN"/);
+  assert.match(staffAccounts, /rpc\("can_manage_staff_accounts"\)/);
   assert.match(serverAdmin, /SUPABASE_SECRET_KEY/);
 });
 

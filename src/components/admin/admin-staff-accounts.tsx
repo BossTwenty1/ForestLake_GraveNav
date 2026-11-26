@@ -10,13 +10,14 @@ import { Icon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { StaffAccountDetails, StaffDirectory, StaffDirectoryEntry } from "@/lib/staff-account-access";
+import type { StaffRole } from "@/lib/supabase/types";
 import { accountAction } from "@/lib/supabase/admin-data";
 import { getBrowserSupabase } from "@/lib/supabase/config";
 import { AdminPageFrame } from "./admin-page-content";
 import { useStaff } from "./staff-context";
 import styles from "./admin-accounts.module.css";
 
-const roleLabels = { ADMIN: "Administrator", MANAGER: "Manager" } as const;
+const roleLabels = { SUPER_ADMIN: "Super Administrator", ADMIN: "Administrator", MANAGER: "Manager" } as const;
 const summaries = [["total", "Total staff"], ["active", "Active"], ["pending", "Pending"], ["suspended", "Suspended"]] as const;
 const pageSize = 20;
 type Filter = "ALL" | StaffDirectoryEntry["status"];
@@ -119,6 +120,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
   const [detailsError, setDetailsError] = useState("");
   const [detailsRefresh, setDetailsRefresh] = useState(0);
   const [choice, setChoice] = useState<Choice | null>(null);
+  const [nextRole, setNextRole] = useState<StaffRole>("MANAGER");
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const dialogTrigger = useRef<HTMLButtonElement | null>(null);
@@ -201,6 +203,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
   function choose(action: Choice) {
     actionTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setActionError("");
+    if (action === "role" && details) setNextRole(details.account.role);
     setChoice(action);
   }
 
@@ -255,7 +258,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
           await accountAction("deactivate", accountId, revision, "SUSPENDED");
           break;
         case "role":
-          await accountAction("role", accountId, revision, account.role === "ADMIN" ? "MANAGER" : "ADMIN");
+          await accountAction("role", accountId, revision, nextRole);
           break;
         case "resend":
           await postAccount("provision", { accountId, revision });
@@ -279,7 +282,6 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
 
   const account = details?.account;
   const isSelf = account?.accountId === staff?.accountId;
-  const nextRole = account?.role === "ADMIN" ? "Manager" : "Administrator";
   const lastPage = Math.max(1, Math.ceil((directory?.total ?? 0) / pageSize));
   const directoryFiltered = filters.search || filters.role !== "ALL" || filters.status !== "ALL";
 
@@ -311,6 +313,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
                 <option value="ALL">All roles</option>
                 <option value="MANAGER">Manager</option>
                 <option value="ADMIN">Administrator</option>
+                <option value="SUPER_ADMIN">Super Administrator</option>
               </select>
             </label>
             <label className="input-field">
@@ -379,7 +382,9 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
             <label><input type="radio" name="role" value="MANAGER" defaultChecked disabled={busy} />
               <span><strong>Manager</strong><small>Day-to-day cemetery operations.</small></span></label>
             <label><input type="radio" name="role" value="ADMIN" disabled={busy} />
-              <span><strong>Administrator</strong><small>Staff accounts, restricted actions, and site settings.</small></span></label>
+              <span><strong>Administrator</strong><small>Oversees cemetery records, verification, and recovery.</small></span></label>
+            <label><input type="radio" name="role" value="SUPER_ADMIN" disabled={busy} />
+              <span><strong>Super Administrator</strong><small>Manages staff access and security settings.</small></span></label>
           </fieldset>
           {actionError && <Alert variant="danger">{actionError}</Alert>}
           <div className={styles.dialogActions}>
@@ -402,20 +407,30 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
           </dl>
           <section className={styles.detailSection}>
             <h3>Permissions</h3>
-            <p>{account.role === "ADMIN"
-              ? "Cemetery operations, staff accounts, verification and recovery, and site settings."
-              : "Cemetery records, plots, owners, and operational reports."}</p>
+            <p>{account.role === "SUPER_ADMIN"
+              ? "Staff access, security settings, and cemetery operations."
+              : account.role === "ADMIN"
+                ? "Cemetery operations, verification, and recovery."
+                : "Cemetery records, plots, owners, and operational reports."}</p>
             {account.status !== "ACTIVE" && <p>Workspace access is currently blocked.</p>}
           </section>
           {!isSelf && <section className={styles.detailSection}>
             <h3>Manage access</h3>
             {choice ? <div className={styles.confirmation} role="group" aria-label={actionText[choice][0]}>
-              <p>{choice === "role" ? `Change this person’s role to ${nextRole}?` : actionText[choice][1]}</p>
+              {choice === "role" ? <label className="input-field">
+                <span className="input-label">Choose a new role</span>
+                <select className="input-control" value={nextRole} disabled={busy}
+                  onChange={event => setNextRole(event.target.value as StaffRole)}>
+                  <option value="MANAGER">Manager</option>
+                  <option value="ADMIN">Administrator</option>
+                  <option value="SUPER_ADMIN">Super Administrator</option>
+                </select>
+              </label> : <p>{actionText[choice][1]}</p>}
               {actionError && <Alert variant="danger">{actionError}</Alert>}
               <div className={styles.dialogActions}>
                 <Button ref={cancelAction} variant="secondary" onClick={cancelChoice} disabled={busy}>Cancel</Button>
-                <Button variant={choice === "suspend" ? "danger" : "primary"} onClick={() => void confirmAction()} disabled={busy}>
-                  {busy ? "Applying…" : choice === "role" ? `Make ${nextRole.toLowerCase()}` : actionText[choice][0]}
+                <Button variant={choice === "suspend" ? "danger" : "primary"} onClick={() => void confirmAction()} disabled={busy || (choice === "role" && nextRole === account.role)}>
+                  {busy ? "Applying…" : choice === "role" ? "Save role" : actionText[choice][0]}
                 </Button>
               </div>
               {actionError && <Button variant="quiet" onClick={() => { cancelChoice(); reloadDetails(); }}>Reload account details</Button>}

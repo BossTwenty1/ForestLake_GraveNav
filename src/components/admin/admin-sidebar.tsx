@@ -11,6 +11,7 @@ type AdminNavItem = {
   icon: IconName;
   href: string;
   adminOnly?: boolean;
+  securityOnly?: boolean;
 };
 
 const mainNavItems: AdminNavItem[] = [
@@ -26,8 +27,8 @@ const systemNavItems: AdminNavItem[] = [
   { label: "Reports", icon: "reports", href: "/admin/reports" },
   { label: "Audit Log", icon: "audit", href: "/admin/audit-log" },
   { label: "Recovery", icon: "audit", href: "/admin/recovery", adminOnly: true },
-  { label: "Staff Accounts", icon: "users", href: "/admin/accounts", adminOnly: true },
-  { label: "Visitor Site Settings", icon: "settings", href: "/admin/site-settings", adminOnly: true },
+  { label: "Staff Accounts", icon: "users", href: "/admin/accounts", securityOnly: true },
+  { label: "Visitor Site Settings", icon: "settings", href: "/admin/site-settings", securityOnly: true },
 ];
 
 type AdminSidebarProps = {
@@ -35,6 +36,7 @@ type AdminSidebarProps = {
   collapsed: boolean;
   preview: boolean;
   staff: StaffAccount;
+  canManageStaff: boolean;
   onNavigate?: () => void;
   onClose?: () => void;
 };
@@ -44,11 +46,13 @@ export function AdminSidebar({
   collapsed,
   preview,
   staff,
+  canManageStaff,
   onNavigate,
   onClose,
 }: AdminSidebarProps) {
   function isVisible(item: AdminNavItem) {
-    if (item.adminOnly) return staff.role === "ADMIN";
+    if (item.securityOnly) return canManageStaff;
+    if (item.adminOnly) return staff.role === "ADMIN" || staff.role === "SUPER_ADMIN";
     return true;
   }
 

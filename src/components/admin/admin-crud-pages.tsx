@@ -40,7 +40,7 @@ type BurialRecordsCrudProps = {
 export function BurialRecordsCrud({
   initialQueryState,
 }: BurialRecordsCrudProps) {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const router = useRouter();
   const [records, setRecords] = useState<AdminRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -234,7 +234,7 @@ export function PlotManagementCrud({ initialQueryState, mapAreaId, mapAreaIds }:
   mapAreaId?: string;
   mapAreaIds?: string[];
 }) {
-  const canAdmin = useStaff()?.role === "ADMIN";
+  const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const [lots, setLots] = useState<PlotManagementItem[]>([]);
   const [owners, setOwners] = useState<LotOwner[]>([]);
   const [areas, setAreas] = useState<PlotAreaOption[]>([]);
@@ -335,7 +335,7 @@ export function PlotManagementCrud({ initialQueryState, mapAreaId, mapAreaIds }:
 }
 
 function LotForm({ lot, areas, owners, onSearchOwners, onCancel, onSaved }: { lot: PlotManagementItem | null; areas: PlotAreaOption[]; owners: LotOwner[]; onSearchOwners: (search: string) => Promise<LotOwner[]>; onCancel: () => void; onSaved: () => Promise<void> }) {
-  const canApprove = useStaff()?.role === "ADMIN";
+  const canApprove = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const [form, setForm] = useState<LotInput>(() => lot ? lotInputFromLot(lot) : { areaId: 0, lotOwnerId: null, lotCode: "", legacyLocationCode: "", legacyPaNumber: "", status: "UNKNOWN", lengthM: null, widthM: null });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);

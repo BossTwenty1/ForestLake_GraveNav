@@ -24,6 +24,7 @@ type AdminShellClientProps = {
   children: ReactNode;
   active: string;
   staff: StaffAccount;
+  canManageStaff: boolean;
 };
 
 const SIDEBAR_STORAGE_KEY = "gravenav-admin-sidebar";
@@ -70,7 +71,7 @@ function persistSidebarPreference(collapsed: boolean) {
   window.dispatchEvent(new Event(SIDEBAR_PREFERENCE_EVENT));
 }
 
-export function AdminShellClient({ children, active, staff }: AdminShellClientProps) {
+export function AdminShellClient({ children, active, staff, canManageStaff }: AdminShellClientProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarCollapsed = useSyncExternalStore(
@@ -221,6 +222,7 @@ export function AdminShellClient({ children, active, staff }: AdminShellClientPr
         role={sidebarOpen ? "dialog" : undefined}
       >
         <AdminSidebar
+          canManageStaff={canManageStaff}
           active={active}
           collapsed={sidebarCollapsed}
           onClose={closeDrawer}
@@ -285,7 +287,7 @@ export function AdminShellClient({ children, active, staff }: AdminShellClientPr
           </div>
         </header>
         <main className="admin-content" id="admin-main-content" tabIndex={-1}>
-          <StaffContext.Provider value={staff}>{children}</StaffContext.Provider>
+          <StaffContext.Provider value={{ ...staff, canManageStaff }}>{children}</StaffContext.Provider>
         </main>
       </div>
     </div>

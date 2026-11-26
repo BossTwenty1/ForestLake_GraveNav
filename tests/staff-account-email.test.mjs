@@ -31,13 +31,14 @@ function request(body, { from = origin, type = "application/json" } = {}) {
 
 function routes({
   staff = { accountId: actorId, role: "ADMIN", accountStatus: "ACTIVE", isActive: true },
-  appOrigin = origin, state = "send", authError = false, finishError = false,
+  appOrigin = origin, state = "send", authError = false, finishError = false, canManage = staff?.role === "ADMIN" || staff?.role === "SUPER_ADMIN",
 } = {}) {
   const calls = [];
   const helper = load("lib/supabase/staff-account-server.ts", {
     "server-only": {},
     "next/server": { NextResponse: { json: (value, init) => Response.json(value, init) } },
     "@/lib/auth": { getCurrentStaff: async () => staff },
+    "@/lib/supabase/server": { getServerSupabase: async () => ({ rpc: async () => ({ data: canManage, error: null }) }) },
     "./config": { localSupabaseConfig: { environment: "hosted" }, publicAppOrigin: appOrigin },
   });
   const provision = load("app/api/admin/accounts/provision/route.ts", {
@@ -82,6 +83,10 @@ test("staff email routes deny unprivileged sessions, cross-origin requests and u
     assert.equal((await recover(request({ accountId: memberId, revision: 7 }))).status, 403);
     assert.deepEqual(calls, []);
   }
+  const deniedAdmin = routes({ canManage: false });
+  assert.equal((await deniedAdmin.provision(request(inviteBody))).status, 403);
+  assert.equal((await deniedAdmin.recover(request({ accountId: memberId, revision: 7 }))).status, 403);
+  assert.deepEqual(deniedAdmin.calls, []);
   const { provision, recover, calls } = routes();
   assert.equal((await provision(request(inviteBody, { from: "https://other.example.test" }))).status, 400);
   assert.equal((await recover(request({}, { type: "text/plain" }))).status, 400);
@@ -124,6 +129,15 @@ test("staff invitations normalize identity, avoid duplicate mail and report deli
   }
 });
 
+test("super administrator may invite a super administrator through the protected route", async () => {
+  const superAdmin = routes({ staff: { accountId: actorId, role: "SUPER_ADMIN", accountStatus: "ACTIVE", isActive: true } });
+  assert.equal((await superAdmin.provision(request({ ...inviteBody, role: "SUPER_ADMIN" }))).status, 200);
+  assert.equal(superAdmin.calls[0][1].p_role, "SUPER_ADMIN");
+  const noPermission = routes({ staff: { accountId: actorId, role: "SUPER_ADMIN", accountStatus: "ACTIVE", isActive: true }, canManage: false });
+  assert.equal((await noPermission.provision(request({ ...inviteBody, role: "SUPER_ADMIN" }))).status, 403);
+  assert.deepEqual(noPermission.calls, []);
+});
+
 test("staff recovery sends only to the current account email and handles stale state and delivery errors", async () => {
   const good = routes();
   assert.equal((await good.recover(request({ accountId: memberId, revision: 6 }))).status, 409);
@@ -144,6 +158,7 @@ test("local staff requests accept the loopback host used by the browser only", (
     "server-only": {},
     "next/server": { NextResponse: {} },
     "@/lib/auth": {},
+    "@/lib/supabase/server": {},
     "./config": { localSupabaseConfig: { environment: "local" }, publicAppOrigin: "http://localhost:3000" },
   });
   const check = (from, host) => helper.isStaffJsonRequest(new Request("http://localhost:3000/api/admin/accounts", {
