@@ -1,4 +1,3 @@
-import Form from "next/form";
 import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
@@ -6,6 +5,7 @@ import { resultsHref, yearOptions, type MemorialSearchState } from "@/app/search
 import styles from "@/app/search/memorial-search.module.css";
 import { SearchFilterControls } from "./search-filter-controls";
 import { SearchSubmitButton } from "./search-submit-button";
+import { RequiredSearchForm } from "./required-search-form";
 
 type PublicSearchFormProps = {
   gardens: string[];
@@ -24,12 +24,12 @@ export function PublicSearchForm({ gardens, gardenListUnavailable, state, result
     : null;
 
   return (
-    <Form action="/results" className={isResults ? styles.resultsForm : styles.form} key={resultsHref(state)}
-      role="search" aria-label="Memorial search">
+    <RequiredSearchForm className={isResults ? styles.resultsForm : styles.form} key={resultsHref(state)}>
       <div className={styles.searchRow}>
         <div className={styles.query}>
           <Input autoComplete="off" enterKeyHint="search" aria-label="Name or plot reference" icon="search" maxLength={160}
-            name="query" defaultValue={query} placeholder="Enter a name or plot reference" type="search" />
+            name="query" defaultValue={query} placeholder="Enter a name or plot reference" type="search"
+            required pattern={".*\\S.*"} title="Enter a name or plot reference to search." />
           {isResults && query ? <Link className={styles.clearQuery} aria-label="Clear search query"
             href={resultsHref(state, { query: "", page: 1 })}><Icon name="close" size={16} /></Link> : null}
         </div>
@@ -59,6 +59,6 @@ export function PublicSearchForm({ gardens, gardenListUnavailable, state, result
           aria-label={`Remove year filter: ${yearLabel}`}>{yearLabel}<Icon name="close" size={14} /></Link> : null}
       </nav> : null}
       {gardenListUnavailable ? <p className={styles.inlineNotice} role="status">The garden list is temporarily unavailable. You can still search by name or plot reference.</p> : null}
-    </Form>
+    </RequiredSearchForm>
   );
 }
