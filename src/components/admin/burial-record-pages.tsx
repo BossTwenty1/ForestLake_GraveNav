@@ -407,7 +407,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
             value={form.lotId || ""}
             onChange={(e) => setField("lotId", Number(e.target.value))}
           >
-            <option value="">Select an eligible existing plot</option>
+            <option value="">Select an eligible existing plot…</option>
             {record ? <option value={record.lotId}>
               Current: {plotOptionLabel(record.plot, record.syntheticPlotReference)} — {record.section}
             </option> : null}
