@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { isSyntheticPlot, plotOptionLabel } from "@/lib/synthetic-plots";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AdminPageFrame } from "./admin-page-content";
+import { AdminEditMenu } from "./admin-edit-menu";
 import { RecordVisibility } from "./record-visibility";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
@@ -914,8 +915,7 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
       { label: "Record details" },
     ]}
     actions={record ? <div className={styles.actions}>
-      <Link className="button button--secondary button--md" href={editHref}>Edit record</Link>
-      {canAdmin ? <Button disabled={deleting} size="md" variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button> : null}
+      <AdminEditMenu actionLabel="Edit record" deleteLabel="Delete record" disabled={deleting} href={editHref} label={`More actions for ${record.name}`} onDelete={canAdmin ? () => setConfirmDelete(true) : undefined} />
     </div> : undefined}
   >
     {content}
