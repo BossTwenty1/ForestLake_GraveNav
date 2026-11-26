@@ -8,10 +8,11 @@ import type { PhaseTwoGeography } from "@/lib/phase2-geographic";
 import type { ParkPlace } from "@/lib/park-explorer-features";
 import type { GpsPosition } from "@/lib/navigation-geo";
 import { isSyntheticPlot } from "@/lib/synthetic-plots";
+import { PlotHighlightLegend, plotHighlightStyle, usePlotHighlights } from "./plot-highlights";
 
 type GeographicExplorer = { plots: boolean; paths: boolean; labels: boolean; selectedId?: string; places: ParkPlace[];
   request: { count: number; kind: "park" | "place" | "location" }; onSelect: (place: ParkPlace) => void };
-type Props = { explorer?: GeographicExplorer; data: PhaseTwoGeography; position?: GpsPosition | null; route?: [number, number][]; focusRequest?: number; wideNavigation?: boolean; routeActive?: boolean };
+type Props = { explorer?: GeographicExplorer; data: PhaseTwoGeography; position?: GpsPosition | null; route?: [number, number][]; focusRequest?: number; wideNavigation?: boolean; routeActive?: boolean; staff?: boolean };
 function Viewport({ data, position, focusRequest, routeActive, wideNavigation }: Props) {
   const map = useMap();
   const latest = useRef(position);
@@ -51,17 +52,33 @@ function Viewport({ data, position, focusRequest, routeActive, wideNavigation }:
   }, [map, data, focusRequest, routeActive, wideNavigation]);
   return null;
 }
-export default function PhaseTwoGeographicCanvas({ explorer, data, position = null, route = [], focusRequest = 0, wideNavigation = false, routeActive = false }: Props) {
+export default function PhaseTwoGeographicCanvas({ explorer, data, position = null, route = [], focusRequest = 0, wideNavigation = false, routeActive = false, staff = false }: Props) {
   const bounds = geoJSON({ type: "FeatureCollection", features: data.layers.boundaries } as GeoJsonObject).getBounds();
+  const { highlights, unavailable } = usePlotHighlights(data.releaseId, staff);
+  const plots = !explorer || explorer.plots ? data.layers.plots : [];
   const features = [...data.layers.boundaries, ...(!explorer || explorer.paths ? data.layers.walkways.filter(feature => feature.properties.walkingAllowed) : []),
-    ...(!explorer || explorer.plots ? data.layers.plots : [])];
+    ...plots];
   return <MapContainer bounds={bounds} className="cemetery-leaflet-canvas" style={{ height: "var(--cemetery-map-height, min(65vh, 620px))", minHeight: 320 }}
     aria-label={explorer ? "Published park map" : "Gravesite and location map"} scrollWheelZoom zoomControl={!wideNavigation && !explorer}>
     {wideNavigation || explorer ? <><ZoomControl position="topright" /><ScaleControl imperial={false} position="bottomright" /></> : null}
     {explorer ? <ExplorerViewport data={data} position={position} explorer={explorer} />
       : <Viewport data={data} position={position} focusRequest={focusRequest} wideNavigation={wideNavigation} routeActive={routeActive} />}
     <GeoJSON key={[data.releaseId, explorer?.plots, explorer?.paths].join(":")} data={{ type: "FeatureCollection", features } as GeoJsonObject}
-      style={feature => ({ color: feature?.properties?.lotId ? "#688571" : feature?.geometry.type === "LineString" ? "#aebeb6" : "#85968a", weight: feature?.geometry.type === "LineString" ? 9 : 2, fillOpacity: 0.1 })} />
+      style={feature => {
+        const lotId = feature?.properties?.lotId;
+        const occupied = highlights.occupied.has(lotId);
+        if (occupied || highlights.memorials.has(lotId)) return plotHighlightStyle(occupied);
+        const line = feature?.geometry.type === "LineString";
+        return { color: lotId ? "#688571" : line ? "#aebeb6" : "#85968a", weight: line ? 9 : 2, fillOpacity: 0.1 };
+      }} />
+    {(!explorer || explorer.plots) && (
+      <PlotHighlightLegend
+        memorials={plots.some(({ properties }) => highlights.memorials.has(String(properties.lotId)) &&
+          !highlights.occupied.has(String(properties.lotId)))}
+        occupied={plots.some(({ properties }) => highlights.occupied.has(String(properties.lotId)))}
+        unavailable={unavailable}
+      />
+    )}
     {explorer?.places.map(place => {
       if (!place.geographic || place.category === "pathways" && !explorer.paths || place.category === "landmarks" && !explorer.labels) return null;
       const selected = explorer.selectedId === place.id;

@@ -1,0 +1,39 @@
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 10px;
+  color: var(--foreground, #15271c);
+  font: 650 0.6875rem/1.35 Inter, "Segoe UI", sans-serif;
+  position: absolute;
+  z-index: 500;
+  left: 10px;
+  top: var(--plot-highlight-top, auto);
+  bottom: var(--plot-highlight-bottom, 10px);
+  max-width: calc(100% - 64px);
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  pointer-events: none;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.swatch,
+.occupiedSwatch {
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 1px solid #392f08;
+  border-radius: 2px;
+  background: #ffea00;
+}
+
+.occupiedSwatch {
+  border-style: dashed;
+}

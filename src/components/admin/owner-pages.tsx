@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isSyntheticPlot, plotAvailabilityLabel } from "@/lib/synthetic-plots";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Icon } from "@/components/ui/icons";
 import { AdminPageFrame } from "./admin-page-content";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
@@ -33,6 +35,83 @@ function errorMessage(reason: unknown) {
   if (reason && typeof reason === "object" && "message" in reason &&
     typeof reason.message === "string") return reason.message;
   return "The operation failed. Please try again.";
+}
+
+function OwnerActions({ owner, canAdmin, busy, onDelete }: {
+  owner: LotOwner; canAdmin: boolean; busy: boolean; onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const id = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !trigger.current?.contains(event.target) &&
+          !panel.current?.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); trigger.current?.focus(); }
+    };
+    const close = () => setOpen(false);
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    const frame = requestAnimationFrame(() => panel.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+      cancelAnimationFrame(frame);
+    };
+  }, [open]);
+
+  function toggle() {
+    if (!open && trigger.current) {
+      const rect = trigger.current.getBoundingClientRect();
+      const height = canAdmin ? 132 : 88;
+      setPosition({
+        top: rect.bottom + height + 6 > window.innerHeight ? Math.max(8, rect.top - height - 6) : rect.bottom + 6,
+        left: Math.max(8, Math.min(rect.right - 210, window.innerWidth - 218)),
+      });
+    }
+    setOpen(!open);
+  }
+
+  function navigate(event: KeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(panel.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (!items.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 :
+      event.key === "ArrowDown" ? (current + 1) % items.length : (current <= 0 ? items.length : current) - 1;
+    items[next]?.focus();
+  }
+
+  return <div className="admin-record-menu">
+    <button ref={trigger} type="button" aria-label={`More actions for ${ownerName(owner)}`}
+      aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined}
+      disabled={busy} onClick={toggle}><Icon name="more" size={18} /></button>
+    {open && createPortal(
+      <div id={id} ref={panel} role="menu" onKeyDown={navigate}
+        className="admin-record-menu__popover admin-record-menu__popover--portal" style={position}>
+        <Link href={directory + "/" + owner.lotOwnerId} role="menuitem" onClick={() => setOpen(false)}>
+          <Icon name="eye" size={16} />View
+        </Link>
+        <Link href={directory + "/" + owner.lotOwnerId + "/edit"} role="menuitem" onClick={() => setOpen(false)}>
+          <Icon name="edit" size={16} />Edit
+        </Link>
+        {canAdmin && <button type="button" role="menuitem" className="admin-record-menu__danger"
+          onClick={() => { setOpen(false); trigger.current?.focus(); onDelete(); }}>
+          <Icon name="trash" size={16} />Delete
+        </button>}
+      </div>, document.body,
+    )}
+  </div>;
 }
 
 export function OwnerDirectory({ search = "", page = 0 }: { search?: string; page?: number }) {
@@ -138,16 +217,8 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
                       </TableCell>
                       <TableCell>{owner.address || "Not recorded"}</TableCell>
                       <TableCell>{owner.representativeName || "Not recorded"}</TableCell>
-                      <TableCell><div className={styles.actions}>
-                        <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
-                        <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
-                        {canAdmin ? <Button
-                          disabled={busy}
-                          onClick={() => { setActionError(""); setTarget(owner); }}
-                          size="sm"
-                          variant="danger"
-                        >Delete</Button> : null}
-                      </div></TableCell>
+                      <TableCell><OwnerActions owner={owner} canAdmin={canAdmin} busy={busy}
+                        onDelete={() => { setActionError(""); setTarget(owner); }} /></TableCell>
                     </TableRow>
                   ))}</TableBody>
                 </Table>
@@ -163,11 +234,8 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
                     </div>
                     <p className={styles.secondary}>{owner.address || "Address not recorded"}</p>
                     {owner.representativeName ? <p className={styles.secondary}>Representative: {owner.representativeName}</p> : null}
-                    <div className={styles.actions}>
-                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
-                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
-                      {canAdmin ? <Button disabled={busy} onClick={() => { setActionError(""); setTarget(owner); }} size="sm" variant="danger">Delete</Button> : null}
-                    </div>
+                    <OwnerActions owner={owner} canAdmin={canAdmin} busy={busy}
+                      onDelete={() => { setActionError(""); setTarget(owner); }} />
                   </article>
                 ))}
               </div>

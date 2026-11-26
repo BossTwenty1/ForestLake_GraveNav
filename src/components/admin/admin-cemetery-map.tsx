@@ -11,7 +11,7 @@ const GeographicCanvas = dynamic(() => import("@/components/visitor/phase2-geogr
 });
 
 export function StaffPlotGeographicMap({ data }: { data: PhaseTwoGeography }) {
-  return <GeographicCanvas data={data} />;
+  return <GeographicCanvas data={data} staff />;
 }
 
 export function AdminCemeteryMap({ hasPlanningMap = false, planningPlot = null }: { hasPlanningMap?: boolean; planningPlot?: string | null }) {
