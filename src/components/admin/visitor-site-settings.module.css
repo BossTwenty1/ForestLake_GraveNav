@@ -3,6 +3,11 @@
   gap: 18px;
 }
 
+.stack > :global(.card) {
+  width: 100%;
+  max-width: 704px;
+}
+
 .toggleRow {
   display: flex;
   align-items: flex-start;
@@ -60,5 +65,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  max-width: 704px;
   padding-top: 4px;
+}
+
+@media (max-width: 560px) {
+  .metaBar {
+    align-items: stretch;
+  }
+
+  .metaBar > :global(button) {
+    width: 100%;
+  }
 }
