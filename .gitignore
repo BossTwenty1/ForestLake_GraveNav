@@ -60,3 +60,9 @@ next-env.d.ts
 # Local defense installation; CAD distribution requires management approval.
 /public/phase2-viewer/
 /public/phase2-planning/
+
+# Restricted acceptance inputs and execution evidence belong outside the repo.
+/.private/
+*.private.*
+*.xlsx
+**/authenticated-executor/

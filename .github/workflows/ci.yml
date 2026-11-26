@@ -2,7 +2,7 @@ name: GraveNav checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/staff-accounts-v1-release]
   pull_request:
     branches: [main]
 
@@ -41,3 +41,20 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare disposable service images
+        run: |
+          docker pull postgis/postgis:17-3.5
+      - name: PostgreSQL integration tests
+        run: npm run test:integration

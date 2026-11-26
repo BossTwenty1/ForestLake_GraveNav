@@ -1,0 +1,23 @@
+# Deploy only the web application and its approved public assets.
+/*
+!/src/
+!/public/
+!/package.json
+!/package-lock.json
+!/next.config.ts
+!/tsconfig.json
+!/postcss.config.mjs
+!/tailwind.config.mjs
+!/vercel.json
+!/.vercelignore
+
+# Local-only inputs must stay out even when deploying from a workstation.
+/public/phase2-viewer/
+/public/phase2-planning/
+**/.env*
+**/.private/
+**/*.private.*
+**/*.xlsx
+**/*.pem
+**/*.key
+**/authenticated-executor/
