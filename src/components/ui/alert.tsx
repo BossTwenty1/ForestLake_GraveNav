@@ -8,7 +8,7 @@ type AlertProps = { title?: string; children: ReactNode; variant?: AlertVariant;
 
 export function Alert({ title, children, variant = "info", icon, className }: AlertProps) {
   return (
-    <div className={cn("alert", `alert--${variant}`, className)} role="status">
+    <div className={cn("alert", `alert--${variant}`, className)} role={variant === "danger" ? "alert" : "status"}>
       <Icon className="alert-icon" name={icon || alertIcons[variant]} size={19} />
       <div className="alert-body">
         {title && <p className="alert-title">{title}</p>}

@@ -167,7 +167,7 @@ export function AdminAccountMenu({ busy, onSignOut, staff }: AdminAccountMenuPro
               </button>
             </div>
             <h2>Change password</h2>
-            <form className="admin-form" onSubmit={(e) => void updatePassword(e)}>
+            <form className="admin-form" noValidate onSubmit={(e) => void updatePassword(e)}>
               <Input
                 autoComplete="new-password"
                 hint="Minimum 8 characters."

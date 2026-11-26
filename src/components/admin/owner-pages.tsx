@@ -287,7 +287,7 @@ function OwnerForm({ owner }: { owner: LotOwner | null }) {
   }
   return (
     <Card className={styles.formCard}><CardContent>
-      <form className="admin-form" onSubmit={(event) => void submit(event)}>
+      <form className="admin-form" noValidate onSubmit={(event) => void submit(event)}>
         <p className="input-hint">Fields marked * are required.</p>
         <fieldset className={styles.fieldset} disabled={saving}>
           <legend>Owner details</legend>
@@ -321,7 +321,7 @@ function OwnerForm({ owner }: { owner: LotOwner | null }) {
             onChange={(e) => setField("aliases", e.target.value)}
           />
           <label className="input-field" htmlFor="owner-address">
-            <span className="input-label">Address *</span>
+            <span className="input-label">Address<span aria-hidden="true" className="input-required-marker">*</span></span>
             <textarea
               className="input-control"
               id="owner-address"

@@ -438,6 +438,10 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
       setError("Enter both the staff member's display name and email address.");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
     if (!passwordCheck.valid) {
       setError(passwordCheck.error || "Enter a stronger initial password.");
       return;
@@ -713,7 +717,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
             <Badge variant="success">Set password directly · No email needed</Badge>
           </CardHeader>
           <CardContent>
-            <form className="admin-form" onSubmit={createStaffAccount}>
+            <form className="admin-form" noValidate onSubmit={createStaffAccount}>
               <div className={accountStyles.createGrid}>
                 <Input
                   autoComplete="off"
@@ -747,7 +751,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
                 <div className={accountStyles.passwordField}>
                   <div className={accountStyles.passwordHeader}>
                     <label className="input-label" htmlFor="new-staff-password" style={{ marginBottom: 0 }}>
-                      Initial password
+                      Initial password<span aria-hidden="true" className="input-required-marker">*</span>
                     </label>
                     <button
                       className={accountStyles.generateBtn}
@@ -794,7 +798,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
 
                 <div className={accountStyles.passwordField}>
                   <label className="input-label" htmlFor="new-staff-password-confirm" style={{ marginBottom: 0 }}>
-                    Confirm initial password
+                    Confirm initial password<span aria-hidden="true" className="input-required-marker">*</span>
                   </label>
                   <input
                     autoComplete="new-password"
@@ -1090,7 +1094,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
           className={accountStyles.modalBackdrop}
           role="dialog"
         >
-          <form className={accountStyles.modalDialog} onSubmit={submitResetPassword}>
+          <form className={accountStyles.modalDialog} noValidate onSubmit={submitResetPassword}>
             <div className={accountStyles.modalHeader}>
               <h2 id="reset-staff-password-title">Set new password for {passwordModalAccount.username}</h2>
               <p>
@@ -1104,7 +1108,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
             <div className={accountStyles.passwordField}>
               <div className={accountStyles.passwordHeader}>
                 <label className="input-label" htmlFor="reset-staff-pw" style={{ marginBottom: 0 }}>
-                  New password
+                  New password<span aria-hidden="true" className="input-required-marker">*</span>
                 </label>
                 <button
                   className={accountStyles.generateBtn}
@@ -1151,7 +1155,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
 
             <div className={accountStyles.passwordField}>
               <label className="input-label" htmlFor="reset-staff-pw-confirm" style={{ marginBottom: 0 }}>
-                Confirm new password
+                Confirm new password<span aria-hidden="true" className="input-required-marker">*</span>
               </label>
               <input
                 autoComplete="new-password"

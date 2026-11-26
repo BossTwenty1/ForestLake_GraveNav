@@ -36,6 +36,10 @@ export function VisitorSiteSettingsEditor({
       setError("Park name and park address are required.");
       return;
     }
+    if (form.officeEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.officeEmail.trim())) {
+      setError("Enter a valid office email address, or leave the field blank.");
+      return;
+    }
     if (form.announcementEnabled && !form.announcementTitle.trim() && !form.announcementBody.trim()) {
       setError("Enter an announcement title or message before enabling the visitor banner.");
       return;
@@ -83,7 +87,7 @@ export function VisitorSiteSettingsEditor({
       {error ? <Alert icon="alert" title="Could not save settings" variant="danger">{error}</Alert> : null}
       {message ? <div role="status"><Alert icon="check" title="Settings published" variant="success">{message}</Alert></div> : null}
 
-      <form className={styles.stack} onSubmit={(e) => void submit(e)}>
+      <form className={styles.stack} noValidate onSubmit={(e) => void submit(e)}>
         <Card>
           <CardHeader>
             <CardTitle>Park identity, hours &amp; contact</CardTitle>

@@ -276,7 +276,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
       Registration requires an existing eligible plot. Ask an administrator to review the plot records.
       No plot will be created automatically.
     </Alert> : null}
-    <form className="admin-form" onSubmit={(event) => void submit(event)}>
+    <form className="admin-form" noValidate onSubmit={(event) => void submit(event)}>
       <p className="input-hint">Fields marked * are required. Optional details can be left blank.</p>
       <fieldset className={styles.fieldset} disabled={saving}>
         <legend>Deceased person</legend>
@@ -397,7 +397,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
       <fieldset className={styles.fieldset} disabled={saving}>
         <legend>Plot and interment</legend>
         <label className="input-field" htmlFor="burial-plot">
-          <span className="input-label" id="burial-plot-label">Existing cemetery plot *</span>
+          <span className="input-label" id="burial-plot-label">Existing cemetery plot<span aria-hidden="true" className="input-required-marker">*</span></span>
           <select
             aria-describedby="burial-plot-hint"
             aria-labelledby="burial-plot-label"

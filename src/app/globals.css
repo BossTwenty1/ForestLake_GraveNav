@@ -426,6 +426,12 @@ textarea:focus-visible,
 
 .input-field { display: block; min-width: 0; }
 .input-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; }
+
+.input-required-marker {
+  margin-left: 4px;
+  color: var(--danger, #b42318);
+  font-weight: 800;
+}
 .input-wrap { position: relative; display: flex; align-items: center; }
 .input-icon { position: absolute; left: 13px; z-index: 1; pointer-events: none; color: var(--primary-text); }
 .input-trailing { position: absolute; right: 13px; color: var(--muted); }
