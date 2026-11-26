@@ -34,6 +34,15 @@ export async function activeStaffAdministrator() {
   return !error && data === true ? staff : null;
 }
 
+export async function activeSuperAdministrator() {
+  const staff = await getCurrentStaff();
+  if (!staff?.isActive || staff.accountStatus !== "ACTIVE" || staff.role !== "SUPER_ADMIN") return null;
+  const client = await getServerSupabase();
+  if (!client) return null;
+  const { data, error } = await client.rpc("can_permanently_delete_staff_accounts");
+  return !error && data === true ? staff : null;
+}
+
 export function staffEmailCallback(type: "invite" | "recovery") {
   const url = new URL("/auth/callback", publicAppOrigin);
   if (localSupabaseConfig.environment === "hosted" &&

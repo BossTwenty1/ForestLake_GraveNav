@@ -20,7 +20,7 @@ import styles from "./admin-accounts.module.css";
 const roleLabels = { SUPER_ADMIN: "Super Administrator", ADMIN: "Administrator", MANAGER: "Manager" } as const;
 const summaries = [["total", "Total staff"], ["active", "Active"], ["pending", "Pending"], ["suspended", "Suspended"]] as const;
 const pageSize = 20;
-type Filter = "ALL" | StaffDirectoryEntry["status"];
+type Filter = "ALL" | "ACTIVE" | "PENDING" | "SUSPENDED";
 const actionText = {
   grant: ["Grant access", "The staff member will be able to sign in and use the workspace."],
   restore: ["Restore access", "The staff member will be able to sign in again."],
@@ -28,10 +28,12 @@ const actionText = {
   role: ["Change role", ""],
   resend: ["Resend invitation", "A new setup email will be sent to the staff member."],
   recovery: ["Send password reset", "The staff member will receive a link to choose their own password."],
+  delete: ["Delete account", "This permanently removes the staff member's sign-in and personal account details."],
 } as const;
 type Choice = keyof typeof actionText;
 
 function statusLabel(account: StaffDirectoryEntry) {
+  if (account.status === "DELETING" || account.deletionPending) return "Deletion incomplete";
   if (account.status === "ACTIVE") return "Active";
   if (account.status === "SUSPENDED") return "Suspended";
   if (account.setupReady) return "Ready for approval";
@@ -39,7 +41,11 @@ function statusLabel(account: StaffDirectoryEntry) {
 }
 
 function AccessBadge({ account }: { account: StaffDirectoryEntry }) {
-  return <Badge variant={account.status === "ACTIVE" ? "success" : account.status === "SUSPENDED" ? "neutral" : "warning"}>
+  return <Badge variant={
+    account.status === "DELETING" || account.deletionPending ? "danger"
+      : account.status === "ACTIVE" ? "success"
+        : account.status === "SUSPENDED" ? "neutral" : "warning"
+  }>
     {statusLabel(account)}
   </Badge>;
 }
@@ -54,6 +60,10 @@ function activityLabel(event: StaffAccountDetails["activity"][number]) {
   if (event.action === "invite_resent") return "Invitation resent";
   if (event.action === "invite_failed") return "Invitation could not be sent";
   if (event.action === "password_setup") return "Password setup completed";
+  if (event.action === "deletion_started") return "Permanent deletion started";
+  if (event.action === "deletion_failed") return "Sign-in removal did not finish";
+  if (event.action === "account_deleted") return "Account permanently deleted";
+  if (event.action === "super_admin_bootstrap") return "Super Administrator assigned";
   if (event.action === "insert") return "Account created";
   if (event.fromRole && event.toRole && event.fromRole !== event.toRole) {
     return `Role changed to ${roleLabels[event.toRole]}`;
@@ -66,15 +76,30 @@ function activityLabel(event: StaffAccountDetails["activity"][number]) {
   return "Account updated";
 }
 
-async function postAccount(path: "provision" | "reset-password", values: object) {
+class StaffActionError extends Error {
+  retryable?: boolean;
+  revision?: number;
+  constructor(message: string, details?: { retryable?: boolean; revision?: number }) {
+    super(message);
+    this.retryable = details?.retryable;
+    this.revision = details?.revision;
+  }
+}
+
+async function postAccount(path: "provision" | "reset-password" | "remove", values: object) {
   const response = await fetch("/api/admin/accounts/" + path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(values),
   });
   const result = await response.json().catch(() => null);
-  if (!response.ok || result?.ok !== true) throw new Error(result?.error || "The request could not be completed.");
-  return result as { alreadySent?: boolean };
+  if (!response.ok || result?.ok !== true) {
+    throw new StaffActionError(result?.error || "The request could not be completed.", {
+      retryable: Boolean(result?.retryable),
+      revision: typeof result?.revision === "number" ? result.revision : undefined,
+    });
+  }
+  return result as { alreadySent?: boolean; alreadyDeleted?: boolean };
 }
 
 function errorMessage(error: unknown) {
@@ -121,6 +146,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
   const [detailsRefresh, setDetailsRefresh] = useState(0);
   const [choice, setChoice] = useState<Choice | null>(null);
   const [nextRole, setNextRole] = useState<StaffRole>("MANAGER");
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const dialogTrigger = useRef<HTMLButtonElement | null>(null);
@@ -191,6 +217,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
     setInviting(false);
     setSelected(null);
     setChoice(null);
+    setDeleteConfirmed(false);
     setDetails(null);
     setDetailsError("");
     setActionError("");
@@ -203,12 +230,14 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
   function choose(action: Choice) {
     actionTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setActionError("");
+    setDeleteConfirmed(false);
     if (action === "role" && details) setNextRole(details.account.role);
     setChoice(action);
   }
 
   function cancelChoice() {
     setActionError("");
+    setDeleteConfirmed(false);
     setChoice(null);
     requestAnimationFrame(() => actionTrigger.current?.focus());
   }
@@ -266,14 +295,32 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
         case "recovery":
           await postAccount("reset-password", { accountId, revision });
           break;
+        case "delete":
+          await postAccount("remove", { accountId, revision });
+          break;
       }
       setMessage({
         grant: "Access granted.", restore: "Access restored.", suspend: "Access suspended.",
         role: "Role changed.", resend: "Invitation email sent.", recovery: "Password reset email requested.",
+        delete: "Account permanently deleted. Existing cemetery records and audit history were preserved.",
       }[choice]);
       closeDialog();
       reloadList();
     } catch (error) {
+      if (choice === "delete" && error instanceof StaffActionError && error.retryable) {
+        if (typeof error.revision === "number") {
+          setDetails(current => current ? {
+            ...current,
+            account: {
+              ...current.account,
+              revision: error.revision!,
+              status: "DELETING",
+              deletionPending: true,
+            },
+          } : current);
+        }
+        reloadList();
+      }
       setActionError(errorMessage(error));
     } finally {
       setBusy(false);
@@ -282,6 +329,8 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
 
   const account = details?.account;
   const isSelf = account?.accountId === staff?.accountId;
+  const isDeletionPending = Boolean(account?.deletionPending || account?.status === "DELETING");
+  const canDeleteAccount = Boolean(account && !isSelf && (account.canDelete ?? staff?.role === "SUPER_ADMIN"));
   const lastPage = Math.max(1, Math.ceil((directory?.total ?? 0) / pageSize));
   const directoryFiltered = filters.search || filters.role !== "ALL" || filters.status !== "ALL";
 
@@ -299,7 +348,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
             <div key={key}><dt>{label}</dt><dd>{directory?.summary[key] ?? (loading ? "…" : "Unavailable")}</dd></div>
           ))}
         </dl>
-        <p>Totals cover all current staff. Revoked accounts are kept in audit history.</p>
+        <p>Totals cover current staff. Deleted and revoked accounts cannot sign in; historical records stay in audit history.</p>
       </section>
 
       <Card>
@@ -416,6 +465,9 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
           </section>
           {!isSelf && <section className={styles.detailSection}>
             <h3>Manage access</h3>
+            {isDeletionPending && <Alert variant="warning">
+              Workspace access is already blocked, but permanent sign-in removal did not finish. Retry Delete account to complete removal.
+            </Alert>}
             {choice ? <div className={styles.confirmation} role="group" aria-label={actionText[choice][0]}>
               {choice === "role" ? <label className="input-field">
                 <span className="input-label">Choose a new role</span>
@@ -425,25 +477,55 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
                   <option value="ADMIN">Administrator</option>
                   <option value="SUPER_ADMIN">Super Administrator</option>
                 </select>
-              </label> : <p>{actionText[choice][1]}</p>}
+              </label> : choice === "delete" ? <>
+                <p><strong>Permanent deletion cannot be undone.</strong></p>
+                <ul className={styles.deleteSummary}>
+                  <li><strong>Removed permanently:</strong> Supabase Auth sign-in credentials, work email, active sessions, and current display name.</li>
+                  <li><strong>Kept for cemetery records:</strong> Existing burial records, photos, and audit history remain linked to a minimal non-login historical identity. Older audit entries recorded before deletion may still contain the former username.</li>
+                </ul>
+                <label className={styles.deleteAck}>
+                  <input type="checkbox" checked={deleteConfirmed} disabled={busy}
+                    onChange={event => setDeleteConfirmed(event.target.checked)} />
+                  <span>I understand this permanently removes sign-in access for {account.username} and cannot be undone.</span>
+                </label>
+              </> : <p>{actionText[choice][1]}</p>}
               {actionError && <Alert variant="danger">{actionError}</Alert>}
               <div className={styles.dialogActions}>
                 <Button ref={cancelAction} variant="secondary" onClick={cancelChoice} disabled={busy}>Cancel</Button>
-                <Button variant={choice === "suspend" ? "danger" : "primary"} onClick={() => void confirmAction()} disabled={busy || (choice === "role" && nextRole === account.role)}>
-                  {busy ? "Applying…" : choice === "role" ? "Save role" : actionText[choice][0]}
+                <Button variant={choice === "suspend" || choice === "delete" ? "danger" : "primary"}
+                  onClick={() => void confirmAction()}
+                  disabled={busy || (choice === "role" && nextRole === account.role) || (choice === "delete" && !deleteConfirmed)}>
+                  {busy
+                    ? (choice === "delete" ? "Deleting…" : "Applying…")
+                    : choice === "role"
+                      ? "Save role"
+                      : choice === "delete" && isDeletionPending
+                        ? "Retry delete account"
+                        : actionText[choice][0]}
                 </Button>
               </div>
               {actionError && <Button variant="quiet" onClick={() => { cancelChoice(); reloadDetails(); }}>Reload account details</Button>}
-            </div> : <div className={styles.detailActions}>
-              {account.status === "PENDING" && account.setupReady && <Button onClick={() => choose("grant")}>Grant access</Button>}
-              {account.status === "PENDING" && !account.setupReady && <p>Grant access becomes available after password setup.</p>}
-              {account.canResend && <Button variant="secondary" onClick={() => choose("resend")}>Resend invitation</Button>}
-              {account.status === "SUSPENDED" && account.setupReady && <Button onClick={() => choose("restore")}>Restore access</Button>}
-              {account.status === "SUSPENDED" && !account.setupReady && <p>This account needs verified password setup before access can be restored.</p>}
-              {account.canRecover && <Button variant="secondary" onClick={() => choose("recovery")}>Send password reset</Button>}
-              <Button variant="secondary" onClick={() => choose("role")}>Change role</Button>
-              {account.status === "ACTIVE" && <Button variant="secondary" onClick={() => choose("suspend")}>Suspend access</Button>}
-            </div>}
+            </div> : <>
+              {!isDeletionPending && <div className={styles.detailActions}>
+                {account.status === "PENDING" && account.setupReady && <Button onClick={() => choose("grant")}>Grant access</Button>}
+                {account.status === "PENDING" && !account.setupReady && <p>Grant access becomes available after password setup.</p>}
+                {account.canResend && <Button variant="secondary" onClick={() => choose("resend")}>Resend invitation</Button>}
+                {account.status === "SUSPENDED" && account.setupReady && <Button onClick={() => choose("restore")}>Restore access</Button>}
+                {account.status === "SUSPENDED" && !account.setupReady && <p>This account needs verified password setup before access can be restored.</p>}
+                {account.canRecover && <Button variant="secondary" onClick={() => choose("recovery")}>Send password reset</Button>}
+                <Button variant="secondary" onClick={() => choose("role")}>Change role</Button>
+                {account.status === "ACTIVE" && <Button variant="secondary" onClick={() => choose("suspend")}>Suspend access</Button>}
+              </div>}
+              {canDeleteAccount && <div className={styles.dangerZone}>
+                <h4>Permanent deletion</h4>
+                <p>Permanently remove sign-in access and personal account details while keeping cemetery records and audit history.</p>
+                <div className={styles.detailActions}>
+                  <Button variant="danger" onClick={() => choose("delete")}>
+                    {isDeletionPending ? "Retry delete account" : "Delete account"}
+                  </Button>
+                </div>
+              </div>}
+            </>}
           </section>}
           {isSelf && <p className={styles.secondary}>Change your password from your account menu.</p>}
           <section className={styles.detailSection}>

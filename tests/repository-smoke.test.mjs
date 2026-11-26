@@ -60,10 +60,14 @@ test("routing edges form one connected Phase 1 component", async () => {
 
 test("protected provisioning keeps the Auth admin key server-side", async () => {
   const route = await read("src/app/api/admin/accounts/provision/route.ts");
+  const removeRoute = await read("src/app/api/admin/accounts/remove/route.ts");
   const serverAdmin = await read("src/lib/supabase/server-admin.ts");
   assert.match(route, /getServerServiceSupabase|process\.env\.SUPABASE_(?:SECRET_KEY|SERVICE_ROLE_KEY)/);
+  assert.match(removeRoute, /getServerServiceSupabase/);
+  assert.match(removeRoute, /activeSuperAdministrator/);
   assert.match(serverAdmin, /process\.env\.SUPABASE_(?:SECRET_KEY|SERVICE_ROLE_KEY)/);
   assert.doesNotMatch(route, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
+  assert.doesNotMatch(removeRoute, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
   assert.doesNotMatch(serverAdmin, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)/);
 });
 

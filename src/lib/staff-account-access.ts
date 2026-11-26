@@ -5,7 +5,7 @@ export type StaffDirectoryEntry = {
   username: string;
   email: string | null;
   role: StaffRole;
-  status: Exclude<AccountStatus, "REVOKED">;
+  status: Exclude<AccountStatus, "REVOKED"> | "DELETING";
   revision: number;
   createdAt: string;
   lastSignInAt: string | null;
@@ -14,6 +14,19 @@ export type StaffDirectoryEntry = {
   emailVerified: boolean;
   canResend: boolean;
   canRecover: boolean;
+  deletionPending?: boolean;
+  canDelete?: boolean;
+};
+
+export type AccountDeletionStart =
+  | { state: "completed"; accountId: string; revision: number }
+  | { state: "deleting"; accountId: string; revision: number }
+  | { state: "delete_auth"; accountId: string; attemptId: string; revision: number; hasAuthUser: boolean };
+
+export type AccountDeletionFinish = {
+  state: "completed" | "auth_failed";
+  accountId: string;
+  revision: number;
 };
 
 export type StaffDirectory = {

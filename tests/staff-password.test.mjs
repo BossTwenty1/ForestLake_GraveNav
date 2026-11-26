@@ -40,5 +40,10 @@ test("staff onboarding and password recovery use email and require an active Adm
   assert.match(provision, /staff_finish_invitation/);
   assert.match(reset, /resetPasswordForEmail\(target.email/);
   assert.match(reset, /accountId === actor\.accountId/);
-  assert.match(remove, /410/);
+  assert.match(remove, /await activeSuperAdministrator\(\)/);
+  assert.doesNotMatch(remove, /NEXT_PUBLIC_SUPABASE_(?:SECRET|SERVICE_ROLE)|auth\.admin\.(?:createUser|updateUserById)/);
+  assert.match(remove, /staff_begin_account_deletion/);
+  assert.match(remove, /auth\.admin\.deleteUser\(/);
+  assert.match(remove, /staff_finish_account_deletion/);
+  assert.match(remove, /accountId === actor\.accountId/);
 });
