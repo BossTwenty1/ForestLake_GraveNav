@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { isSyntheticPlot, plotAvailabilityLabel } from "@/lib/synthetic-plots";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AdminPageFrame } from "./admin-page-content";
+import { AdminEditMenu } from "./admin-edit-menu";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -139,14 +140,7 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
                       <TableCell>{owner.address || "Not recorded"}</TableCell>
                       <TableCell>{owner.representativeName || "Not recorded"}</TableCell>
                       <TableCell><div className={styles.actions}>
-                        <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
-                        <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
-                        {canAdmin ? <Button
-                          disabled={busy}
-                          onClick={() => { setActionError(""); setTarget(owner); }}
-                          size="sm"
-                          variant="danger"
-                        >Delete</Button> : null}
+                        <AdminEditMenu actionLabel="Edit Plot Owner" deleteLabel="Delete owner" disabled={busy} href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} onDelete={canAdmin ? () => { setActionError(""); setTarget(owner); } : undefined} />
                       </div></TableCell>
                     </TableRow>
                   ))}</TableBody>
@@ -164,9 +158,7 @@ export function OwnerDirectory({ search = "", page = 0 }: { search?: string; pag
                     <p className={styles.secondary}>{owner.address || "Address not recorded"}</p>
                     {owner.representativeName ? <p className={styles.secondary}>Representative: {owner.representativeName}</p> : null}
                     <div className={styles.actions}>
-                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId}>View</Link>
-                      <Link className="subtle-link" href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit</Link>
-                      {canAdmin ? <Button disabled={busy} onClick={() => { setActionError(""); setTarget(owner); }} size="sm" variant="danger">Delete</Button> : null}
+                      <AdminEditMenu actionLabel="Edit Plot Owner" deleteLabel="Delete owner" disabled={busy} href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} onDelete={canAdmin ? () => { setActionError(""); setTarget(owner); } : undefined} />
                     </div>
                   </article>
                 ))}
@@ -380,8 +372,8 @@ export function OwnerProfile({ ownerId }: { ownerId: string }) {
       title={owner ? ownerName(owner) : "Plot Owner"}
       description={owner ? "Owner #" + owner.lotOwnerId + " · Restricted staff record" : undefined}
       breadcrumbs={[...breadcrumbs, { label: "Owner profile" }]}
-      actions={owner ? <Link className="button button--secondary button--md"
-        href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit Plot Owner</Link> : null}
+      actions={owner ? <AdminEditMenu actionLabel="Edit Plot Owner"
+        href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} /> : null}
     >
       {state.loading ? <p role="status">Loading plot owner…</p> :
         state.error ? <LoadError message={state.error} onRetry={state.retry} /> :

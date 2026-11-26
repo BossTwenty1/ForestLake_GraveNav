@@ -936,6 +936,7 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
                           </span>
                         </td>
                         <td>
+                          <div className={accountStyles.statusCell}>
                           <span
                             className={`${accountStyles.statusPill} ${
                               account.accountStatus === "ACTIVE"
@@ -952,6 +953,24 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
                                 ? "Pending"
                                 : "Suspended"}
                           </span>
+                          {!isSelf ? <label className={accountStyles.statusActionSelect}>
+                            <span className="sr-only">Status actions for {account.username}</span>
+                            <select aria-label={`Change status for ${account.username}`} disabled={actionBusy} onChange={(event) => {
+                              const action = event.target.value;
+                              event.currentTarget.value = "";
+                              if (action === "approve" || action === "activate") void runDirect(action, account);
+                              if (action === "reactivate") setConfirmAction({ action: "activate", account, title: `Reactivate ${account.username}?`, description: "Reactivating restores workspace access for this suspended staff account.", confirmLabel: "Reactivate account", variant: "primary" });
+                              if (action === "suspend") setConfirmAction({ action: "deactivate", account, value: "SUSPENDED", title: `Suspend ${account.username}?`, description: "Suspending temporarily blocks workspace sign-in until reactivated.", confirmLabel: "Suspend access", variant: "danger" });
+                            }} value="">
+                              <option value="">Status actions…</option>
+                              {account.accountStatus === "PENDING" && !account.approvedAt ? <option value="approve">Approve account</option> : null}
+                              {account.accountStatus === "PENDING" && account.approvedAt ? <option value="activate">Activate account</option> : null}
+                              {account.accountStatus === "SUSPENDED" ? <option value="reactivate">Reactivate account</option> : null}
+                              {account.accountStatus === "ACTIVE" ? <option value="suspend">Suspend access</option> : null}
+                            </select>
+                            <Icon name="chevronDown" size={14} />
+                          </label> : null}
+                          </div>
                         </td>
                         <td className={accountStyles.dateCell}>{formatShortDate(account.createdAt)}</td>
                         <td>
@@ -960,61 +979,6 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
                               <span className={accountStyles.selfMuted}>Current session</span>
                             ) : (
                               <>
-                                {account.accountStatus === "PENDING" && !account.approvedAt ? (
-                                  <Button
-                                    disabled={actionBusy}
-                                    onClick={() => void runDirect("approve", account)}
-                                    size="sm"
-                                    variant="primary"
-                                  >
-                                    Approve
-                                  </Button>
-                                ) : null}
-                                {account.accountStatus === "PENDING" && account.approvedAt ? (
-                                  <Button
-                                    disabled={actionBusy}
-                                    onClick={() => void runDirect("activate", account)}
-                                    size="sm"
-                                    variant="primary"
-                                  >
-                                    Activate
-                                  </Button>
-                                ) : null}
-                                {account.accountStatus === "SUSPENDED" ? (
-                                  <Button
-                                    disabled={actionBusy}
-                                    onClick={() => setConfirmAction({
-                                      action: "activate",
-                                      account,
-                                      title: `Reactivate ${account.username}?`,
-                                      description: "Reactivating restores workspace access for this suspended staff account.",
-                                      confirmLabel: "Reactivate account",
-                                      variant: "primary",
-                                    })}
-                                    size="sm"
-                                    variant="primary"
-                                  >
-                                    Reactivate
-                                  </Button>
-                                ) : null}
-
-                                <Button
-                                  disabled={actionBusy}
-                                  icon="lock"
-                                  onClick={() => {
-                                    setOpenMenuId(null);
-                                    setPasswordModalAccount(account);
-                                    setResetPassword("");
-                                    setResetConfirmPassword("");
-                                    setShowResetPassword(false);
-                                    setResetError("");
-                                  }}
-                                  size="sm"
-                                  variant="secondary"
-                                >
-                                  Set password
-                                </Button>
-
                                 <div className={accountStyles.menuWrap} data-account-menu>
                                   <button
                                     aria-expanded={menuOpen}
@@ -1030,6 +994,22 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
 
                                   {menuOpen ? (
                                     <div className={accountStyles.menuPopover} role="menu">
+                                      <button
+                                        className={accountStyles.menuItem}
+                                        onClick={() => {
+                                          setOpenMenuId(null);
+                                          setPasswordModalAccount(account);
+                                          setResetPassword("");
+                                          setResetConfirmPassword("");
+                                          setShowResetPassword(false);
+                                          setResetError("");
+                                        }}
+                                        role="menuitem"
+                                        type="button"
+                                      >
+                                        <Icon name="lock" size={15} />
+                                        <span>Set password</span>
+                                      </button>
                                       <button
                                         className={accountStyles.menuItem}
                                         onClick={() => {
@@ -1052,29 +1032,6 @@ export function AdminAccountsPage({ pendingOnly = false }: { pendingOnly?: boole
                                         <Icon name="shield" size={15} />
                                         <span>Change to {targetRole}</span>
                                       </button>
-
-                                      {account.accountStatus === "ACTIVE" ? (
-                                        <button
-                                          className={accountStyles.menuItem}
-                                          onClick={() => {
-                                            setOpenMenuId(null);
-                                            setConfirmAction({
-                                              action: "deactivate",
-                                              account,
-                                              value: "SUSPENDED",
-                                              title: `Suspend ${account.username}?`,
-                                              description: "Suspending temporarily blocks workspace sign-in until reactivated.",
-                                              confirmLabel: "Suspend access",
-                                              variant: "danger",
-                                            });
-                                          }}
-                                          role="menuitem"
-                                          type="button"
-                                        >
-                                          <Icon name="clock" size={15} />
-                                          <span>Suspend access</span>
-                                        </button>
-                                      ) : null}
 
                                       <div className={accountStyles.menuDivider} />
 

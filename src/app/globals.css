@@ -8317,6 +8317,17 @@ html[data-theme="dark"] .admin-plot-page {
   gap: 10px;
 }
 
+.admin-record-identity__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-record-identity__link:hover strong {
+  color: var(--admin-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .admin-record-avatar {
   display: inline-flex;
   width: 36px;
@@ -8433,6 +8444,53 @@ html[data-theme="dark"] .admin-plot-page {
   color: var(--admin-muted);
 }
 
+.admin-row-status-select {
+  position: relative;
+  display: inline-grid;
+  min-height: 34px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: var(--admin-panel);
+  color: var(--admin-ink);
+}
+
+.admin-row-status-select select {
+  width: 100%;
+  min-width: 106px;
+  height: 32px;
+  appearance: none;
+  border: 0;
+  border-radius: inherit;
+  outline: 0;
+  padding: 0 28px 0 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-row-status-select>svg {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  color: var(--admin-muted);
+}
+
+.admin-row-status-select:focus-within {
+  border-color: var(--admin-accent);
+  outline: 3px solid color-mix(in srgb, var(--admin-accent) 18%, transparent);
+  outline-offset: 2px;
+}
+
+.admin-row-status-select select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .admin-record-verification--rejected {
   border-color: color-mix(in srgb, var(--admin-danger) 40%, var(--admin-line));
   background: var(--admin-danger-soft);
@@ -8507,6 +8565,11 @@ html[data-theme="dark"] .admin-plot-page {
 }
 
 .admin-burial-mobile-card__top>.admin-record-status {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.admin-burial-mobile-card__top>.admin-row-status-select {
   grid-column: 2;
   justify-self: start;
 }

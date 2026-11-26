@@ -306,6 +306,58 @@
   gap: 8px;
 }
 
+.statusCell {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+}
+
+.statusActionSelect {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: var(--admin-panel);
+  color: var(--admin-ink);
+}
+
+.statusActionSelect select {
+  width: 100%;
+  height: 30px;
+  appearance: none;
+  border: 0;
+  border-radius: inherit;
+  outline: 0;
+  padding: 0 27px 0 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.statusActionSelect svg {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  color: var(--admin-muted);
+}
+
+.statusActionSelect:focus-within {
+  border-color: var(--admin-accent);
+  outline: 3px solid color-mix(in srgb, var(--admin-accent) 18%, transparent);
+  outline-offset: 2px;
+}
+
+.statusActionSelect select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .selfMuted {
   color: var(--admin-subtle);
   font-size: 0.74rem;
