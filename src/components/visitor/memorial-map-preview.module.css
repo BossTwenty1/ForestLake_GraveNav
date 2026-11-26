@@ -1,4 +1,5 @@
 .preview {
+  --plot-highlight-bottom: 42px;
   --preview-bg: #4f6f39;
   --preview-hud: rgba(255, 255, 255, 0.92);
   --preview-border: rgba(22, 54, 34, 0.16);

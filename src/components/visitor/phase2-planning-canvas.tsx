@@ -1,7 +1,7 @@
 "use client";
 
 import L from "leaflet";
-import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { MapContainer, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import { PARK_NAME } from "@/lib/park-details";
 import type { ParkCategory, ParkPlace } from "@/lib/park-explorer-features";
@@ -10,6 +10,7 @@ import { cadDetailRoles, cadDetailsAssetRoot, type CadDetailRole } from "@/lib/p
 import { PARK_CENTER_WGS84, parkLayoutToWgs84 } from "@/lib/phase2-gps-bridge";
 import detailStyles from "./phase2-planning-canvas.module.css";
 import { PlanningLotPopup, type PlanningLotPopupOptions } from "./planning-lot-popup";
+import { PlotHighlightLegend, plotHighlightStyle, usePlotHighlights } from "./plot-highlights";
 import {
   landmarkName, mapBounds, planningAssetRoot,
   type Bounds, type CadFeature, type LandscapeRole, type LayerKey, type PlanningBundle, type Shape, type Visibility,
@@ -175,7 +176,7 @@ function PlanningLayers(props: PlanningMapProps) {
     } else {
       node.dataset.cadDetailsStatus = "ready";
     }
-    for (const [name, zIndex] of [["planning-lines", 300], ["planning-plots", 340], ["planning-labels", 355], ["planning-review", 370], ["planning-route", 375], ["planning-selection", 380]] as const) {
+    for (const [name, zIndex] of [["planning-lines", 300], ["planning-plots", 340], ["planning-highlights", 350], ["planning-labels", 355], ["planning-review", 370], ["planning-route", 375], ["planning-selection", 380]] as const) {
       const pane = map.getPane(name) ?? map.createPane(name);
       pane.style.zIndex = String(zIndex);
       pane.style.pointerEvents = name === "planning-plots" ? "auto" : "none";
@@ -524,9 +525,34 @@ function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: 
     <button className="schematic-map-reset" type="button" aria-label="Reset map view" onClick={() => actions.current?.reset()}><Icon name="target" size={16} />Reset view</button>
   </div>;
 }
+function PlanningPlotHighlights({ features, highlights, satellite }: {
+  features: CadFeature[];
+  highlights: ReturnType<typeof usePlotHighlights>["highlights"];
+  satellite: boolean;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!features.length) return;
+    const group = L.layerGroup(features.map(feature => shapeLayer(feature.shape, {
+      ...plotHighlightStyle(highlights.occupied.has(feature.id)),
+      pane: "planning-highlights",
+      interactive: false,
+    }, satellite))).addTo(map);
+    return () => { group.remove(); };
+  }, [features, highlights, map, satellite]);
+  return null;
+}
+
 export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: MutableRefObject<PlanningMapActions | null>; onTogglePaths: () => void }) {
   const satellite = props.mapStyle === "satellite";
   const projectPopup = useCallback((xy: [number, number]) => projectPoint(xy, satellite), [satellite]);
+  const { highlights, unavailable } = usePlotHighlights(undefined, props.reviewMode);
+  const { lawn, estates } = props.visible;
+  const { data } = props.bundle;
+  const plottedFeatures = useMemo(() => [
+    ...(lawn ? data.layers.lawn : []),
+    ...(estates ? data.layers.estates : []),
+  ].filter(({ id }) => highlights.memorials.has(id) || highlights.occupied.has(id)), [data, estates, lawn, highlights]);
   return <MapContainer
     className={"cemetery-leaflet-canvas phase-two-planning-canvas" + (satellite ? " phase-two-planning-canvas--satellite" : "")}
     aria-label={`${PARK_NAME} Phase 2 ${satellite ? "satellite" : "park"} map`}
@@ -555,6 +581,18 @@ export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: Muta
     ) : null}
     <ZoomControl position={props.zoomPosition ?? (props.explorer ? "topright" : "bottomright")} />
     <PlanningLayers {...props} />
+    <PlanningPlotHighlights
+      features={plottedFeatures}
+      highlights={highlights}
+      satellite={satellite}
+    />
+    {(props.visible.lawn || props.visible.estates) && (
+      <PlotHighlightLegend
+        memorials={plottedFeatures.some(({ id }) => highlights.memorials.has(id) && !highlights.occupied.has(id))}
+        occupied={plottedFeatures.some(({ id }) => highlights.occupied.has(id))}
+        unavailable={unavailable}
+      />
+    )}
     {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id} feature={props.selected} {...props.lotPopup} project={projectPopup} /> : null}
     {props.explorer ? <ExplorerMarkers explorer={props.explorer} satellite={satellite} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}
   </MapContainer>;
