@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent,
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/icons";
 import { AdminPageFrame } from "./admin-page-content";
+import { AdminEditMenu } from "./admin-edit-menu";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -448,8 +449,9 @@ export function OwnerProfile({ ownerId }: { ownerId: string }) {
       title={owner ? ownerName(owner) : "Plot Owner"}
       description={owner ? "Owner #" + owner.lotOwnerId + " · Restricted staff record" : undefined}
       breadcrumbs={[...breadcrumbs, { label: "Owner profile" }]}
-      actions={owner ? <Link className="button button--secondary button--md"
-        href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit Plot Owner</Link> : null}
+      backLink={{ href: directory, label: "Back to Plot Owners" }}
+      actions={owner ? <AdminEditMenu actionLabel="Edit Plot Owner"
+        href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} /> : null}
     >
       {state.loading ? <p role="status">Loading plot owner…</p> :
         state.error ? <LoadError message={state.error} onRetry={state.retry} /> :

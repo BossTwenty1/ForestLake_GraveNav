@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Icon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import { PageHeading, type PageBreadcrumb } from "@/components/ui/page-heading";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/table";
@@ -237,8 +239,8 @@ export function AdminAuditLogPage() {
   );
 }
 
-export function AdminPageFrame({ title, description, actions, breadcrumbs, children }: { title: string; description?: string; actions?: ReactNode; breadcrumbs?: PageBreadcrumb[]; children: ReactNode }) {
-  return <div className="admin-page-frame"><PageHeading actions={actions} breadcrumbs={breadcrumbs ?? [{ label: "Dashboard", href: "/admin" }, { label: title }]} description={description} title={title} />{children}</div>;
+export function AdminPageFrame({ title, description, actions, breadcrumbs, backLink, children }: { title: string; description?: string; actions?: ReactNode; breadcrumbs?: PageBreadcrumb[]; backLink?: PageBreadcrumb; children: ReactNode }) {
+  return <div className="admin-page-frame">{backLink ? <Link className="admin-page-backlink" href={backLink.href ?? "/admin"}><Icon name="arrowLeft" size={15} />{backLink.label}</Link> : null}<PageHeading actions={actions} breadcrumbs={breadcrumbs ?? [{ label: "Dashboard", href: "/admin" }, { label: title }]} description={description} title={title} />{children}</div>;
 }
 
 function DataError({ message }: { message: string }) {

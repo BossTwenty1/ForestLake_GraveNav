@@ -132,7 +132,7 @@ export function RecoveryPage() {
       {error ? <Alert title="Recovery notice" variant="danger">{error}</Alert> : null}
       {message ? <Alert title="Recovered" variant="success">{message}</Alert> : null}
 
-      <div className="filter-grid" style={{ maxWidth: 320 }}>
+      <div className="admin-recovery-filter">
         <label className="input-field">
           <span className="input-label">Record type</span>
           <select className="input-control" onChange={(e) => setEntityFilter(e.target.value)} value={entityFilter}>
@@ -165,7 +165,7 @@ export function RecoveryPage() {
           const canRecover = isLatest && !isRestored;
           const href = entityHref(row.entity, row.record_id);
           return (
-            <Card key={row.history_id}>
+            <Card className="admin-recovery-entry" key={row.history_id}>
               <CardContent>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
