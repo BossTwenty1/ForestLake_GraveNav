@@ -203,7 +203,6 @@ export function MemorialMapPreview({
           explorer={{
             places,
             showLabels: true,
-            showPaths: true,
             category: "gardens",
             selectedId: gardenPlace?.id,
             onSelect: (place) => {

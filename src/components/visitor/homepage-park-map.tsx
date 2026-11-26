@@ -348,7 +348,6 @@ export function HomepageParkMap({
             explorer={{
               places,
               showLabels,
-              showPaths,
               category: activeSectionId === "park-pathways" ? "pathways" : "gardens",
               selectedId: selectedPlace?.id,
               onSelect: handlePlaceSelect,

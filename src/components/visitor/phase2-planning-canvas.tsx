@@ -78,7 +78,7 @@ export interface PlanningMapProps {
   onSelect: (feature: CadFeature | null) => void;
   onReady: (actions: PlanningMapActions) => void;
   onError: (message: string) => void;
-  explorer?: { places: ParkPlace[]; showLabels: boolean; showPaths: boolean; category: ParkCategory | "all"; selectedId?: string; onSelect: (place: ParkPlace) => void };
+  explorer?: { places: ParkPlace[]; showLabels: boolean; category: ParkCategory | "all"; selectedId?: string; onSelect: (place: ParkPlace) => void };
 }
 const styles: Record<LayerKey, L.PathOptions> = {
   lawn: { color: "#25492c", weight: 0.6, opacity: 0.7, fillOpacity: 0 },
@@ -477,7 +477,7 @@ function ExplorerMarkers({ explorer, satellite }: { explorer: NonNullable<Planni
   useEffect(() => {
     const layer = L.layerGroup().addTo(map);
     for (const place of explorer.places) {
-      if (place.category === "pathways" ? !explorer.showPaths : !explorer.showLabels) continue;
+      if (!explorer.showLabels) continue;
       for (const point of place.points) {
         const node = document.createElement("span");
         node.textContent = place.name;
@@ -500,7 +500,7 @@ function ExplorerMarkers({ explorer, satellite }: { explorer: NonNullable<Planni
       }
     }
     return () => { markers.current = []; layer.remove(); };
-  }, [map, explorer.places, explorer.showLabels, explorer.showPaths, satellite]);
+  }, [map, explorer.places, explorer.showLabels, satellite]);
   useEffect(() => {
     for (const { place, node } of markers.current) {
       const selected = place.id === explorer.selectedId;
@@ -508,7 +508,7 @@ function ExplorerMarkers({ explorer, satellite }: { explorer: NonNullable<Planni
       node.setAttribute("data-label", String(selected || place.kind === "Garden" || place.category === explorer.category));
       node.parentElement?.setAttribute("aria-pressed", String(selected));
     }
-  }, [explorer.selectedId, explorer.category, explorer.places, explorer.showLabels, explorer.showPaths]);
+  }, [explorer.selectedId, explorer.category, explorer.places, explorer.showLabels]);
   return null;
 }
 function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: MutableRefObject<PlanningMapActions | null>; paths: boolean; onToggle: () => void; showPathsControl: boolean }) {

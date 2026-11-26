@@ -126,7 +126,7 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
     mapPanel.current?.scrollIntoView({ block: "nearest" });
     if (pick) {
       if (pick.category === "pathways") setPaths(true);
-      else setLabels(true);
+      if (!published || pick.category !== "pathways") setLabels(true);
       if (published) requestMap("place");
       else actions.current?.focusPlaces(pick.points);
     } else if (plot) {
@@ -215,7 +215,7 @@ export function ParkExplorer({ geography, startPublished }: { geography: PhaseTw
             setLayersPopoverOpen(false);
             if (feature) { setPick(null); setPlot(feature); setPlotPopupOpen(true); }
           }}
-          explorer={{ places, showLabels: labels, showPaths: paths, category, selectedId: pick?.id, onSelect: selectPlace }} />
+          explorer={{ places, showLabels: labels, category, selectedId: pick?.id, onSelect: selectPlace }} />
         : <div className={styles.mapMessage} role={error ? "alert" : "status"}>{error ? "Park map data is temporarily unavailable." : "Loading the park map…"}</div>}
       {!published && mapStyle === "satellite" && satelliteTileError ? (
         <div className={styles.satelliteFallback} role="status">
