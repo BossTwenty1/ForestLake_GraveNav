@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     return staffReply({ error: "Sign in as an active Super Administrator to delete a staff account." }, 403);
   }
   if (!isStaffJsonRequest(request)) {
-    return staffReply({ error: "Open Staff Accounts and try again." }, 400);
+    return staffReply({ error: "Open Account Management and try again." }, 400);
   }
 
   const client = getServerServiceSupabase();
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   if (finishError) {
     return staffReply(
       {
-        error: "Workspace access is blocked, but permanent deletion could not be confirmed. Reload Staff Accounts and retry to finish.",
+        error: "Workspace access is blocked, but permanent deletion could not be confirmed. Reload Account Management and retry to finish.",
         retryable: true,
         revision: attempt.revision,
       },

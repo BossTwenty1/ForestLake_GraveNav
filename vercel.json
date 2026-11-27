@@ -5,7 +5,9 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "codex/staff-accounts-v1-release": false
+      "codex/staff-accounts-v1-release": false,
+      "staff-accounts-v1-release": false,
+      "integration/admin-visitor-updates": false
     }
   }
 }

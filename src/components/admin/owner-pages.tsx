@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent,
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/icons";
 import { AdminPageFrame } from "./admin-page-content";
+import { AdminEditMenu } from "./admin-edit-menu";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -397,7 +398,7 @@ function OwnerForm({ owner }: { owner: LotOwner | null }) {
             onChange={(e) => setField("aliases", e.target.value)}
           />
           <label className="input-field" htmlFor="owner-address">
-            <span className="input-label">Address *</span>
+            <span className="input-label">Address<span aria-hidden="true" className="input-required-marker">*</span></span>
             <textarea
               className="input-control"
               id="owner-address"
@@ -448,9 +449,10 @@ export function OwnerProfile({ ownerId }: { ownerId: string }) {
       title={owner ? ownerName(owner) : "Plot Owner"}
       description={owner ? "Owner #" + owner.lotOwnerId + " · Restricted staff record" : undefined}
       breadcrumbs={[...breadcrumbs, { label: "Owner profile" }]}
-      actions={owner ? <Link className="button button--secondary button--md"
-        href={directory + "/" + owner.lotOwnerId + "/edit"}>Edit Plot Owner</Link> : null}
+      actions={owner ? <AdminEditMenu actionLabel="Edit Plot Owner"
+        href={directory + "/" + owner.lotOwnerId + "/edit"} label={`More actions for ${ownerName(owner)}`} /> : null}
     >
+      <Link className="subtle-link" href={directory}>Back to Plot Owners</Link>
       {state.loading ? <p role="status">Loading plot owner…</p> :
         state.error ? <LoadError message={state.error} onRetry={state.retry} /> :
           !owner ? <MissingOwner /> : <>
