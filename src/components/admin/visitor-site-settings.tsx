@@ -219,36 +219,13 @@ export function VisitorSiteSettingsEditor({
 
         <Card>
           <CardHeader>
-            <CardTitle>Visitor photo submission controls</CardTitle>
-            <Badge variant="info">Moderated workflow</Badge>
+            <CardTitle>Visitor photo submissions</CardTitle>
+            <Badge variant="neutral">Disabled</Badge>
           </CardHeader>
           <CardContent>
-            <div className="admin-form">
-              <label className={styles.toggleRow}>
-                <span className={styles.toggleCopy}>
-                  <strong>Allow visitor remembrance gallery submissions (up to 5 photos per memorial)</strong>
-                  <span>When paused, visitors can still view already-approved gallery photos, but new gallery uploads are disabled.</span>
-                </span>
-                <input
-                  checked={form.allowVisitorGalleryUploads}
-                  className={styles.toggleCheckbox}
-                  onChange={(e) => setField("allowVisitorGalleryUploads", e.target.checked)}
-                  type="checkbox"
-                />
-              </label>
-              <label className={styles.toggleRow}>
-                <span className={styles.toggleCopy}>
-                  <strong>Allow visitor profile portrait requests (for memorials without a portrait)</strong>
-                  <span>When paused, only cemetery staff can upload profile portraits from Deceased &amp; Interments.</span>
-                </span>
-                <input
-                  checked={form.allowVisitorPortraitRequests}
-                  className={styles.toggleCheckbox}
-                  onChange={(e) => setField("allowVisitorPortraitRequests", e.target.checked)}
-                  type="checkbox"
-                />
-              </label>
-            </div>
+            <Alert icon="info" title="Visitor uploads are disabled" variant="info">
+              Visitors can view approved profile portraits. New portraits and memorial photos must be added by cemetery staff.
+            </Alert>
           </CardContent>
         </Card>
 

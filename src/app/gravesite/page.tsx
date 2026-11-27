@@ -2,7 +2,7 @@ import { getBurialMapScope, getCapstonePlanningPlot } from "@/lib/supabase/phase
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { safeResultsReturnTo } from "@/lib/visitor-presentation";
-import { getMemorialGallerySlots, getPublicMemorialPhotos, splitMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
+import { getPublicMemorialPhotos, splitMemorialPhotos } from "@/lib/supabase/public-memorial-photos";
 import { PublicMemorialProfile } from "./public-memorial-profile";
 import styles from "./memorial.module.css";
 import { VisitorShell } from "@/components/visitor/visitor-shell";
@@ -31,30 +31,14 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
   }
   if (!record) redirect("/record-not-found?" + new URLSearchParams({ returnTo }));
 
-  const [mapScope, planningPlot, shared, photos, rawSlots, siteSettings] = await Promise.all([
+  const [mapScope, planningPlot, shared, photos, siteSettings] = await Promise.all([
     getBurialMapScope(record),
     getCapstonePlanningPlot(record.id),
     getPublicSharedPlotBurials(record.id),
     getPublicMemorialPhotos(record.id).catch(() => []),
-    getMemorialGallerySlots(record.id).catch(() => null),
     getCachedPublicSiteSettings(),
   ]);
-  const split = splitMemorialPhotos(photos);
-  const tributeCount = split.tributes.length;
-  const hasPortrait = Boolean(split.portrait);
-  const baseSlots = rawSlots ?? {
-    approved: tributeCount,
-    pending: 0,
-    maxSlots: 5,
-    remaining: Math.max(0, 5 - tributeCount),
-    portraitApproved: hasPortrait ? 1 : 0,
-    portraitPending: 0,
-    canSubmitPortrait: !hasPortrait,
-  };
-  const gallerySlots = {
-    ...baseSlots,
-    canSubmitPortrait: baseSlots.canSubmitPortrait && siteSettings.allowVisitorPortraitRequests,
-  };
+  const { portrait } = splitMemorialPhotos(photos);
 
   return <VisitorShell backHref={returnTo} backLabel="Back to Search Results" batchOne wide className={styles.shell} helpHref="#gravesite-details" siteSettings={siteSettings}>
     <PublicMemorialProfile
@@ -62,9 +46,7 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
       mapScope={mapScope === "unavailable" && planningPlot ? "planning" : mapScope}
       planningPlot={planningPlot}
       shared={shared}
-      photos={photos}
-      gallerySlots={siteSettings.allowVisitorGalleryUploads ? gallerySlots : undefined}
-      portraitSlots={siteSettings.allowVisitorPortraitRequests ? gallerySlots : undefined}
+      portrait={portrait}
       siteSettings={siteSettings}
       returnTo={returnTo}
     />

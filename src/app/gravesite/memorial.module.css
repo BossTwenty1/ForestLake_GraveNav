@@ -115,7 +115,7 @@
 }
 .mapAction:hover { filter: brightness(1.14); }
 .personalActions { display: grid; min-width: 0; }
-.actionRow { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.actionRow { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; }
 .actionRow > button { background: var(--memorial-tile); color: var(--memorial-ink); }
 .actionRow > button:hover, .actionRow > button[aria-pressed="true"] { background: var(--memorial-good); color: var(--memorial-accent); }
 .mapAction svg, .actionRow svg { flex: none; }
@@ -549,13 +549,16 @@
   .remembering { grid-area: remember; }
   .location { grid-area: location; }
   .shared { grid-area: shared; }
-  .gallery { grid-area: gallery; }
   .layout {
     grid-template-columns: minmax(0,7fr) minmax(0,5fr);
-    grid-template-areas: "remember location" "gallery location" "shared shared";
-    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "remember location";
+    grid-template-rows: auto;
     align-items: start;
     gap: 24px 28px;
+  }
+  .layout:has(.shared) {
+    grid-template-areas: "remember location" "shared shared";
+    grid-template-rows: auto auto;
   }
   .remembering, .shared, .gallery { padding: 26px 30px; }
   .inscription { margin-top: 16px; padding: 18px 22px; gap: 12px; }
@@ -577,23 +580,6 @@
   :global(html[data-theme="dark"]) .hero { grid-template-columns: 146px minmax(0,1fr); gap: 10px 28px; min-height: 230px; }
   :global(html[data-theme="dark"]) .heroPhotoCol { grid-row: span 2; }
   :global(html[data-theme="dark"]) .heroActions { grid-area: 2 / 2; justify-content: start; }
-  :global(html[data-theme="light"]) .layout:has(.gallery) .remembering {
-    border-bottom: 0;
-    border-radius: 12px 12px 0 0;
-  }
-  :global(html[data-theme="light"]) .gallery {
-    margin-top: -24px;
-    border-top: 0;
-    border-radius: 0 0 12px 12px;
-  }
-  :global(html[data-theme="dark"]) .layout {
-    grid-template-areas: "remember location" "gallery location" "gallery shared";
-    grid-template-rows: auto minmax(0,1fr) auto;
-  }
-  :global(html[data-theme="dark"]) .layout:not(:has(.shared)) {
-    grid-template-areas: "remember location" "gallery location";
-    grid-template-rows: auto 1fr;
-  }
   :global(html[data-theme="dark"]) .shared .roster { grid-template-columns: minmax(0,1fr); }
 }
 @media (min-width: 900px) and (max-width: 1170px) {
