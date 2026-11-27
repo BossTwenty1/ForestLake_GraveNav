@@ -1,5 +1,12 @@
 import type { Database as GeneratedDatabase } from "./database.types";
-import type { InvitationAttempt, InvitationReceipt, StaffAccountDetails, StaffDirectory } from "../staff-account-access";
+import type {
+  AccountDeletionFinish,
+  AccountDeletionStart,
+  InvitationAttempt,
+  InvitationReceipt,
+  StaffAccountDetails,
+  StaffDirectory,
+} from "../staff-account-access";
 
 // PostgreSQL introspection does not describe nullable function arguments.
 // The versioned save RPC deliberately accepts null for a new record.
@@ -8,6 +15,15 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
   public: Omit<GeneratedDatabase["public"], "Functions"> & {
     Functions: Omit<Functions, "staff_save_record"> & {
       can_manage_staff_accounts: { Args: Record<string, never>; Returns: boolean };
+      can_permanently_delete_staff_accounts: { Args: Record<string, never>; Returns: boolean };
+      staff_begin_account_deletion: {
+        Args: { p_actor: string; p_account_id: string; p_revision: number };
+        Returns: AccountDeletionStart;
+      };
+      staff_finish_account_deletion: {
+        Args: { p_actor: string; p_account_id: string; p_attempt_id: string; p_auth_deleted: boolean };
+        Returns: AccountDeletionFinish;
+      };
       staff_account_directory: {
         Args: { p_search?: string; p_role?: string; p_status?: string; p_page?: number };
         Returns: StaffDirectory;
