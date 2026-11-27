@@ -148,3 +148,26 @@
     animation: none;
   }
 }
+.staffFilterControl { position: absolute; z-index: 801; top: 12px; left: 130px; max-width: calc(100% - 142px); }
+.filterToggle.filterToggle { position: static; }
+.staffFilters { position: absolute; top: 48px; left: 0; display: grid; gap: 8px; width: min(240px, calc(100vw - 60px)); padding: 12px; border: 1px solid var(--visitor-border, #cfdbd3); border-radius: 12px; background: var(--visitor-surface, #fff); color: var(--visitor-ink, #15251d); box-shadow: 0 4px 12px #14231b24; }
+.staffFilters label { display: grid; gap: 4px; font-size: 0.75rem; font-weight: 650; }
+.staffFilters select { min-height: 36px; width: 100%; padding: 6px 8px; border: 1px solid var(--visitor-border, #cfdbd3); border-radius: 6px; color: inherit; background: var(--visitor-surface, #fff); font: inherit; }
+@media (max-width: 390px) { .staffFilterControl { top: 58px; left: 12px; } }
+.staffSearchControl { position: absolute; z-index: 801; top: 12px; left: 235px; }
+.staffSearchPanel { position: absolute; top: 48px; left: 0; width: min(310px, calc(100vw - 40px)); max-height: min(350px, 55vh); overflow: auto; padding: 12px; border: 1px solid #cfdbd3; border-radius: 12px; background: #fff; color: #15251d; box-shadow: 0 4px 12px #14231b24; }
+.staffSearchPanel label { display: block; margin-bottom: 5px; font-size: .8rem; font-weight: 650; }
+.staffSearchPanel form div { display: flex; gap: 6px; }
+.staffSearchPanel input { min-width: 0; flex: 1; padding: 8px; border: 1px solid #b8c9be; border-radius: 6px; font: inherit; }
+.staffSearchPanel form button { padding: 6px 10px; border: 0; border-radius: 6px; color: white; background: #075c38; font: inherit; cursor: pointer; }
+.staffSearchPanel p { font-size: .8rem; }
+.staffSearchPanel ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.staffSearchPanel li + li { border-top: 1px solid #e0e9e2; }
+.staffSearchPanel li button, .staffSearchPanel li span { display: grid; gap: 3px; width: 100%; padding: 9px 4px; text-align: left; background: transparent; border: 0; color: inherit; font: inherit; }
+.staffSearchPanel li button { cursor: pointer; }
+.staffSearchPanel li button:hover { background: #edf4ef; }
+.staffSearchPanel small { color: #53685c; }
+.unlinkedRecord > div { display: flex; align-items: center; gap: 12px; padding: 0 4px 9px; }
+.staffSearchPanel .unlinkedRecord > div button, .unlinkedRecord a { width: auto; display: inline; padding: 0; color: #075c38; font-size: .8rem; text-decoration: underline; }
+@media (max-width: 620px) { .staffSearchControl { top: 58px; left: 12px; } }
+@media (max-width: 390px) { .staffSearchControl { top: 58px; left: 115px; } }

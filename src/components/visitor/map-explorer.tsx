@@ -16,8 +16,9 @@ import {
   routeOnParkLayout,
   type LayoutStartPoint,
 } from "@/lib/phase2-layout-routing";
-import { featureLayer, initialVisibility, landmarkName, layerDefinitions, loadPlanningBundle, type CadFeature, type LayerKey, type PlanningBundle } from "@/lib/phase2-planning";
+import { featureLayer, initialVisibility, landmarkName, layerDefinitions, loadPlanningBundle, mausoleumEnvelope, type CadFeature, type LayerKey, type PlanningBundle } from "@/lib/phase2-planning";
 import type { PlanningMapActions } from "./phase2-planning-canvas";
+import type { StaffPlotFilters } from "./staff-plot-statuses";
 import { PhaseTwoGeographicMap } from "./phase2-geographic-map";
 import type { PhaseTwoResult } from "@/lib/phase2-geographic";
 import type { PublicBurialRecord } from "@/lib/supabase/types";
@@ -85,6 +86,8 @@ export function MapExplorer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapStyle, setMapStyle] = useState<"illustrated" | "satellite">("illustrated");
   const [satelliteTileError, setSatelliteTileError] = useState(false);
+  const [staffFilters, setStaffFilters] = useState<StaffPlotFilters>({ status: "all", lotType: "all" });
+  const [staffPreferredId, setStaffPreferredId] = useState<string | undefined>();
 
   const planningFallback = !staffTools && requestedView === "geographic" && Boolean(destination) && !geography?.data;
   const view = planningFallback ? "planning" : requestedView;
@@ -259,10 +262,11 @@ export function MapExplorer({
     setAttempt(current => current + 1);
   }
   function select(feature: CadFeature | null) {
+    setStaffPreferredId(undefined);
     if (feature) {
       setPopupClosed(false);
       setVisible(current => ({ ...current, [featureLayer(feature)]: true }));
-      actions.current?.focus(feature);
+      actions.current?.focus(staffTools && bundle ? mausoleumEnvelope(bundle.data, feature) ?? feature : feature);
       setSelected(feature);
       setPanelOpen(true);
       return;
@@ -646,7 +650,7 @@ export function MapExplorer({
       </div>
     ) : null}
 
-    <div className="public-map-workspace">
+    <div className={"public-map-workspace" + (staffTools ? " " + layout.staffWorkspace : "")}>
       <section aria-label="Interactive cemetery map" className="public-map-canvas-column">
         <nav aria-label="Map views" className={"phase-two-layer-options " + layout.viewSwitch}>
           {!staffTools ? (
@@ -743,9 +747,13 @@ export function MapExplorer({
               gpsPosition: gpsClassification?.status === "inside" ? gpsClassification.cadXY : null,
               gpsAccuracyMeters: gpsClassification?.status === "inside" ? gpsClassification.accuracyMeters : null,
             } : null}
-            lotPopup={showLotPopup ? { preferredId: selected?.id === assigned?.id ? destination?.id : undefined, returnTo, staffMode: staffTools, onClose: () => setPopupClosed(true) } : undefined}
+            lotPopup={showLotPopup ? { preferredId: staffTools ? staffPreferredId : selected?.id === assigned?.id ? destination?.id : undefined, returnTo, staffMode: staffTools, onClose: () => setPopupClosed(true) } : undefined}
             places={showPlaces} trees={showTrees} protection={showProtection} details={showDetails} attempt={attempt}
-            reviewMode={staffTools} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={handleCanvasSelect} onReady={ready} onError={setAssetError} />
+            reviewMode={staffTools} staffFilters={staffFilters} onStaffFiltersChange={setStaffFilters} onStaffBurialSelect={(candidate, id) => {
+              const feature = candidates.find(item => item.id === candidate);
+              if (!feature) return false;
+              setStaffFilters({ status: "all", lotType: "all" }); select(feature); setStaffPreferredId(id); return true;
+            }} actions={actions} onTogglePaths={() => toggle("paths")} onSelect={handleCanvasSelect} onReady={ready} onError={setAssetError} />
             : error ? null : <div className="map-loading" role="status"><span className="map-loading__spinner" />Loading cemetery layout…</div>}
 
           {view === "planning" && isFullscreen ? (
@@ -960,7 +968,7 @@ export function MapExplorer({
         </div>
       </section>
 
-      <aside aria-label="Map search and selected destination" className="public-map-sidebar">
+      {!staffTools ? <aside aria-label="Map search and selected destination" className="public-map-sidebar">
         <details
           ref={searchPanel}
           className={layout.searchPanel + (hasFeaturedBanner && !staffTools ? " " + layout.searchPanelFlat : "")}
@@ -1137,7 +1145,7 @@ export function MapExplorer({
             )) : null}
           </div>
         </details>
-      </aside>
+      </aside> : null}
     </div>
   </div>;
 }

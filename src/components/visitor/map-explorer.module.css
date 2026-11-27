@@ -1707,3 +1707,4 @@ p.memorialStatus {
     scroll-behavior: auto;
   }
 }
+.staffWorkspace { grid-template-columns: minmax(0, 1fr) !important; }

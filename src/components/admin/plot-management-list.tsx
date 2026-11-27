@@ -114,7 +114,7 @@ function Assignment({ plot }: { plot: PlotManagementItem }) {
   if (plot.graveType || plot.interments?.length) {
     const assignedCount = plot.interments?.length ?? plot.confirmedCount ?? 0;
     return <details>
-      <summary>{assignedCount} assigned · {plot.remainingInterments ?? 0} open</summary>
+      <summary>{assignedCount} assigned · {plot.graveType === "mausoleum" ? "no burial limit" : `${plot.remainingInterments ?? 0} open`}</summary>
       {plot.interments?.length ? <ul>{plot.interments.map((entry) => <li key={entry.id}>
         <Link className="subtle-link" href={`/admin/burial-records/${entry.id}`}>{entry.name}</Link>
         {" · "}{entry.removed ? "Reserved for recovery" : entry.status}

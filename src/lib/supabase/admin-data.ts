@@ -176,7 +176,7 @@ export async function getAvailableBurialPlots() {
   if (!Array.isArray(data) || !data.every((item) => isObject(item)
     && isCount(item.lotId) && typeof item.lotCode === "string" && typeof item.section === "string"
     && item.status === "AVAILABLE" && (item.graveType === null || item.graveType === "regular" || item.graveType === "mausoleum")
-    && isCount(item.confirmedCount) && isCount(item.remaining))) throw new Error("Plot availability could not be read.");
+    && isCount(item.confirmedCount) && (isCount(item.remaining) || (item.graveType === "mausoleum" && item.remaining === null)))) throw new Error("Plot availability could not be read.");
   return data as BurialPlotOption[];
 }
 
@@ -270,7 +270,7 @@ export async function getAdminLotsPage(options: PageOptions = {}): Promise<PageR
 
 export async function getPlotAreas() {
   const client = requireClient();
-  const { data: areas, error } = await client.from("area").select("area_id,area_code,area_name").eq("area_category", "garden").order("area_name");
+  const { data: areas, error } = await client.from("area").select("area_id,area_code,area_name").in("area_category", ["garden", "court"]).order("area_name");
   if (error) throw error;
   return (areas || []).map((area) => ({ areaId: area.area_id, areaCode: area.area_code, label: area.area_name }) satisfies PlotAreaOption);
 }
@@ -548,7 +548,7 @@ export async function getStorageStatus() {
   return { configured: Boolean(getBrowserSupabase() && bucket), bucket: bucket || null };
 }
 
-export async function uploadBurialPhoto(input: { burialId: number; file: File; caption?: string; capturedAt?: string }) {
+export async function uploadBurialPhoto(input: { burialId: number; file: File; caption?: string; capturedAt?: string; photoKind?: "portrait" | "tribute" }) {
   const client = requireClient();
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET;
   if (!bucket) throw new Error("Photo storage is not configured for this Supabase environment.");
@@ -569,6 +569,7 @@ export async function uploadBurialPhoto(input: { burialId: number; file: File; c
     captured_at: input.capturedAt || null,
     approval_status: "pending",
     public_display: false,
+    photo_kind: input.photoKind ?? "portrait",
   }).select("photo_id").single();
   if (metadataError) {
     await client.storage.from(bucket).remove([storagePath]);
@@ -1106,8 +1107,7 @@ export async function searchStaffBurials(query: string, page = 1): Promise<{ ite
 
 export async function getAdminPhotoPreview(photoId: number) {
   const client = requireClient();
-  const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET;
-  if (!bucket) throw new Error("Photo storage is not configured.");
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_PHOTOS_BUCKET || "burial-photos";
   const { data: photo, error } = await client.from("photo").select("storage_path").eq("photo_id", photoId).single();
   if (error || !photo) throw new Error("This photo could not be loaded.");
   const { data, error: storageError } = await client.storage.from(bucket).createSignedUrl(photo.storage_path, 120);

@@ -98,7 +98,7 @@ export type PlotManagementItem = AdminLot & {
   gravePolicyReference?: string | null;
   approvedMausoleumCapacity?: number | null;
   confirmedCount?: number;
-  remainingInterments?: number;
+  remainingInterments?: number | null;
   interments?: { id: number; name: string; status: AdminRecord["recordStatus"]; confirmed: boolean | null; removed: boolean }[];
   areaCode: string | null;
   areaName: string | null;
@@ -183,7 +183,7 @@ export type BurialPlotOption = {
   status: "AVAILABLE";
   graveType: GraveType | null;
   confirmedCount: number;
-  remaining: number;
+  remaining: number | null;
 };
 
 export type AdminAccount = StaffAccount & {

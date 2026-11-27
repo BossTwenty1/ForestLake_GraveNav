@@ -1,0 +1,45 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+import { createTestDatabase } from "./database-helper.mjs";
+import { gisActors, gisLogin, seedGisFixtures } from "./gis-fixtures.mjs";
+
+test("coordinate review requires an administrator and the exact linked plot", async t => {
+  const db = await createTestDatabase({ throughMigration: "20261127070000_staff_review_mapped_coordinates.sql" });
+  t.after(() => db.close());
+  await seedGisFixtures(db);
+  await db.exec("update public.area set boundary_geom=extensions.st_geomfromtext('POLYGON((123.7 13.1,123.8 13.1,123.8 13.2,123.7 13.2,123.7 13.1))',4326)::extensions.geography where area_id=1");
+  await gisLogin(db);
+  const values = {area_id:1,lot_code:"TEST-COORDINATE",status:"AVAILABLE",location_geom:{type:"Point",coordinates:[123.74,13.12]}};
+  const lot = (await db.query("select public.staff_save_record('lot',null,null,$1::jsonb,$2,'save') result",[JSON.stringify(values),randomUUID()])).rows[0].result;
+  await db.exec("reset role");
+  const selection = await readFile(new URL("../scripts/phase2-staging/install-capstone-visitor-selection.sql", import.meta.url), "utf8");
+  await db.exec(selection.split("-- Keep normal operational eligibility")[0] + "commit;");
+  await db.exec(await readFile(new URL("../scripts/phase2-staging/install-capstone-planning-assignments.sql", import.meta.url), "utf8"));
+  const hash = "02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77";
+  await db.query("insert into gis_private.capstone_planning_lot(lot_id,plan_sha256,cad_candidate_id,review_reference) values ($1,$2,'lawn:99991','Fictional test')", [lot.id,hash]);
+  await db.exec("create schema phase2_review; create table phase2_review.plot_draft(cad_candidate text, proposed_code text); insert into phase2_review.plot_draft values ('lawn:99991','WRONG-DRAFT')");
+  const review = (status, revision=lot.revision, reason="", candidate="lawn:99991", code=values.lot_code) => db.query(
+    "select public.staff_review_mapped_coordinates($1,$2,$3,$4,$5,$6,$7,$8)", [candidate,hash,lot.id,code,revision,status,reason,randomUUID()]);
+  await gisLogin(db,gisActors.manager);
+  await assert.rejects(review("verified"), /administrator/i);
+  await gisLogin(db);
+  await assert.rejects(review("verified",lot.revision,"","lawn:99992"), /link changed/i);
+  await assert.rejects(review("verified",lot.revision,"","lawn:99991","WRONG"), /not ready/i);
+  await assert.rejects(review("rejected"), /invalid coordinate review/i);
+  await assert.rejects(review("verified"), /map match need review/i);
+  await db.exec("reset role");
+  await db.exec("update phase2_review.plot_draft set proposed_code='TEST-COORDINATE'");
+  await gisLogin(db);
+  await review("verified");
+  await assert.rejects(review("verified"), /changed this record/i);
+  const result = (await db.query("select coordinate_status,coordinate_verified,revision from public.lot where lot_id=$1", [lot.id])).rows[0];
+  assert.equal(result.coordinate_status,"verified");
+  assert.equal(result.coordinate_verified,true);
+  await review("rejected",result.revision,"Needs checking");
+  const updated = (await db.query("select coordinate_status,coordinate_verified,coordinate_rejection_reason from public.lot where lot_id=$1", [lot.id])).rows[0];
+  assert.equal(updated.coordinate_status,"rejected");
+  assert.equal(updated.coordinate_verified,false);
+  assert.equal(updated.coordinate_rejection_reason,"Needs checking");
+});

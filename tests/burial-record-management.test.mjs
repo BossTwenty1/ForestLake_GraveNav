@@ -139,7 +139,8 @@ test("legacy unknown confirmation is preserved rather than converted into a revi
   assert.equal(input.intermentConfirmed, undefined);
 });
 
-test("return links stay inside the burial directory", () => {
+test("return links stay inside the burial directory or the cemetery map", () => {
+  assert.equal(helpers.safeBurialReturnTo("/admin/cemetery-map"), "/admin/cemetery-map");
   assert.equal(helpers.safeBurialReturnTo("/admin/burial-records?query=test&page=2"),
     "/admin/burial-records?query=test&page=2");
   for (const value of [undefined, "//evil.test", "https://evil.test", "/admin/burial-records/new"]) {

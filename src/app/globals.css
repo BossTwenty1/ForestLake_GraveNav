@@ -8348,9 +8348,16 @@ html[data-theme="dark"] .admin-plot-page {
 .admin-record-lifespan,
 .admin-record-plot {
   display: inline-flex;
-  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  align-items: flex-start;
   gap: 6px;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.admin-record-lifespan svg,
+.admin-record-plot svg {
+  flex: 0 0 auto;
 }
 
 .admin-record-lifespan svg {
@@ -8358,7 +8365,6 @@ html[data-theme="dark"] .admin-plot-page {
 }
 
 .admin-record-plot {
-  max-width: 210px;
   border: 1px solid color-mix(in srgb, var(--burial-blue) 34%, var(--admin-line));
   border-radius: 8px;
   background: var(--burial-blue-soft);
@@ -8368,9 +8374,10 @@ html[data-theme="dark"] .admin-plot-page {
   font-weight: 650;
 }
 
-.admin-record-plot span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.admin-record-plot span,
+.admin-record-lifespan span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-record-muted {

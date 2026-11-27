@@ -1,7 +1,9 @@
 "use client";
 
 import L from "leaflet";
-import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { MapContainer, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import { PARK_NAME } from "@/lib/park-details";
 import type { ParkCategory, ParkPlace } from "@/lib/park-explorer-features";
@@ -11,12 +13,15 @@ import { PARK_CENTER_WGS84, parkLayoutToWgs84 } from "@/lib/phase2-gps-bridge";
 import detailStyles from "./phase2-planning-canvas.module.css";
 import { PlanningLotPopup, type PlanningLotPopupOptions } from "./planning-lot-popup";
 import { PlotHighlightLegend, plotHighlightStyle, usePlotHighlights } from "./plot-highlights";
+import { StaffPlotStatusLegend, matchesStaffFilters, staffPlotState, staffPlotStyle, useStaffPlotStatuses, type StaffPlotFilters } from "./staff-plot-statuses";
 import {
-  landmarkName, mapBounds, planningAssetRoot,
+  landmarkName, mapBounds, mausoleumEnvelope, planningAssetRoot,
   type Bounds, type CadFeature, type LandscapeRole, type LayerKey, type PlanningBundle, type Shape, type Visibility,
 } from "@/lib/phase2-planning";
 
 export type PlanningMapStyle = "illustrated" | "satellite";
+
+const MapBurialEditor = dynamic(() => import("@/components/admin/burial-record-pages").then(module => module.MapBurialEditor), { ssr: false });
 
 const ESRI_WORLD_IMAGERY_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const ESRI_WORLD_IMAGERY_ATTRIBUTION = "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics";
@@ -73,6 +78,9 @@ export interface PlanningMapProps {
   protection: boolean;
   details: boolean;
   reviewMode?: boolean;
+  staffFilters?: StaffPlotFilters;
+  onStaffFiltersChange?: (filters: StaffPlotFilters) => void;
+  onStaffBurialSelect?: (candidate: string, id?: string) => boolean;
   scrollWheelZoom?: boolean;
   zoomPosition?: L.ControlPosition;
   attempt: number;
@@ -112,7 +120,8 @@ function PlanningLayers(props: PlanningMapProps) {
   const satellite = props.mapStyle === "satellite";
   const map = useMap();
   const latest = useRef(props);
-  const initialFocus = useRef(props.focusOnLoad);
+  const initialFocus = useRef(props.reviewMode && props.focusOnLoad
+    ? mausoleumEnvelope(bundle.data, props.focusOnLoad) ?? props.focusOnLoad : props.focusOnLoad);
   const groups = useRef<Partial<Record<LayerKey, L.LayerGroup>>>({});
   const images = useRef<Partial<Record<LandscapeRole, L.ImageOverlay>>>({});
   const detailImages = useRef<Partial<Record<CadDetailRole, L.ImageOverlay>>>({});
@@ -271,12 +280,13 @@ function PlanningLayers(props: PlanningMapProps) {
   useEffect(() => {
     map.getContainer().dataset.selected = selected?.id ?? "";
     if (!selected) return;
+    const outline = props.reviewMode ? mausoleumEnvelope(bundle.data, selected) ?? selected : selected;
     const highlight = L.layerGroup([
-      shapeLayer(selected.shape, { pane: "planning-selection", interactive: false, color: "#453617", weight: 7, fill: false }, satellite),
-      shapeLayer(selected.shape, { pane: "planning-selection", interactive: false, color: "#ffce32", weight: 4, fillColor: "#ffe890", fillOpacity: satellite ? 0.28 : 0.15 }, satellite),
+      shapeLayer(outline.shape, { pane: "planning-selection", interactive: false, color: "#453617", weight: 7, fill: false }, satellite),
+      shapeLayer(outline.shape, { pane: "planning-selection", interactive: false, color: "#ffce32", weight: 4, fillColor: "#ffe890", fillOpacity: satellite ? 0.28 : 0.15 }, satellite),
     ]).addTo(map);
     return () => { highlight.remove(); };
-  }, [map, selected, satellite]);
+  }, [map, selected, satellite, bundle.data, props.reviewMode]);
 
   useEffect(() => {
     const route = props.layoutRoute;
@@ -525,6 +535,95 @@ function MapControls({ actions, paths, onToggle, showPathsControl }: { actions: 
     <button className="schematic-map-reset" type="button" aria-label="Reset map view" onClick={() => actions.current?.reset()}><Icon name="target" size={16} />Reset view</button>
   </div>;
 }
+function StaffFilterControls({ filters, onChange, open, onOpenChange }: { filters: StaffPlotFilters; onChange: (filters: StaffPlotFilters) => void; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const element = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  const activeCount = Number(filters.status !== "all") + Number(filters.lotType !== "all");
+  useEffect(() => {
+    if (element.current) {
+      L.DomEvent.disableClickPropagation(element.current);
+      L.DomEvent.disableScrollPropagation(element.current);
+    }
+  }, []);
+  return <div ref={element} className={detailStyles.staffFilterControl} onKeyDown={event => {
+    event.stopPropagation();
+    if (event.key === "Escape" && open) { onOpenChange(false); toggle.current?.focus(); }
+  }}>
+    <button ref={toggle} className={"phase-one-map-toggle " + detailStyles.filterToggle} type="button"
+      aria-expanded={open} aria-controls={panelId} onClick={() => onOpenChange(!open)}>
+      <Icon name="filter" size={16} />Filters{activeCount ? ` (${activeCount})` : ""}
+    </button>
+    {open ? <div id={panelId} className={detailStyles.staffFilters} aria-label="Plot filters">
+    <label>Status <select aria-label="Filter by status" value={filters.status} onChange={event => onChange({ ...filters, status: event.target.value as StaffPlotFilters["status"] })}>
+      <option value="all">All statuses</option><option value="available">Available</option><option value="booked">Booked</option>
+      <option value="hold">On hold</option><option value="unavailable">Temporarily unavailable</option><option value="occupied">Occupied</option><option value="unknown">Not assessed</option>
+    </select></label>
+    <label>Lot type <select aria-label="Filter by lot type" value={filters.lotType} onChange={event => onChange({ ...filters, lotType: event.target.value as StaffPlotFilters["lotType"] })}>
+      <option value="all">All lot types</option><option value="standard">Standard</option><option value="premium">Premium</option>
+      <option value="special_premium">Special premium</option><option value="mausoleum">Mausoleum</option><option value="unknown">Type not confirmed</option>
+    </select></label>
+    </div> : null}
+  </div>;
+}
+function StaffBurialSearch({ onSelect, open, onOpenChange }: { onSelect: (candidate: string, id?: string) => boolean; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const element = useRef<HTMLDivElement>(null);
+  const abort = useRef<AbortController | null>(null);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [editingRecord, setEditingRecord] = useState<string | null>(null);
+  const [results, setResults] = useState<{ id: string; name: string; plotCode: string | null; candidate: string | null }[]>([]);
+  const [plots, setPlots] = useState<{ id: string; code: string; candidate: string | null }[]>([]);
+  const [draftPlots, setDraftPlots] = useState<{ code: string; candidate: string }[]>([]);
+  useEffect(() => {
+    if (element.current) { L.DomEvent.disableClickPropagation(element.current); L.DomEvent.disableScrollPropagation(element.current); }
+    return () => abort.current?.abort();
+  }, []);
+  async function search(event: React.FormEvent) {
+    event.preventDefault();
+    abort.current?.abort();
+    const term = query.trim();
+    if (term.length < 2) { setLoading(false); setResults([]); setPlots([]); setDraftPlots([]); setMessage("Enter at least two characters."); return; }
+    const controller = new AbortController(); abort.current = controller;
+    setLoading(true); setMessage(""); setResults([]); setPlots([]); setDraftPlots([]);
+    try {
+      const response = await fetch("/api/admin/map-burial-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: term }), signal: controller.signal, cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.results?.items) || !Array.isArray(data.results?.plots?.items) || !Array.isArray(data.results?.draftPlots?.items)) throw new Error(data.error || "Search is temporarily unavailable.");
+      if (controller.signal.aborted) return;
+      setResults(data.results.items);
+      setPlots(data.results.plots.items);
+      const proposed = data.results.draftPlots.items.filter((draft: { code: string; candidate: string }) => !data.results.plots.items.some((plot: { code: string; candidate: string | null }) => plot.code === draft.code && plot.candidate === draft.candidate));
+      setDraftPlots(proposed);
+      setMessage(data.results.items.length || data.results.plots.items.length || proposed.length ? (data.results.more || data.results.plots.more || data.results.draftPlots.more ? "Showing up to 20 results in each list. Refine your search to see more." : "") : "No matching records or plots found.");
+    } catch (error) { if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Search is temporarily unavailable."); }
+    finally { if (!controller.signal.aborted) setLoading(false); }
+  }
+  return <div ref={element} className={detailStyles.staffSearchControl} onKeyDown={event => { event.stopPropagation(); if (event.key === "Escape") onOpenChange(false); }}>
+    <button type="button" className={"phase-one-map-toggle " + detailStyles.filterToggle} aria-expanded={open} onClick={() => onOpenChange(!open)}><Icon name="search" size={16} />Search</button>
+    {open ? <div className={detailStyles.staffSearchPanel}>
+      <form onSubmit={event => void search(event)}><label htmlFor="staff-map-name">Deceased name or plot code</label><div><input id="staff-map-name" value={query} maxLength={100} autoComplete="off" onChange={event => setQuery(event.target.value)} placeholder="Enter a name or plot code" /><button type="submit" disabled={loading}>{loading ? "Searching…" : "Find"}</button></div></form>
+      {message ? <p role="status">{message}</p> : null}
+      {plots.length ? <><p><strong>Plots</strong></p><ul>{plots.map(plot => <li key={plot.id}>
+        {plot.candidate ? <button type="button" onClick={() => { if (onSelect(plot.candidate!)) onOpenChange(false); else setMessage("This plot is not on the current map."); }}><strong>{plot.code}</strong></button>
+          : <div className={detailStyles.unlinkedRecord}><span><strong>{plot.code}</strong><small>Map location not linked</small></span><div><Link href={`/admin/plot-management?query=${encodeURIComponent(plot.code)}`}>Manage plot</Link></div></div>}
+      </li>)}</ul></> : null}
+      {draftPlots.length ? <><p><strong>Proposed map plots</strong> · Not confirmed</p><ul>{draftPlots.map(plot => <li key={`${plot.candidate}:${plot.code}`}><button type="button" onClick={() => { if (onSelect(plot.candidate)) onOpenChange(false); else setMessage("This plot is not on the current map."); }}><strong>{plot.code}</strong><small>Proposed code · needs review</small></button></li>)}</ul></> : null}
+      {results.length ? <p><strong>Burial records</strong></p> : null}
+      {results.length ? <ul>{results.map(result => <li key={result.id}>
+        {result.candidate ? <button type="button" onClick={() => { if (onSelect(result.candidate!, result.id)) onOpenChange(false); else setMessage("This record's linked plot is not on the current map."); }}><strong>{result.name}</strong><small>{result.plotCode ?? "Linked plot"}</small></button>
+          : <div className={detailStyles.unlinkedRecord}><span><strong>{result.name}</strong><small>Map location not linked</small></span><div>
+            <button type="button" onClick={() => setEditingRecord(result.id)}>Edit record</button>
+            <Link href={`/admin/burial-records/${encodeURIComponent(result.id)}?returnTo=${encodeURIComponent("/admin/cemetery-map")}`}>Record details</Link>
+          </div></div>}
+      </li>)}</ul> : null}
+      {editingRecord ? <MapBurialEditor recordId={editingRecord} onClose={() => setEditingRecord(null)} onSaved={message => {
+        setEditingRecord(null); setResults([]); setPlots([]); setDraftPlots([]); setMessage(message + " Search again to see updated results.");
+      }} /> : null}
+    </div> : null}
+  </div>;
+}
 function PlanningPlotHighlights({ features, highlights, satellite }: {
   features: CadFeature[];
   highlights: ReturnType<typeof usePlotHighlights>["highlights"];
@@ -543,16 +642,51 @@ function PlanningPlotHighlights({ features, highlights, satellite }: {
   return null;
 }
 
+function StaffPlotColors({ features, statuses, filters, satellite }: {
+  features: CadFeature[];
+  statuses: NonNullable<ReturnType<typeof useStaffPlotStatuses>>["data"];
+  filters: StaffPlotFilters;
+  satellite: boolean;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!statuses || !features.length) return;
+    const group = L.layerGroup(features.map(feature => shapeLayer(feature.shape, {
+      ...staffPlotStyle(staffPlotState(feature.id, statuses), matchesStaffFilters(feature.id, statuses, filters)), pane: "planning-highlights", interactive: false,
+    }, satellite))).addTo(map);
+    return () => { group.remove(); };
+  }, [features, statuses, filters, map, satellite]);
+  return null;
+}
+
 export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: MutableRefObject<PlanningMapActions | null>; onTogglePaths: () => void }) {
+  const [staffPanel, setStaffPanel] = useState<"search" | "filters" | null>(null);
+  const { onSelect, selected, reviewMode } = props;
   const satellite = props.mapStyle === "satellite";
   const projectPopup = useCallback((xy: [number, number]) => projectPoint(xy, satellite), [satellite]);
   const { highlights, unavailable } = usePlotHighlights(undefined, props.reviewMode);
+  const staffStatuses = useStaffPlotStatuses(Boolean(props.reviewMode));
+  const filters = useMemo<StaffPlotFilters>(() => props.staffFilters ?? { status: "all", lotType: "all" }, [props.staffFilters]);
+  const filterActive = filters.status !== "all" || filters.lotType !== "all";
+  const allowSelection = useCallback((feature: CadFeature | null) => {
+    if (!feature || !reviewMode || !filterActive) return true;
+    return Boolean(staffStatuses?.data && matchesStaffFilters(feature.id, staffStatuses.data, filters));
+  }, [reviewMode, filterActive, staffStatuses, filters]);
+  useEffect(() => {
+    if (selected && !allowSelection(selected)) onSelect(null);
+  }, [selected, onSelect, allowSelection]);
+  const selectVisiblePlot = useCallback((feature: CadFeature | null) => {
+    if (allowSelection(feature)) onSelect(feature);
+  }, [allowSelection, onSelect]);
   const { lawn, estates } = props.visible;
   const { data } = props.bundle;
   const plottedFeatures = useMemo(() => [
     ...(lawn ? data.layers.lawn : []),
     ...(estates ? data.layers.estates : []),
   ].filter(({ id }) => highlights.memorials.has(id) || highlights.occupied.has(id)), [data, estates, lawn, highlights]);
+  const visiblePlotFeatures = useMemo(() => [
+    ...(lawn ? data.layers.lawn : []), ...(estates ? data.layers.estates : []),
+  ], [data, estates, lawn]);
   return <MapContainer
     className={"cemetery-leaflet-canvas phase-two-planning-canvas" + (satellite ? " phase-two-planning-canvas--satellite" : "")}
     aria-label={`${PARK_NAME} Phase 2 ${satellite ? "satellite" : "park"} map`}
@@ -580,20 +714,23 @@ export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: Muta
       />
     ) : null}
     <ZoomControl position={props.zoomPosition ?? (props.explorer ? "topright" : "bottomright")} />
-    <PlanningLayers {...props} />
-    <PlanningPlotHighlights
+    <PlanningLayers {...props} onSelect={selectVisiblePlot} />
+    {props.reviewMode ? <StaffPlotColors features={visiblePlotFeatures} statuses={staffStatuses?.data ?? null} filters={filters} satellite={satellite} /> : <PlanningPlotHighlights
       features={plottedFeatures}
       highlights={highlights}
       satellite={satellite}
-    />
+    />}
     {(props.visible.lawn || props.visible.estates) && (
-      <PlotHighlightLegend
+      props.reviewMode ? (staffStatuses ? <StaffPlotStatusLegend unavailable={staffStatuses.data === null} filtered={filterActive} exampleMode={staffStatuses.data?.exampleMode ?? false} /> : null) : <PlotHighlightLegend
         memorials={plottedFeatures.some(({ id }) => highlights.memorials.has(id) && !highlights.occupied.has(id))}
         occupied={plottedFeatures.some(({ id }) => highlights.occupied.has(id))}
         unavailable={unavailable}
       />
     )}
-    {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id} feature={props.selected} {...props.lotPopup} project={projectPopup} /> : null}
+    {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id + (props.reviewMode ? ":" + (props.lotPopup.preferredId ?? "") : "")} feature={props.selected} {...props.lotPopup}
+      anchorBounds={props.reviewMode ? mausoleumEnvelope(data, props.selected)?.bounds : undefined} project={projectPopup} /> : null}
+    {props.reviewMode && props.onStaffFiltersChange ? <StaffFilterControls filters={filters} onChange={props.onStaffFiltersChange} open={staffPanel === "filters"} onOpenChange={open => setStaffPanel(open ? "filters" : null)} /> : null}
+    {props.reviewMode && props.onStaffBurialSelect ? <StaffBurialSearch onSelect={props.onStaffBurialSelect} open={staffPanel === "search"} onOpenChange={open => setStaffPanel(open ? "search" : null)} /> : null}
     {props.explorer ? <ExplorerMarkers explorer={props.explorer} satellite={satellite} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}
   </MapContainer>;
 }

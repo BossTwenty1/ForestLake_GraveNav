@@ -72,13 +72,11 @@ test("Visitor map keeps paths visible and presents park language without staff d
   }
 });
 
-test("Staff tools retain exact source references, coordinate disclosure and map-layer controls", () => {
+test("Staff map uses the full-width map without the removed tools panel", () => {
   const html = render({ staffTools: true }, candidate);
   assert.match(html, /data-review-mode="true"/);
-  assert.match(html, /Find a CAD candidate/);
-  assert.match(html, /Map layers/);
-  assert.match(html, /TEST\/1/);
-  assert.match(html, /data-coordinate-details="true"/);
+  assert.match(html, /Map options/);
+  assert.doesNotMatch(html, /Find a CAD candidate|Staff Map Tools|data-coordinate-details="true"/);
 });
 
 test("Missing geographic publication has useful visitor copy and does not create a destination", () => {

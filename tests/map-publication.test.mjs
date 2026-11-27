@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+import { createTestDatabase } from "./database-helper.mjs";
+import { gisLogin, seedGisFixtures } from "./gis-fixtures.mjs";
+
+test("only explicitly public map-created pending burials appear on the visitor map", async t => {
+  const db=await createTestDatabase({throughMigration:"20261127110000_public_map_highlights.sql"});
+  t.after(()=>db.close());
+  await seedGisFixtures(db); await gisLogin(db);
+  const save=async (entity,values)=>(await db.query("select public.staff_save_record($1,null,null,$2::jsonb,$3,'save') value",[entity,JSON.stringify(values),randomUUID()])).rows[0].value;
+  const lot=await save("lot",{area_id:1,lot_code:"MAP-PUBLISH-TEST",status:"AVAILABLE",grave_type:"regular",grave_policy_reference:"Fictional test"});
+  await db.exec("reset role");
+  const selection=await readFile(new URL("../scripts/phase2-staging/install-capstone-visitor-selection.sql",import.meta.url),"utf8");
+  await db.exec(selection.split("-- Keep normal operational eligibility")[0]+"commit;");
+  for(const file of ["install-capstone-planning-assignments.sql","install-capstone-planning-memorials.sql"]) await db.exec(await readFile(new URL(`../scripts/phase2-staging/${file}`,import.meta.url),"utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/20261127100000_public_map_created_memorials.sql",import.meta.url),"utf8"));
+  const hash="02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77";
+  await db.query("insert into gis_private.capstone_planning_lot(lot_id,plan_sha256,cad_candidate_id,review_reference) values($1,$2,'lawn:99991','Fictional test')",[lot.id,hash]);
+  await gisLogin(db);
+  const payload={display_name:"Public fictional",sex:"female",birth_date:"1950-01-01",death_date:"2020-01-01",interment_status:"PERMANENT",remains_type:"ASH",public_display:true};
+  const create=async values=>(await db.query("select public.staff_create_mapped_burial('lawn:99991',$1,$2,'MAP-PUBLISH-TEST',$3::jsonb,$4) value",[hash,lot.id,JSON.stringify(values),randomUUID()])).rows[0].value;
+  const published=await create(payload);
+  const privateRecord=await create({...payload,display_name:"Private fictional",public_display:false});
+  const ordinary=await save("burial_record",{lot_id:Number(lot.id),display_name:"Ordinary pending",public_display:true,record_status:"pending",interment_status:"PERMANENT",remains_type:"ASH"});
+  await gisLogin(db,null,"anon");
+  const visible=(await db.query("select id,name from public.get_capstone_planning_memorials('lawn:99991',$1)",[hash])).rows;
+  assert.deepEqual(visible.map(row=>row.id),[published.id]);
+  const highlights=(await db.query("select public.map_plot_highlights($1,null,false) value",[hash])).rows[0].value;
+  assert.ok(highlights.memorials.includes("lawn:99991"));
+  assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[published.id,hash])).rows[0].value,"lawn:99991");
+  assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[privateRecord.id,hash])).rows[0].value,null);
+  assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[ordinary.id,hash])).rows[0].value,null);
+});

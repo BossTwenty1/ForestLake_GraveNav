@@ -4,7 +4,7 @@ import type { AdminRecord } from "./supabase/types";
 export const burialDirectory = "/admin/burial-records";
 
 export function safeBurialReturnTo(value?: string) {
-  return value === burialDirectory || value?.startsWith(burialDirectory + "?")
+  return value === "/admin/cemetery-map" || value === burialDirectory || value?.startsWith(burialDirectory + "?")
     ? value : burialDirectory;
 }
 

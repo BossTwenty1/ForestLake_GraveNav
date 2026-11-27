@@ -36,6 +36,23 @@
 }
 .close:hover { background: var(--visitor-surface-deep, #eaf3ee); }
 .body { display: grid; gap: 8px; margin-top: 8px; }
+.plotDetails { display: grid; gap: 5px; margin: 0; }
+.plotDetails div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
+.plotDetails dt { color: var(--visitor-muted, #4e655a); }
+.plotDetails dd { margin: 0; overflow-wrap: anywhere; }
+.staffPerson { display: grid; gap: 7px; padding-bottom: 8px; border-bottom: 1px solid var(--visitor-border, #cfdbd3); }
+.personHeader { display: flex; align-items: center; gap: 9px; }
+.portrait, .portraitPlaceholder { flex: none; width: 56px; height: 56px; border-radius: 6px; object-fit: cover; }
+.portraitPlaceholder { display: grid; place-items: center; color: var(--visitor-muted, #4e655a); background: var(--visitor-surface-deep, #eaf3ee); }
+.roster button[aria-pressed="true"] { border-color: var(--visitor-accent, #146534); font-weight: 700; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.actions button, .actions a { padding: 8px; border: 1px solid var(--visitor-border, #cfdbd3); border-radius: 7px; font: inherit; }
+.actions a { color: var(--visitor-ink, #15251d); background: var(--visitor-surface-deep, #eaf3ee); text-decoration: none; }
+.actions button:disabled { color: var(--visitor-muted, #4e655a); background: var(--visitor-surface-deep, #eaf3ee); cursor: not-allowed; }
+.actions button:not(:disabled) { color: var(--visitor-ink, #15251d); background: var(--visitor-surface-deep, #eaf3ee); cursor: pointer; }
+.statusEditor { display: grid; gap: 6px; flex-basis: 100%; margin-top: 4px; }
+.statusEditor select { width: 100%; padding: 7px; border: 1px solid var(--visitor-border, #cfdbd3); border-radius: 7px; background: white; color: inherit; font: inherit; }
+.statusEditor textarea { width: 100%; min-height: 54px; padding: 7px; border: 1px solid var(--visitor-border, #cfdbd3); border-radius: 7px; color: inherit; font: inherit; }
 .reference { display: flex; gap: 5px; align-items: flex-start; color: var(--visitor-muted, #4e655a); overflow-wrap: anywhere; }
 .reference svg { flex: none; color: var(--visitor-accent, #146534); }
 .roster { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; }

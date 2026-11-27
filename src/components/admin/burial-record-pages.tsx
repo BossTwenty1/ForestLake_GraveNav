@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isSyntheticPlot, plotOptionLabel } from "@/lib/synthetic-plots";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AdminPageFrame } from "./admin-page-content";
 import { RecordVisibility } from "./record-visibility";
 import { useStaff } from "./staff-context";
@@ -23,6 +24,7 @@ import {
 import type { AdminPhoto, AdminRecord, BurialPlotOption } from "@/lib/supabase/types";
 import { burialDirectory, recordInputFromRecord, safeBurialReturnTo } from "@/lib/burial-records";
 import styles from "./owner-pages.module.css";
+import mapEditorStyles from "@/components/visitor/map-burial-preview.module.css";
 
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -116,14 +118,30 @@ export function BurialRecordEditor({ recordId, returnTo }: PageProps) {
     description="Register or maintain a deceased person and their interment using the existing cemetery records."
     breadcrumbs={[
       { label: "Dashboard", href: "/admin" },
-      { label: "Deceased & Interments", href: back },
+      { label: back === "/admin/cemetery-map" ? "Cemetery Map" : "Deceased & Interments", href: back },
       { label: recordId ? "Edit record" : "New record" },
     ]}
   >{content}</AdminPageFrame>;
 }
 
-function BurialRecordForm({ record, availablePlots, back }: {
+export function MapBurialEditor({ recordId, onClose, onSaved }: { recordId: string; onClose: () => void; onSaved: (message: string) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [busy, setBusy] = useState(false);
+  const state = useRecord(recordId, false);
+  useEffect(() => { dialog.current?.showModal(); }, []);
+  return createPortal(<dialog ref={dialog} className={mapEditorStyles.dialog} aria-label="Edit burial record" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
+    <header className={mapEditorStyles.header}><div><h2>Edit burial record</h2></div><button type="button" onClick={onClose} disabled={busy} aria-label="Close edit form">×</button></header>
+    <div className={mapEditorStyles.form}>
+      {state.error ? <LoadError message={state.error} onRetry={state.retry} /> : !state.data ? <p role="status">Loading record…</p>
+        : !state.data.record ? <p>Record not found.</p>
+        : <BurialRecordForm record={state.data.record} availablePlots={state.data.plots} back="/admin/cemetery-map" onCancel={onClose} onSaved={onSaved} onBusyChange={setBusy} fixedPlot />}
+    </div>
+  </dialog>, document.body);
+}
+
+function BurialRecordForm({ record, availablePlots, back, onCancel, onSaved, onBusyChange, fixedPlot = false }: {
   record: AdminRecord | null; availablePlots: BurialPlotOption[]; back: string;
+  onCancel?: () => void; onSaved?: (message: string) => void; onBusyChange?: (busy: boolean) => void; fixedPlot?: boolean;
 }) {
   const canAdmin = ["ADMIN", "SUPER_ADMIN"].includes(useStaff()?.role ?? "");
   const router = useRouter();
@@ -223,7 +241,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
         return;
       }
     }
-    setSaving(true);
+    setSaving(true); onBusyChange?.(true);
     try {
       const input = { ...form, name: form.name.trim() };
       const receipt = record
@@ -264,10 +282,11 @@ function BurialRecordForm({ record, availablePlots, back }: {
           photoStatus = "failed";
         }
       }
+      if (onSaved) { onSaved(photoStatus === "failed" ? "Record saved, but the photo could not be uploaded." : "Burial record saved."); return; }
       const nextParams = new URLSearchParams({ returnTo: back, saved: "1" });
       if (photoStatus) nextParams.set("photoStatus", photoStatus);
       router.push(burialDirectory + "/" + receipt.id + "?" + nextParams);
-    } catch (reason) { setError(errorMessage(reason)); setSaving(false); }
+    } catch (reason) { setError(errorMessage(reason)); setSaving(false); onBusyChange?.(false); }
   }
   const activePreviewUrl = photoPreviewUrl || existingPortraitUrl;
   return <Card className={styles.formCard}><CardContent>
@@ -401,7 +420,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
             aria-describedby="burial-plot-hint"
             aria-labelledby="burial-plot-label"
             className="input-control"
-            disabled={confirmed}
+            disabled={confirmed || fixedPlot}
             id="burial-plot"
             required
             value={form.lotId || ""}
@@ -418,10 +437,10 @@ function BurialRecordForm({ record, availablePlots, back }: {
             ))}
           </select>
           <span className="input-hint" id="burial-plot-hint">
-            {confirmed ? "This confirmed interment retains its existing plot." :
+            {fixedPlot ? "The plot cannot be changed from the map." : confirmed ? "This confirmed interment retains its existing plot." :
               selectedPlot?.graveType
-                ? selectedPlot.confirmedCount + " confirmed; " + selectedPlot.remaining +
-                  " admissions remain after reservations."
+                ? selectedPlot.confirmedCount + " confirmed; " + (selectedPlot.remaining === null
+                  ? "no burial limit for this mausoleum." : selectedPlot.remaining + " admissions remain after reservations.")
                 : "Select the established cemetery plot for this interment."}
           </span>
         </label>
@@ -494,9 +513,8 @@ function BurialRecordForm({ record, availablePlots, back }: {
         <Alert title="Record could not be saved" variant="danger">{error}</Alert>
       </div> : null}
       <div className="admin-form-actions">
-        {saving ? null : <Link className="button button--secondary button--md" href={detailHref}>
-          Cancel
-        </Link>}
+        {saving ? null : onCancel ? <button className="button button--secondary button--md" type="button" onClick={onCancel}>Cancel</button>
+          : <Link className="button button--secondary button--md" href={detailHref}>Cancel</Link>}
         <Button disabled={saving || noEligiblePlots || !form.lotId} icon="check" type="submit">
           {saving ? "Saving…" : record ? "Save changes" : "Save record"}
         </Button>
@@ -910,7 +928,7 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
     description={record ? "Burial record #" + record.burialId + " · Restricted staff record" : undefined}
     breadcrumbs={[
       { label: "Dashboard", href: "/admin" },
-      { label: "Deceased & Interments", href: back },
+      { label: back === "/admin/cemetery-map" ? "Cemetery Map" : "Deceased & Interments", href: back },
       { label: "Record details" },
     ]}
     actions={record ? <div className={styles.actions}>
@@ -919,7 +937,7 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
     </div> : undefined}
   >
     {content}
-    <Link className="subtle-link" href={back}>Back to Deceased &amp; Interments</Link>
+    <Link className="subtle-link" href={back}>{back === "/admin/cemetery-map" ? "Back to Cemetery Map" : "Back to Deceased & Interments"}</Link>
   </AdminPageFrame>;
 }
 

@@ -46,6 +46,16 @@ export function featureLayer(feature: CadFeature): LayerKey {
   return feature.id.split(':')[0] as LayerKey
 }
 
+// A mausoleum is one selectable block even though the CAD has 12 inner spaces.
+// Fail closed if the source grouping is incomplete or ambiguous.
+export function mausoleumEnvelope(data: LocalData, feature: CadFeature): CadFeature | null {
+  const handle = feature.properties.root_handle
+  if (featureLayer(feature) !== 'estates' || !handle) return null
+  const spaces = data.layers.estates.filter(item => item.properties.root_handle === handle)
+  const envelopes = data.layers.blocks.filter(item => item.properties.root_handle === handle)
+  return spaces.length === 12 && envelopes.length === 1 ? envelopes[0] : null
+}
+
 export function landmarkName(name: string): string {
   if (name === "NEW MPH (CAD name)") return "Multipurpose hall";
   if (name === "Standard Gazebo") return "Gazebo";

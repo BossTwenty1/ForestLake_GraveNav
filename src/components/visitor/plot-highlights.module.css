@@ -37,3 +37,8 @@
 .occupiedSwatch {
   border-style: dashed;
 }
+
+.statusSwatch { flex: none; width: 0.75rem; height: 0.75rem; border-radius: 2px; }
+.unknownSwatch { flex: none; width: 0.75rem; height: 0.75rem; border: 2px dashed #604079; border-radius: 2px; }
+.staffLegend { bottom: 48px; }
+.exampleNotice { flex-basis: 100%; }
