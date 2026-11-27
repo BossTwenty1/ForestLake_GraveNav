@@ -17,7 +17,7 @@ import { AdminPageFrame } from "./admin-page-content";
 import { useStaff } from "./staff-context";
 import styles from "./admin-accounts.module.css";
 
-const roleLabels = { SUPER_ADMIN: "Super Administrator", ADMIN: "Administrator", MANAGER: "Manager" } as const;
+const roleLabels = { SUPER_ADMIN: "Super Administrator", ADMIN: "Administrator", MANAGER: "Staff" } as const;
 const summaries = [["total", "Total staff"], ["active", "Active"], ["pending", "Pending"], ["suspended", "Suspended"]] as const;
 const pageSize = 20;
 type Filter = "ALL" | "ACTIVE" | "PENDING" | "SUSPENDED";
@@ -335,7 +335,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
   const directoryFiltered = filters.search || filters.role !== "ALL" || filters.status !== "ALL";
 
   return (
-    <AdminPageFrame title="Staff Accounts" description="Invite staff and manage who can sign in to GraveNav."
+    <AdminPageFrame title="Account Management" description="Invite staff and manage who can sign in to GraveNav."
       actions={<Button ref={inviteButton} icon="plus" onClick={event => {
         dialogTrigger.current = event.currentTarget;
         setActionError("");
@@ -360,7 +360,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
               <span className="input-label">Role</span>
               <select className="input-control" value={filters.role} onChange={event => updateFilters({ role: event.target.value })}>
                 <option value="ALL">All roles</option>
-                <option value="MANAGER">Manager</option>
+                <option value="MANAGER">Staff</option>
                 <option value="ADMIN">Administrator</option>
                 <option value="SUPER_ADMIN">Super Administrator</option>
               </select>
@@ -429,7 +429,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
           <fieldset className={styles.roles}>
             <legend>Role</legend>
             <label><input type="radio" name="role" value="MANAGER" defaultChecked disabled={busy} />
-              <span><strong>Manager</strong><small>Day-to-day cemetery operations.</small></span></label>
+              <span><strong>Staff</strong><small>Day-to-day cemetery operations.</small></span></label>
             <label><input type="radio" name="role" value="ADMIN" disabled={busy} />
               <span><strong>Administrator</strong><small>Oversees cemetery records, verification, and recovery.</small></span></label>
             <label><input type="radio" name="role" value="SUPER_ADMIN" disabled={busy} />
@@ -473,7 +473,7 @@ export function AdminStaffAccounts({ initialFilter = "ALL" }: { initialFilter?: 
                 <span className="input-label">Choose a new role</span>
                 <select className="input-control" value={nextRole} disabled={busy}
                   onChange={event => setNextRole(event.target.value as StaffRole)}>
-                  <option value="MANAGER">Manager</option>
+                  <option value="MANAGER">Staff</option>
                   <option value="ADMIN">Administrator</option>
                   <option value="SUPER_ADMIN">Super Administrator</option>
                 </select>

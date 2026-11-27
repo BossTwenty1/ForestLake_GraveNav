@@ -5,7 +5,7 @@ import { activeStaffAdministrator, isStaffJsonRequest, staffAccountIdPattern, st
 export async function POST(request: Request) {
   const actor = await activeStaffAdministrator();
   if (!actor) return staffReply({ error: "Sign in as an active Administrator to help with password recovery." }, 403);
-  if (!isStaffJsonRequest(request)) return staffReply({ error: "Open Staff Accounts and try again." }, 400);
+  if (!isStaffJsonRequest(request)) return staffReply({ error: "Open Account Management and try again." }, 400);
   const body = await request.json().catch(() => null);
   const accountId = typeof body?.accountId === "string" ? body.accountId : "";
   if (!staffAccountIdPattern.test(accountId) || !Number.isSafeInteger(body?.revision) || "password" in body) {

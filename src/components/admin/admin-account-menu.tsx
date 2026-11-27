@@ -114,7 +114,7 @@ export function AdminAccountMenu({ busy, onSignOut, staff }: AdminAccountMenuPro
         <span aria-hidden="true" className="admin-avatar">{initials}</span>
         <span className="admin-account-trigger__copy">
           <strong>{staff.username}</strong>
-          <span>{staff.role === "SUPER_ADMIN" ? "Super Administrator" : staff.role === "ADMIN" ? "Administrator" : "Manager"}</span>
+          <span>{staff.role === "SUPER_ADMIN" ? "Super Administrator" : staff.role === "ADMIN" ? "Administrator" : "Staff"}</span>
         </span>
         <Icon className="admin-account-trigger__chevron" name="chevronDown" size={15} />
       </button>
@@ -127,7 +127,7 @@ export function AdminAccountMenu({ busy, onSignOut, staff }: AdminAccountMenuPro
             </span>
             <div>
               <strong>{staff.username}</strong>
-              <span>{staff.role === "SUPER_ADMIN" ? "Super Administrator" : staff.role === "ADMIN" ? "Administrator" : "Manager"}</span>
+              <span>{staff.role === "SUPER_ADMIN" ? "Super Administrator" : staff.role === "ADMIN" ? "Administrator" : "Staff"}</span>
             </div>
           </div>
           <div className="admin-account-popover__separator" />
