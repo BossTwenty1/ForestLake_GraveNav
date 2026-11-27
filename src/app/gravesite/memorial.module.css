@@ -549,16 +549,17 @@
   .remembering { grid-area: remember; }
   .location { grid-area: location; }
   .shared { grid-area: shared; }
+  .gallery { grid-area: gallery; }
   .layout {
     grid-template-columns: minmax(0,7fr) minmax(0,5fr);
-    grid-template-areas: "remember location";
-    grid-template-rows: auto;
+    grid-template-areas: "remember location" "gallery location";
+    grid-template-rows: auto auto;
     align-items: start;
     gap: 24px 28px;
   }
   .layout:has(.shared) {
-    grid-template-areas: "remember location" "shared shared";
-    grid-template-rows: auto auto;
+    grid-template-areas: "remember location" "gallery location" "shared shared";
+    grid-template-rows: auto auto auto;
   }
   .remembering, .shared, .gallery { padding: 26px 30px; }
   .inscription { margin-top: 16px; padding: 18px 22px; gap: 12px; }

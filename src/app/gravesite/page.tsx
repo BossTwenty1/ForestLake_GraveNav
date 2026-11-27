@@ -38,7 +38,7 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
     getPublicMemorialPhotos(record.id).catch(() => []),
     getCachedPublicSiteSettings(),
   ]);
-  const { portrait } = splitMemorialPhotos(photos);
+  const { portrait, gallery } = splitMemorialPhotos(photos);
 
   return <VisitorShell backHref={returnTo} backLabel="Back to Search Results" batchOne wide className={styles.shell} helpHref="#gravesite-details" siteSettings={siteSettings}>
     <PublicMemorialProfile
@@ -47,6 +47,7 @@ export default async function GravesitePage({ searchParams }: { searchParams: Se
       planningPlot={planningPlot}
       shared={shared}
       portrait={portrait}
+      gallery={gallery}
       siteSettings={siteSettings}
       returnTo={returnTo}
     />

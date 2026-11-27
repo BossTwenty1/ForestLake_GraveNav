@@ -224,7 +224,7 @@ export function VisitorSiteSettingsEditor({
           </CardHeader>
           <CardContent>
             <Alert icon="info" title="Visitor uploads are disabled" variant="info">
-              Visitors can view approved profile portraits. New portraits and memorial photos must be added by cemetery staff.
+              Visitors can view approved profile portraits and gallery photos. Only cemetery staff can add or approve photos.
             </Alert>
           </CardContent>
         </Card>

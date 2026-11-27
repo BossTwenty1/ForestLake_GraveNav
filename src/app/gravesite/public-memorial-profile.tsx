@@ -10,6 +10,7 @@ import type { PublicMemorialPhoto } from "@/lib/supabase/public-memorial-photos"
 import type { PublicBurialRecord } from "@/lib/supabase/types";
 import { memorialMapHref, visitorPlotDetails, type GravesiteMapScope } from "@/lib/visitor-presentation";
 import { MemorialActions } from "./memorial-actions";
+import { MemorialGallery } from "./memorial-gallery";
 import { MemorialPhoto } from "./memorial-photo";
 import styles from "./memorial.module.css";
 
@@ -19,12 +20,13 @@ function recordedDate(value: string | null) {
   return Number.isNaN(date.valueOf()) ? null : new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" }).format(date);
 }
 
-export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, portrait, siteSettings, returnTo }: {
+export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, portrait, gallery, siteSettings, returnTo }: {
   record: PublicBurialRecord;
   mapScope: GravesiteMapScope;
   planningPlot?: string | null;
   shared: SharedPlotBurials;
   portrait?: PublicMemorialPhoto;
+  gallery: PublicMemorialPhoto[];
   siteSettings?: VisitorSiteSettings;
   returnTo: string;
 }) {
@@ -98,6 +100,7 @@ export function PublicMemorialProfile({ record, mapScope, planningPlot, shared, 
             </li>)}
           </ul>}
         </section> : null}
+        <MemorialGallery photos={gallery} name={record.name} />
       </div>
       <footer className={styles.footer}><Icon name="location" size={17} />{parkName}, {parkAddress}</footer>
     </article>
