@@ -2,7 +2,7 @@ name: GraveNav checks
 
 on:
   push:
-    branches: [main, codex/staff-accounts-v1-release]
+    branches: [main, codex/staff-accounts-v1-release, staff-accounts-v1-release]
   pull_request:
     branches: [main]
 
