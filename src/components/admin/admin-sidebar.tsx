@@ -27,7 +27,7 @@ const systemNavItems: AdminNavItem[] = [
   { label: "Reports", icon: "reports", href: "/admin/reports" },
   { label: "Audit Log", icon: "audit", href: "/admin/audit-log" },
   { label: "Recovery", icon: "audit", href: "/admin/recovery", adminOnly: true },
-  { label: "Staff Accounts", icon: "users", href: "/admin/accounts", securityOnly: true },
+  { label: "Account Management", icon: "users", href: "/admin/accounts", securityOnly: true },
   { label: "Visitor Site Settings", icon: "settings", href: "/admin/site-settings", securityOnly: true },
 ];
 

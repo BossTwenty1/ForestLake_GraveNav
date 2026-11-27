@@ -6,5 +6,5 @@ import { activeStaffAdministrator } from "@/lib/supabase/staff-account-server";
 export default async function AdminAccountsRoute({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   if (!await activeStaffAdministrator()) redirect("/admin/unauthorized?reason=role");
   const { status } = await searchParams;
-  return <AdminShell active="Staff Accounts"><AdminStaffAccounts initialFilter={status === "pending" ? "PENDING" : "ALL"} /></AdminShell>;
+  return <AdminShell active="Account Management"><AdminStaffAccounts initialFilter={status === "pending" ? "PENDING" : "ALL"} /></AdminShell>;
 }

@@ -336,7 +336,7 @@ function BurialRecordForm({ record, availablePlots, back }: {
                 </label>
               ) : (
                 <p className="input-hint">
-                  Family photos uploaded by a manager are saved privately and queued for administrator approval before public display.
+                  Family photos uploaded by a staff member are saved privately and queued for administrator approval before public display.
                 </p>
               )}
               <div className={styles.portraitActions}>
