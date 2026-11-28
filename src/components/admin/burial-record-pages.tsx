@@ -7,6 +7,7 @@ import { isSyntheticPlot, plotOptionLabel } from "@/lib/synthetic-plots";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AdminPageFrame } from "./admin-page-content";
+import { AdminEditMenu } from "./admin-edit-menu";
 import { RecordVisibility } from "./record-visibility";
 import { useStaff } from "./staff-context";
 import { Alert } from "@/components/ui/alert";
@@ -355,7 +356,7 @@ function BurialRecordForm({ record, availablePlots, back, onCancel, onSaved, onB
                 </label>
               ) : (
                 <p className="input-hint">
-                  Family photos uploaded by a manager are saved privately and queued for administrator approval before public display.
+                  Family photos uploaded by a staff member are saved privately and queued for administrator approval before public display.
                 </p>
               )}
               <div className={styles.portraitActions}>
@@ -415,7 +416,7 @@ function BurialRecordForm({ record, availablePlots, back, onCancel, onSaved, onB
       <fieldset className={styles.fieldset} disabled={saving}>
         <legend>Plot and interment</legend>
         <label className="input-field" htmlFor="burial-plot">
-          <span className="input-label" id="burial-plot-label">Existing cemetery plot *</span>
+          <span className="input-label" id="burial-plot-label">Existing cemetery plot<span aria-hidden="true" className="input-required-marker">*</span></span>
           <select
             aria-describedby="burial-plot-hint"
             aria-labelledby="burial-plot-label"
@@ -426,7 +427,7 @@ function BurialRecordForm({ record, availablePlots, back, onCancel, onSaved, onB
             value={form.lotId || ""}
             onChange={(e) => setField("lotId", Number(e.target.value))}
           >
-            <option value="">Select an eligible existing plot</option>
+            <option value="">Select an eligible existing plot…</option>
             {record ? <option value={record.lotId}>
               Current: {plotOptionLabel(record.plot, record.syntheticPlotReference)} — {record.section}
             </option> : null}
@@ -932,8 +933,7 @@ export function BurialRecordDetail({ recordId, returnTo, saved = false, photoSta
       { label: "Record details" },
     ]}
     actions={record ? <div className={styles.actions}>
-      <Link className="button button--secondary button--md" href={editHref}>Edit record</Link>
-      {canAdmin ? <Button disabled={deleting} size="md" variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button> : null}
+      <AdminEditMenu actionLabel="Edit record" deleteLabel="Delete record" disabled={deleting} href={editHref} label={`More actions for ${record.name}`} onDelete={canAdmin ? () => setConfirmDelete(true) : undefined} />
     </div> : undefined}
   >
     {content}
