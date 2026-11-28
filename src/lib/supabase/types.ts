@@ -37,6 +37,7 @@ export type GraveType = "regular" | "mausoleum";
 
 export type AdminRecord = {
   lotRemoved?: boolean;
+  visitorVisible?: boolean | null;
   syntheticPlotReference?: string | null;
   revision: number;
   burialId: number;

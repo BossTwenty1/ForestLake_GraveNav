@@ -16,7 +16,7 @@ import {
   routeOnParkLayout,
   type LayoutStartPoint,
 } from "@/lib/phase2-layout-routing";
-import { featureLayer, initialVisibility, landmarkName, layerDefinitions, loadPlanningBundle, mausoleumEnvelope, type CadFeature, type LayerKey, type PlanningBundle } from "@/lib/phase2-planning";
+import { featureLayer, initialVisibility, landmarkName, layerDefinitions, loadPlanningBundle, mausoleumEnvelope, mausoleumRepresentative, type CadFeature, type LayerKey, type PlanningBundle } from "@/lib/phase2-planning";
 import type { PlanningMapActions } from "./phase2-planning-canvas";
 import type { StaffPlotFilters } from "./staff-plot-statuses";
 import { PhaseTwoGeographicMap } from "./phase2-geographic-map";
@@ -264,10 +264,11 @@ export function MapExplorer({
   function select(feature: CadFeature | null) {
     setStaffPreferredId(undefined);
     if (feature) {
+      const selectedFeature = staffTools && bundle ? mausoleumRepresentative(bundle.data, feature) ?? feature : feature;
       setPopupClosed(false);
-      setVisible(current => ({ ...current, [featureLayer(feature)]: true }));
-      actions.current?.focus(staffTools && bundle ? mausoleumEnvelope(bundle.data, feature) ?? feature : feature);
-      setSelected(feature);
+      setVisible(current => ({ ...current, [featureLayer(selectedFeature)]: true }));
+      actions.current?.focus(staffTools && bundle ? mausoleumEnvelope(bundle.data, selectedFeature) ?? selectedFeature : selectedFeature);
+      setSelected(selectedFeature);
       setPanelOpen(true);
       return;
     }

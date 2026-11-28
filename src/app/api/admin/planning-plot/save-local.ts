@@ -1,11 +1,9 @@
 import { getCurrentStaff } from "@/lib/auth";
 import { planningDataSha256 } from "@/lib/phase2-planning";
-import { localSupabaseConfig } from "@/lib/supabase/config";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { isStaffJsonRequest, staffReply } from "@/lib/supabase/staff-account-server";
 
 export async function saveLocalMappedBurial(request: Request) {
-  if (localSupabaseConfig.environment !== "local") return staffReply({ error: "Local testing only." }, 403);
   if (!isStaffJsonRequest(request)) return staffReply({ error: "Invalid request." }, 400);
   const staff = await getCurrentStaff();
   if (!staff?.isActive || staff.accountStatus !== "ACTIVE") return staffReply({ error: "Staff access required." }, 403);

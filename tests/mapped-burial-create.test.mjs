@@ -47,6 +47,13 @@ test("map burial creation validates the linked plot and preserves capacity and p
   await create({...payload,display_name:"Fictional 2",owner:{mode:"existing",id:String(plot.lot_owner_id)}});
   for (let i=3;i<=6;i++) await create({...payload,display_name:`Fictional ${i}`});
   await assert.rejects(create({...payload,display_name:"Seventh"}), /capacity/i);
+  const mausoleum=(await db.query("select public.staff_save_record('lot',null,null,$1::jsonb,$2,'save') result",[JSON.stringify({area_id:1,lot_code:"MPC-C-1-12",status:"AVAILABLE",grave_type:"mausoleum",grave_policy_reference:"Fictional test"}),randomUUID()])).rows[0].result;
+  await db.exec("reset role");
+  await db.query("insert into gis_private.capstone_planning_lot(lot_id,plan_sha256,cad_candidate_id,review_reference) values ($1,$2,'estates:99991','Fictional whole mausoleum')",[mausoleum.id,hash]);
+  await gisLogin(db);
+  for(let i=1;i<=7;i++) await db.query("select public.staff_create_mapped_burial('estates:99991',$1,$2,'MPC-C-1-12',$3::jsonb,$4)",[hash,mausoleum.id,JSON.stringify({...payload,display_name:`Mausoleum fictional ${i}`}),randomUUID()]);
+  const count=(await db.query("select count(*)::int n from public.burial_record where lot_id=$1",[mausoleum.id])).rows[0].n;
+  assert.equal(count,7,"a mausoleum accepts more than six burials");
   await gisLogin(db,null,"anon");
   assert.equal((await db.query("select count(*)::int n from public.public_burial_records where burial_id=$1", [first.id])).rows[0].n, 0);
 });

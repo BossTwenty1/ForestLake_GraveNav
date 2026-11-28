@@ -10,6 +10,7 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isSyntheticPlot } from "@/lib/synthetic-plots";
+import { visitorVisibilityLabel } from "@/lib/record-visibility";
 import type { BurialRecordQuery, BurialRecordSort, DashboardCounts } from "@/lib/supabase/admin-data";
 import type { AdminRecord } from "@/lib/supabase/types";
 
@@ -109,7 +110,7 @@ function Lifespan({ record }: { record: AdminRecord }) { return !record.birthDat
 function plotLabel(record: AdminRecord) { return record.syntheticPlotReference || (isSyntheticPlot(record.plot) ? `Plot #${record.lotId} · Plot code unavailable` : record.plot); }
 function Plot({ record }: { record: AdminRecord }) { return <span className="admin-record-plot"><Icon name="location" size={14} /><span>{plotLabel(record)}</span></span>; }
 function StatusBadge({ status }: { status: RecordStatus }) { return <span className={`admin-record-status admin-record-status--${status}`}><span aria-hidden="true" />{title(status)}</span>; }
-function VisitorBadge({ record }: { record: AdminRecord }) { const isPublic = Boolean(record.publicDisplay && record.recordStatus !== "archived" && !record.lotRemoved); return <Badge variant={isPublic ? "success" : "neutral"}>{isPublic ? "Published" : "Staff only"}</Badge>; }
+function VisitorBadge({ record }: { record: AdminRecord }) { return <Badge variant={record.visitorVisible === true ? "success" : "neutral"}>{visitorVisibilityLabel(record)}</Badge>; }
 
 function Actions({ record, queryState, busy, canAdmin, onEdit, onDelete, onChangeStatus }: { record: AdminRecord; queryState: BurialRecordQuery; busy: boolean; canAdmin: boolean; onEdit: (record: AdminRecord) => void; onDelete: (record: AdminRecord) => void; onChangeStatus: (record: AdminRecord, status: RecordStatus) => void }) {
   const id = useId(); const [open, setOpen] = useState(false); const [position, setPosition] = useState({ top: 0, left: 0 }); const trigger = useRef<HTMLButtonElement>(null); const panel = useRef<HTMLDivElement>(null); useDismiss(open, setOpen, trigger, panel);
@@ -158,7 +159,7 @@ function downloadCsv(records: AdminRecord[]) {
     record.section,
     record.syntheticPlotReference || (isSyntheticPlot(record.plot) ? `Plot #${record.lotId}` : record.plot),
     record.recordStatus,
-    record.publicDisplay && record.recordStatus !== "archived" ? "Published" : "Staff only",
+    visitorVisibilityLabel(record),
     record.intermentStatus,
     record.remainsType,
     record.inscription || "",

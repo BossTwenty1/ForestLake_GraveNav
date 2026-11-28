@@ -16,6 +16,7 @@ test("only explicitly public map-created pending burials appear on the visitor m
   await db.exec(selection.split("-- Keep normal operational eligibility")[0]+"commit;");
   for(const file of ["install-capstone-planning-assignments.sql","install-capstone-planning-memorials.sql"]) await db.exec(await readFile(new URL(`../scripts/phase2-staging/${file}`,import.meta.url),"utf8"));
   await db.exec(await readFile(new URL("../supabase/migrations/20261127100000_public_map_created_memorials.sql",import.meta.url),"utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/20261127140000_staff_plot_reserved_slots.sql",import.meta.url),"utf8"));
   const hash="02a4dba490872f9be8cf56280ccf432d31796431c1f808f542fbff86ac28ca77";
   await db.query("insert into gis_private.capstone_planning_lot(lot_id,plan_sha256,cad_candidate_id,review_reference) values($1,$2,'lawn:99991','Fictional test')",[lot.id,hash]);
   await gisLogin(db);
@@ -24,6 +25,21 @@ test("only explicitly public map-created pending burials appear on the visitor m
   const published=await create(payload);
   const privateRecord=await create({...payload,display_name:"Private fictional",public_display:false});
   const ordinary=await save("burial_record",{lot_id:Number(lot.id),display_name:"Ordinary pending",public_display:true,record_status:"pending",interment_status:"PERMANENT",remains_type:"ASH"});
+  const mausoleum=await save("lot",{area_id:1,lot_code:"MPC-C-1-12",status:"AVAILABLE",grave_type:"mausoleum",grave_policy_reference:"Fictional test"});
+  await db.exec("reset role");
+  await db.query("insert into gis_private.capstone_planning_lot(lot_id,plan_sha256,cad_candidate_id,review_reference) values($1,$2,'estates:99991','Fictional whole mausoleum')",[mausoleum.id,hash]);
+  await gisLogin(db);
+  const estateDetails=(await db.query("select public.staff_planning_plot_details('estates:99991',$1) value",[hash])).rows[0].value;
+  assert.equal(Number(estateDetails.lotId),Number(mausoleum.id));
+  assert.equal(estateDetails.graveType,"mausoleum");
+  const estateBurial=(await db.query("select public.staff_create_mapped_burial('estates:99991',$1,$2,'MPC-C-1-12',$3::jsonb,$4) value",[hash,mausoleum.id,JSON.stringify({...payload,display_name:"Public mausoleum fictional"}),randomUUID()])).rows[0].value;
+  let details=(await db.query("select public.staff_planning_plot_details('lawn:99991',$1) value",[hash])).rows[0].value;
+  assert.equal(details.reservedSlots,3);
+  await db.exec("reset role");
+  await db.query("update public.burial_record set deleted_at=now() where burial_id=$1",[privateRecord.id]);
+  await gisLogin(db);
+  details=(await db.query("select public.staff_planning_plot_details('lawn:99991',$1) value",[hash])).rows[0].value;
+  assert.equal(details.reservedSlots,3, "removed records retain reserved slots");
   await gisLogin(db,null,"anon");
   const visible=(await db.query("select id,name from public.get_capstone_planning_memorials('lawn:99991',$1)",[hash])).rows;
   assert.deepEqual(visible.map(row=>row.id),[published.id]);
@@ -32,4 +48,6 @@ test("only explicitly public map-created pending burials appear on the visitor m
   assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[published.id,hash])).rows[0].value,"lawn:99991");
   assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[privateRecord.id,hash])).rows[0].value,null);
   assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[ordinary.id,hash])).rows[0].value,null);
+  assert.equal((await db.query("select public.get_capstone_planning_plot($1,$2) value",[estateBurial.id,hash])).rows[0].value,"estates:99991");
+  assert.deepEqual((await db.query("select id from public.get_capstone_planning_memorials('estates:99991',$1)",[hash])).rows.map(row=>row.id),[estateBurial.id]);
 });

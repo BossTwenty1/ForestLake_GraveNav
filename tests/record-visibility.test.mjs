@@ -24,6 +24,13 @@ const presentation = load("src/lib/visitor-presentation.ts", {
   "./synthetic-plots": load("src/lib/synthetic-plots.ts"),
 });
 
+test("the list shows public visibility only when the visitor reader confirms it", () => {
+  assert.equal(visibility.visitorVisibilityLabel({ visitorVisible: true }), "Published");
+  assert.equal(visibility.visitorVisibilityLabel({ visitorVisible: false }), "Staff only");
+  assert.equal(visibility.visitorVisibilityLabel({ visitorVisible: null }), "Visibility unavailable");
+  assert.equal(visibility.visitorVisibilityLabel({}), "Visibility unavailable");
+});
+
 test("publication never activates ineligible records; hiding retains every save field", () => {
   const record = {
     revision: 4, recordStatus: "active", publicDisplay: true, name: "Test",

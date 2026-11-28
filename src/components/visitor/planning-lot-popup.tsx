@@ -10,6 +10,7 @@ import { Icon } from "@/components/ui/icons";
 import type { Bounds, CadFeature } from "@/lib/phase2-planning";
 import type { CapstonePlanningMemorial } from "@/lib/supabase/phase2-data";
 import { localSupabaseConfig } from "@/lib/supabase/config";
+import { hasAvailableBurialCapacity } from "@/lib/plot-capacity";
 import { useStaff } from "@/components/admin/staff-context";
 import { MapBurialPreview } from "./map-burial-preview";
 import styles from "./planning-lot-popup.module.css";
@@ -24,6 +25,7 @@ export type PlanningLotPopupOptions = {
   onClose: () => void;
   project?: (xy: [number, number]) => L.LatLng;
   anchorBounds?: Bounds;
+  fallbackCandidate?: string;
 };
 
 const compactQuery = "(max-width: 899px)";
@@ -35,6 +37,7 @@ type StaffPlot = {
   revision?: number | null;
   coordinateStatus?: "pending" | "verified" | "rejected" | null;
   burialCount: number | null;
+  reservedSlots?: number | null;
   graveType: string | null;
   lotType?: "standard" | "premium" | "special_premium" | "mausoleum" | null;
   ownerName?: string | null;
@@ -55,7 +58,7 @@ function subscribeToCompact(change: () => void) {
   return () => query.removeEventListener("change", change);
 }
 
-export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = false, onClose, project, anchorBounds }: PlanningLotPopupOptions & { feature: CadFeature }) {
+export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = false, onClose, project, anchorBounds, fallbackCandidate }: PlanningLotPopupOptions & { feature: CadFeature }) {
   const map = useMap();
   const staff = useStaff();
   const compact = useSyncExternalStore(subscribeToCompact, compactSnapshot, () => false);
@@ -93,10 +96,10 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = f
   const [matchBusy, setMatchBusy] = useState(false);
   const [matchError, setMatchError] = useState("");
   const staffPerson = staffPlot?.burials?.find(person => person.id === staffPersonId) ?? staffPlot?.burials?.[0];
-  const operationalPlot = localSupabaseConfig.environment === "local" && staffPlot?.lotId && staffPlot.lotCode
+  const operationalPlot = staffPlot?.lotId && staffPlot.lotCode
     && (!staffPlot.draftCode || staffPlot.draftCode === staffPlot.lotCode)
     && staffPlot.status === "AVAILABLE" && (staffPlot.graveType === "regular" || staffPlot.graveType === "mausoleum")
-    && (staffPlot.graveType === "mausoleum" || (staffPlot.burialCount !== null && staffPlot.burialCount < 6))
+    && hasAvailableBurialCapacity(staffPlot.graveType, staffPlot.reservedSlots)
     && staffPlot.latitude !== null && staffPlot.longitude !== null && !staffPlot.coordinateFromDraft
     ? { candidate: feature.id, lotId: staffPlot.lotId, lotCode: staffPlot.lotCode,
       onSaved: () => { window.dispatchEvent(new Event("gravenav:planning-status-changed")); onClose(); } } : undefined;
@@ -104,27 +107,31 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = f
   const others = records?.filter(person => person.id !== active?.id) ?? [];
   const linkedCode = staffPlot?.lotCode && (!staffPlot.draftCode || staffPlot.draftCode === staffPlot.lotCode) ? staffPlot.lotCode : null;
   const linkedType = staffPlot?.lotType ? ({ standard: "Standard", premium: "Premium", special_premium: "Special premium", mausoleum: "Mausoleum" } as const)[staffPlot.lotType] : null;
-  const canChangeMappedStatus = localSupabaseConfig.environment === "local" && feature.id.startsWith("lawn:") && !!linkedCode
+  const canChangeMappedStatus = !!linkedCode
     && !!staffPlot?.lotId && !!staffPlot.revision && staffPlot.burialCount === 0;
   const mappedStatus = staffPlot?.status === "AVAILABLE" ? "available" : staffPlot?.status === "BOOKED" ? "booked"
     : staffPlot?.holdKind === "on_hold" ? "hold" : staffPlot?.holdKind === "unavailable" ? "unavailable" : "";
-  const canReviewCoordinates = staffMode && localSupabaseConfig.environment === "local" && ["ADMIN", "SUPER_ADMIN"].includes(staff?.role ?? "")
-    && feature.id.startsWith("lawn:") && !!staffPlot?.lotId && !!staffPlot.lotCode && !!staffPlot.revision
+  const canReviewCoordinates = staffMode && ["ADMIN", "SUPER_ADMIN"].includes(staff?.role ?? "")
+    && !!staffPlot?.lotId && !!staffPlot.lotCode && !!staffPlot.revision
     && (!staffPlot.draftCode || staffPlot.draftCode === staffPlot.lotCode)
     && staffPlot.latitude !== null && staffPlot.longitude !== null && !staffPlot.coordinateFromDraft;
 
   useEffect(() => {
     if (staffMode) return;
     const controller = new AbortController();
-    fetch("/api/map/planning-memorials?" + new URLSearchParams({ candidate: feature.id }), { signal: controller.signal })
-      .then(async response => {
-        if (!response.ok) throw Error("Memorial details unavailable");
-        const data: CapstonePlanningMemorial[] = await response.json();
+    const readMemorials = async (candidate: string): Promise<CapstonePlanningMemorial[]> => {
+      const response = await fetch("/api/map/planning-memorials?" + new URLSearchParams({ candidate }), { signal: controller.signal });
+      if (!response.ok) throw Error("Memorial details unavailable");
+      return response.json();
+    };
+    readMemorials(feature.id)
+      .then(async data => {
+        if (data.length === 0 && fallbackCandidate && fallbackCandidate !== feature.id) data = await readMemorials(fallbackCandidate);
         if (!controller.signal.aborted) setRecords(data);
       })
       .catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
-  }, [feature.id, attempt, staffMode]);
+  }, [feature.id, fallbackCandidate, attempt, staffMode]);
 
   useEffect(() => {
     if (!staffMode) return;
@@ -247,7 +254,7 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = f
           <div><dt>Plot code</dt><dd>{linkedCode ?? (staffPlot.draftCode ? `${staffPlot.draftCode} (draft)` : "Awaiting review")}</dd></div>
           <div><dt>Lot type</dt><dd>{linkedCode && linkedType ? linkedType : staffPlot.draftType ? `${staffPlot.draftType} (draft)` : "Not yet matched to the sector plan"}</dd></div>
           <div><dt>Coordinates</dt><dd>{staffPlot.latitude !== null && staffPlot.longitude !== null
-            ? `${staffPlot.latitude.toFixed(7)}, ${staffPlot.longitude.toFixed(7)}${staffPlot.coordinateFromDraft ? " (draft match)" : ""}` : "Not recorded"}</dd></div>
+            ? `${staffPlot.latitude.toFixed(7)}, ${staffPlot.longitude.toFixed(7)}${staffPlot.coordinateFromDraft ? " (draft match)" : staffPlot.coordinateStatus === "pending" ? " (pending review)" : staffPlot.coordinateStatus === "rejected" ? " (needs correction)" : ""}` : "Not recorded"}</dd></div>
         </dl></> : null}
       {!staffMode && (active ? <>
         {active.reference ? <p className={styles.reference}><Icon name="location" size={16} />{active.reference}</p> : null}
@@ -276,7 +283,7 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = f
         {matchError ? <p role="alert">{matchError}</p> : null}
       </div> : null}
       {!staffPlot.lotId && !staffPlot.proposedReview ? <p>This map shape needs a plot match before its status or coordinates can be changed.</p> : null}
-      {localSupabaseConfig.environment === "local" && linkedCode && staffPlot.lotId ? <button type="button" onClick={() => setEditingPlot(true)}>Edit plot / owner</button> : null}
+      {linkedCode && staffPlot.lotId ? <button type="button" onClick={() => setEditingPlot(true)}>Edit plot / owner</button> : null}
       {editingPlot && linkedCode && staffPlot.lotId ? <MapPlotEditor lotId={staffPlot.lotId} lotCode={linkedCode} onClose={() => setEditingPlot(false)} onSaved={() => {
         setEditingPlot(false); setEditMessage("Plot updated."); setStaffPlot(undefined); setAttempt(value => value + 1);
         window.dispatchEvent(new Event("gravenav:planning-status-changed"));
@@ -287,8 +294,8 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = f
         setEditingPersonId(null); setEditMessage(message); setStaffPlot(undefined); setAttempt(value => value + 1);
         window.dispatchEvent(new Event("gravenav:planning-status-changed"));
       }} /> : null}
-      <button type="button" disabled={!staffPlot.exampleStatus && !canChangeMappedStatus} title={!staffPlot.exampleStatus && !canChangeMappedStatus ? "This plot needs review before its status can be changed" : "Change the local test status"} onClick={() => { setNextStatus(staffPlot.exampleStatus ?? mappedStatus); setEditingStatus(true); }}>Change status</button>
-      <button type="button" disabled={!operationalPlot && (localSupabaseConfig.environment !== "local" || staffPlot.exampleStatus !== "available")} title={operationalPlot ? "Add a local pending burial" : "Preview only; no records are saved"} onClick={() => setShowBurialPreview(true)}>Add burial record</button>
+      <button type="button" disabled={!staffPlot.exampleStatus && !canChangeMappedStatus} title={!staffPlot.exampleStatus && !canChangeMappedStatus ? "This plot needs review before its status can be changed" : "Change plot status"} onClick={() => { setNextStatus(staffPlot.exampleStatus ?? mappedStatus); setEditingStatus(true); }}>Change status</button>
+      <button type="button" disabled={!operationalPlot && (localSupabaseConfig.environment !== "local" || staffPlot.exampleStatus !== "available")} title={operationalPlot ? "Add a burial record" : "Preview only; no records are saved"} onClick={() => setShowBurialPreview(true)}>Add burial record</button>
       {staffMode && ["ADMIN", "SUPER_ADMIN"].includes(staff?.role ?? "") ? <button type="button" disabled={!canReviewCoordinates} title={canReviewCoordinates ? "Review this plot's coordinates" : "A matching linked plot and its own coordinates are required"} onClick={() => setShowCoordinateReview(value => !value)}>Review coordinates</button> : null}
       {showCoordinateReview ? <div className={styles.statusEditor}>
         <p>Current status: {staffPlot.coordinateStatus ?? "pending"}. Verify only after checking the location and plot match.</p>
@@ -302,7 +309,7 @@ export function PlanningLotPopup({ feature, preferredId, returnTo, staffMode = f
       {showBurialPreview ? <MapBurialPreview code={linkedCode ?? staffPlot.draftCode ?? "Awaiting review"}
         lotType={linkedCode && linkedType ? linkedType : staffPlot.draftType ?? "Not recorded"} coordinates={staffPlot.latitude !== null && staffPlot.longitude !== null ? `${staffPlot.latitude.toFixed(7)}, ${staffPlot.longitude.toFixed(7)}` : "Not recorded"} ownerName={staffPlot.ownerName ?? null} operational={operationalPlot} onClose={() => setShowBurialPreview(false)} /> : null}
       {editingStatus ? <div className={styles.statusEditor}>
-        <label htmlFor={`${heading}-status`}>Local test status</label>
+        <label htmlFor={`${heading}-status`}>{staffPlot.exampleStatus ? "Local test status" : "Plot status"}</label>
         <select id={`${heading}-status`} value={nextStatus} onChange={event => setNextStatus(event.target.value)}>
           <option value="available">Available</option><option value="booked">Booked</option><option value="hold">On hold</option><option value="unavailable">Temporarily unavailable</option>
         </select>

@@ -39,11 +39,15 @@ test("staff map search protects private records and returns only existing plot l
   assert.equal(result.items[0].candidate, "lawn:99991");
   assert.equal(result.items[0].plotCode, null);
   assert.equal(result.more, false);
-  await db.exec("reset role; create schema phase2_review; create table phase2_review.plot_draft (proposed_code text, cad_candidate text); insert into phase2_review.plot_draft values ('MPG-D-183-5','lawn:79')");
+  await db.exec("reset role; create schema phase2_review; create table phase2_review.plot_draft (proposed_code text, cad_candidate text, garden text, sector text, row_number text); insert into phase2_review.plot_draft (proposed_code,cad_candidate) values ('MPG-D-183-5','lawn:79')");
+  await db.exec(await readFile(new URL("../supabase/migrations/20261127150000_search_mausoleum_drafts.sql", import.meta.url), "utf8"));
+  await db.exec("insert into phase2_review.plot_draft(cad_candidate,garden,sector,row_number) select 'estates:' || n, 'Majestic Palm Court', 'C', '1' from generate_series(1,12) n; insert into phase2_review.plot_draft(cad_candidate,garden,sector,row_number) values ('estates:13','Majestic Palm Court','C','2')");
   await gisLogin(db, gisActors.manager);
   const proposed = await search("mpg-d-183-5");
   assert.deepEqual(proposed.draftPlots.items, [{ code: "MPG-D-183-5", candidate: "lawn:79" }]);
   assert.equal(proposed.plots.items.length, 0);
+  assert.deepEqual((await search("mpc-c-1-12")).draftPlots.items, [{ code: "MPC-C-1-12", candidate: "estates:1" }]);
+  assert.equal((await search("mpc-c-2-12")).draftPlots.items.length, 0, "incomplete groups remain unsearchable");
   await gisLogin(db, null, "anon");
   await assert.rejects(search("MPG-D-183-5"), /permission denied/i);
 });

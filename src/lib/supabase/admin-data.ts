@@ -835,7 +835,8 @@ export async function getDashboardCounts(): Promise<DashboardCounts> {
 }
 
 export async function getStaffBurialRecords(options: BurialRecordQuery): Promise<BurialRecordPage> {
-  const { data, error } = await requireClient().rpc("staff_burial_records", {
+  const client = requireClient();
+  const { data, error } = await client.rpc("staff_burial_records", {
     p_query: options.query.slice(0, 160),
     p_section: options.section.slice(0, 160),
     p_status: options.status,
@@ -860,8 +861,18 @@ export async function getStaffBurialRecords(options: BurialRecordQuery): Promise
     || !data.sections.every((section) => typeof section === "string")) {
     throw new Error("Burial records returned an unexpected response. Reload to try again.");
   }
+  let visibleIds: Set<number> | null = null;
+  if (data.items.length) {
+    try {
+      const visibility = await client.from("public_burial_records").select("burial_id")
+        .in("burial_id", data.items.map((record) => record.burialId));
+      if (!visibility.error && Array.isArray(visibility.data) && visibility.data.every((row) => typeof row.burial_id === "number")) {
+        visibleIds = new Set(visibility.data.map((row) => row.burial_id).filter((id): id is number => typeof id === "number"));
+      }
+    } catch { /* Visibility is unknown when the public reader cannot be checked. */ }
+  }
   return {
-    items: data.items,
+    items: data.items.map((record) => ({ ...record, visitorVisible: visibleIds ? visibleIds.has(record.burialId) : null })),
     total: data.total,
     totalAll: data.totalAll,
     sections: data.sections,

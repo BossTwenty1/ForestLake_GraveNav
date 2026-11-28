@@ -15,7 +15,7 @@ import { PlanningLotPopup, type PlanningLotPopupOptions } from "./planning-lot-p
 import { PlotHighlightLegend, plotHighlightStyle, usePlotHighlights } from "./plot-highlights";
 import { StaffPlotStatusLegend, matchesStaffFilters, staffPlotState, staffPlotStyle, useStaffPlotStatuses, type StaffPlotFilters } from "./staff-plot-statuses";
 import {
-  landmarkName, mapBounds, mausoleumEnvelope, planningAssetRoot,
+  landmarkName, mapBounds, mausoleumEnvelope, mausoleumRepresentative, planningAssetRoot,
   type Bounds, type CadFeature, type LandscapeRole, type LayerKey, type PlanningBundle, type Shape, type Visibility,
 } from "@/lib/phase2-planning";
 
@@ -624,8 +624,9 @@ function StaffBurialSearch({ onSelect, open, onOpenChange }: { onSelect: (candid
     </div> : null}
   </div>;
 }
-function PlanningPlotHighlights({ features, highlights, satellite }: {
+function PlanningPlotHighlights({ features, highlights, satellite, representatives }: {
   features: CadFeature[];
+  representatives: Map<string, string>;
   highlights: ReturnType<typeof usePlotHighlights>["highlights"];
   satellite: boolean;
 }) {
@@ -633,17 +634,18 @@ function PlanningPlotHighlights({ features, highlights, satellite }: {
   useEffect(() => {
     if (!features.length) return;
     const group = L.layerGroup(features.map(feature => shapeLayer(feature.shape, {
-      ...plotHighlightStyle(highlights.occupied.has(feature.id)),
+      ...plotHighlightStyle(highlights.occupied.has(feature.id) || highlights.occupied.has(representatives.get(feature.id) ?? feature.id)),
       pane: "planning-highlights",
       interactive: false,
     }, satellite))).addTo(map);
     return () => { group.remove(); };
-  }, [features, highlights, map, satellite]);
+  }, [features, highlights, map, satellite, representatives]);
   return null;
 }
 
-function StaffPlotColors({ features, statuses, filters, satellite }: {
+function StaffPlotColors({ features, statuses, filters, satellite, representatives }: {
   features: CadFeature[];
+  representatives: Map<string, string>;
   statuses: NonNullable<ReturnType<typeof useStaffPlotStatuses>>["data"];
   filters: StaffPlotFilters;
   satellite: boolean;
@@ -652,10 +654,10 @@ function StaffPlotColors({ features, statuses, filters, satellite }: {
   useEffect(() => {
     if (!statuses || !features.length) return;
     const group = L.layerGroup(features.map(feature => shapeLayer(feature.shape, {
-      ...staffPlotStyle(staffPlotState(feature.id, statuses), matchesStaffFilters(feature.id, statuses, filters)), pane: "planning-highlights", interactive: false,
+      ...staffPlotStyle(staffPlotState(representatives.get(feature.id) ?? feature.id, statuses), matchesStaffFilters(representatives.get(feature.id) ?? feature.id, statuses, filters)), pane: "planning-highlights", interactive: false,
     }, satellite))).addTo(map);
     return () => { group.remove(); };
-  }, [features, statuses, filters, map, satellite]);
+  }, [features, statuses, filters, map, satellite, representatives]);
   return null;
 }
 
@@ -666,12 +668,14 @@ export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: Muta
   const projectPopup = useCallback((xy: [number, number]) => projectPoint(xy, satellite), [satellite]);
   const { highlights, unavailable } = usePlotHighlights(undefined, props.reviewMode);
   const staffStatuses = useStaffPlotStatuses(Boolean(props.reviewMode));
+  const representatives = useMemo(() => new Map(props.bundle.data.layers.estates.map(feature =>
+    [feature.id, mausoleumRepresentative(props.bundle.data, feature)?.id ?? feature.id])), [props.bundle.data]);
   const filters = useMemo<StaffPlotFilters>(() => props.staffFilters ?? { status: "all", lotType: "all" }, [props.staffFilters]);
   const filterActive = filters.status !== "all" || filters.lotType !== "all";
   const allowSelection = useCallback((feature: CadFeature | null) => {
     if (!feature || !reviewMode || !filterActive) return true;
-    return Boolean(staffStatuses?.data && matchesStaffFilters(feature.id, staffStatuses.data, filters));
-  }, [reviewMode, filterActive, staffStatuses, filters]);
+    return Boolean(staffStatuses?.data && matchesStaffFilters(representatives.get(feature.id) ?? feature.id, staffStatuses.data, filters));
+  }, [reviewMode, filterActive, staffStatuses, filters, representatives]);
   useEffect(() => {
     if (selected && !allowSelection(selected)) onSelect(null);
   }, [selected, onSelect, allowSelection]);
@@ -683,7 +687,7 @@ export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: Muta
   const plottedFeatures = useMemo(() => [
     ...(lawn ? data.layers.lawn : []),
     ...(estates ? data.layers.estates : []),
-  ].filter(({ id }) => highlights.memorials.has(id) || highlights.occupied.has(id)), [data, estates, lawn, highlights]);
+  ].filter(({ id }) => highlights.memorials.has(id) || highlights.occupied.has(id) || highlights.memorials.has(representatives.get(id) ?? id) || highlights.occupied.has(representatives.get(id) ?? id)), [data, estates, lawn, highlights, representatives]);
   const visiblePlotFeatures = useMemo(() => [
     ...(lawn ? data.layers.lawn : []), ...(estates ? data.layers.estates : []),
   ], [data, estates, lawn]);
@@ -715,10 +719,11 @@ export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: Muta
     ) : null}
     <ZoomControl position={props.zoomPosition ?? (props.explorer ? "topright" : "bottomright")} />
     <PlanningLayers {...props} onSelect={selectVisiblePlot} />
-    {props.reviewMode ? <StaffPlotColors features={visiblePlotFeatures} statuses={staffStatuses?.data ?? null} filters={filters} satellite={satellite} /> : <PlanningPlotHighlights
+    {props.reviewMode ? <StaffPlotColors features={visiblePlotFeatures} statuses={staffStatuses?.data ?? null} filters={filters} satellite={satellite} representatives={representatives} /> : <PlanningPlotHighlights
       features={plottedFeatures}
       highlights={highlights}
       satellite={satellite}
+      representatives={representatives}
     />}
     {(props.visible.lawn || props.visible.estates) && (
       props.reviewMode ? (staffStatuses ? <StaffPlotStatusLegend unavailable={staffStatuses.data === null} filtered={filterActive} exampleMode={staffStatuses.data?.exampleMode ?? false} /> : null) : <PlotHighlightLegend
@@ -728,7 +733,8 @@ export function PhaseTwoPlanningCanvas(props: PlanningMapProps & { actions: Muta
       />
     )}
     {props.selected && props.lotPopup ? <PlanningLotPopup key={props.selected.id + (props.reviewMode ? ":" + (props.lotPopup.preferredId ?? "") : "")} feature={props.selected} {...props.lotPopup}
-      anchorBounds={props.reviewMode ? mausoleumEnvelope(data, props.selected)?.bounds : undefined} project={projectPopup} /> : null}
+      anchorBounds={props.reviewMode ? mausoleumEnvelope(data, props.selected)?.bounds : undefined}
+      fallbackCandidate={!props.reviewMode ? representatives.get(props.selected.id) : undefined} project={projectPopup} /> : null}
     {props.reviewMode && props.onStaffFiltersChange ? <StaffFilterControls filters={filters} onChange={props.onStaffFiltersChange} open={staffPanel === "filters"} onOpenChange={open => setStaffPanel(open ? "filters" : null)} /> : null}
     {props.reviewMode && props.onStaffBurialSelect ? <StaffBurialSearch onSelect={props.onStaffBurialSelect} open={staffPanel === "search"} onOpenChange={open => setStaffPanel(open ? "search" : null)} /> : null}
     {props.explorer ? <ExplorerMarkers explorer={props.explorer} satellite={satellite} /> : <MapControls actions={props.actions} paths={props.visible.paths} onToggle={props.onTogglePaths} showPathsControl={!!props.reviewMode} />}

@@ -84,6 +84,23 @@ test("detail lookup targets the exact burial ID outside the directory page", asy
   assert.ok(!calls.some(([method]) => ["insert", "update", "delete"].includes(method)));
 });
 
+test("staff list checks actual visitor visibility and handles a failed reader", async () => {
+  const items = [
+    { revision: 1, burialId: 1, deceasedId: 1, lotId: 1, name: "Fictional A", plot: "A", section: "Garden", recordStatus: "pending", coordinateStatus: "pending", coordinateVerified: false, publicDisplay: true, intermentStatus: "PERMANENT", remainsType: "ASH", updatedAt: "2026-01-01" },
+    { revision: 1, burialId: 2, deceasedId: 2, lotId: 2, name: "Fictional B", plot: "B", section: "Garden", recordStatus: "pending", coordinateStatus: "pending", coordinateVerified: false, publicDisplay: true, intermentStatus: "PERMANENT", remainsType: "ASH", updatedAt: "2026-01-01" },
+  ];
+  let unavailable = false;
+  const client = {
+    rpc: async () => ({ data: { items, total: 2, totalAll: 2, sections: ["Garden"] }, error: null }),
+    from: () => ({ select: () => ({ in: async () => unavailable ? { data: null, error: { message: "offline" } } : { data: [{ burial_id: 2 }], error: null } }) }),
+  };
+  const api = load("src/lib/supabase/admin-data.ts", { "./config": { getBrowserSupabase: () => client }, "./mutation-receipts": {} });
+  const query = { query: "", section: "all", status: "all", verification: "all", dateFilter: "all", sort: "updated", direction: "desc", page: 0, pageSize: 20 };
+  assert.deepEqual((await api.getStaffBurialRecords(query)).items.map((item) => item.visitorVisible), [false, true]);
+  unavailable = true;
+  assert.deepEqual((await api.getStaffBurialRecords(query)).items.map((item) => item.visitorVisible), [null, null]);
+});
+
 test("invalid and removed records never fall back to another person", async () => {
   const { api, calls } = readers({ empty: true });
   for (const id of ["0", "-1", "x", "1.2", "9007199254740993"]) {

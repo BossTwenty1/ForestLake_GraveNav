@@ -56,6 +56,13 @@ export function mausoleumEnvelope(data: LocalData, feature: CadFeature): CadFeat
   return spaces.length === 12 && envelopes.length === 1 ? envelopes[0] : null
 }
 
+// One stable map reference represents all twelve spaces in an intact block.
+export function mausoleumRepresentative(data: LocalData, feature: CadFeature): CadFeature | null {
+  if (!mausoleumEnvelope(data, feature)) return null
+  return data.layers.estates.filter(item => item.properties.root_handle === feature.properties.root_handle)
+    .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)[0] ?? null
+}
+
 export function landmarkName(name: string): string {
   if (name === "NEW MPH (CAD name)") return "Multipurpose hall";
   if (name === "Standard Gazebo") return "Gazebo";
